@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { auth, db } from '../firebase.js'; 
 import { createUserWithEmailAndPassword } from 'firebase/auth';
-import { ref, set } from 'firebase/database';
+import { ref, set, onValue } from 'firebase/database';
 
 const CreateUser = () => {
   const [formData, setFormData] = useState({
@@ -10,17 +10,33 @@ const CreateUser = () => {
     password: '',
     role: 'teacher'
   });
+  const [users, setUsers] = useState([]); // State to hold the list of users
   const [showPassword, setShowPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
   const [focusedField, setFocusedField] = useState(null);
-  const [error, setError] = useState(null); // Added missing error state
+  const [error, setError] = useState(null);
 
   const roles = [
-    { value: 'admin', label: 'Admin', icon: '👑' },
-    { value: 'teacher', label: 'Teacher', icon: '📚' },
-    { value: 'feescashier', label: 'Fees Cashier', icon: '💰' }
+    { value: 'admin', label: 'Admin', icon: '👑', color: '#8B5CF6' },
+    { value: 'teacher', label: 'Teacher', icon: '📚', color: '#3B82F6' },
+    { value: 'feescashier', label: 'Cashier', icon: '💰', color: '#10B981' }
   ];
+
+  // --- 1. Realtime Listener for Users ---
+  useEffect(() => {
+    const usersRef = ref(db, 'users');
+    const unsubscribe = onValue(usersRef, (snapshot) => {
+      const data = snapshot.val();
+      if (data) {
+        // Convert object into array and sort by newest
+        const userList = Object.values(data).reverse();
+        setUsers(userList);
+      }
+    });
+
+    return () => unsubscribe(); // Cleanup listener on unmount
+  }, []);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -28,7 +44,6 @@ const CreateUser = () => {
       ...prevState,
       [name]: name === "email" ? value.toLowerCase() : value
     }));
-    // Clear error when user starts typing
     if (error) setError(null);
   };
 
@@ -62,516 +77,108 @@ const CreateUser = () => {
       }, 2500);
 
     } catch (err) {
-      console.error("Signup Error:", err);
       setIsSubmitting(false);
-      if (err.code === 'auth/email-already-in-use') setError("This email is already registered.");
-      else if (err.code === 'auth/weak-password') setError("Password should be at least 6 characters.");
-      else if (err.code === 'auth/invalid-email') setError("Please enter a valid email address.");
-      else setError("Failed to create user. Please try again.");
+      if (err.code === 'auth/email-already-in-use') setError("Email already exists.");
+      else setError("Failed to create user.");
     }
   };
 
-  const getPasswordStrength = () => {
-    const { password } = formData;
-    if (password.length === 0) return { strength: 0, label: '', color: '#E5E7EB' };
-    if (password.length < 6) return { strength: 25, label: 'Weak', color: '#EF4444' };
-    if (password.length < 8) return { strength: 50, label: 'Fair', color: '#F59E0B' };
-    if (password.length < 12) return { strength: 75, label: 'Good', color: '#3B82F6' };
-    return { strength: 100, label: 'Strong', color: '#10B981' };
-  };
-
-  const passwordStrength = getPasswordStrength();
-
-  const getInputWrapperStyle = (fieldName) => ({
-    ...styles.inputWrapper,
-    borderColor: focusedField === fieldName ? '#667eea' : '#E5E7EB',
-    backgroundColor: focusedField === fieldName ? '#fff' : '#F9FAFB',
-    boxShadow: focusedField === fieldName ? '0 0 0 4px rgba(102, 126, 234, 0.1)' : 'none'
-  });
-
-  // Get selected role info for display
-  const getSelectedRole = () => {
-    return roles.find(r => r.value === formData.role) || roles[1];
-  };
+  const getSelectedRole = () => roles.find(r => r.value === formData.role) || roles[1];
 
   return (
-    <div style={styles.wrapper}>
-      {/* Animated background shapes */}
-      <div style={styles.bgShape1}></div>
-      <div style={styles.bgShape2}></div>
-      <div style={styles.bgShape3}></div>
-      
+    <div style={styles.pageLayout}>
+      {/* LEFT COLUMN: FORM */}
       <div style={styles.container}>
-        {/* Header */}
         <div style={styles.header}>
-          <div style={styles.iconContainer}>
-            <span style={styles.headerIcon}>✨</span>
-          </div>
           <h1 style={styles.title}>Create New User</h1>
-          <p style={styles.subtitle}>Add a new team member to your organization</p>
+          <p style={styles.subtitle}>Fill details to register staff</p>
         </div>
 
-        {/* Error Message */}
-        {error && (
-          <div style={styles.errorContainer}>
-            <span style={styles.errorIcon}>⚠️</span>
-            <span style={styles.errorText}>{error}</span>
+        {error && <div style={styles.errorContainer}>{error}</div>}
+
+        <form onSubmit={handleSubmit} style={styles.form}>
+          <div style={styles.inputGroup}>
+            <label style={styles.label}>Full Name</label>
+            <input type="text" name="name" value={formData.name} onChange={handleChange} required style={styles.input} />
           </div>
-        )}
 
-        {/* Success State */}
-        {isSuccess ? (
-          <div style={styles.successContainer}>
-            <div style={styles.successIcon}>✓</div>
-            <h2 style={styles.successTitle}>User Created!</h2>
-            <p style={styles.successText}>The new user has been added successfully</p>
+          <div style={styles.inputGroup}>
+            <label style={styles.label}>Email</label>
+            <input type="email" name="email" value={formData.email} onChange={handleChange} required style={styles.input} />
           </div>
-        ) : (
-          <form onSubmit={handleSubmit} style={styles.form}>
-            {/* Name Field */}
-            <div style={styles.inputGroup}>
-              <label style={styles.label}>
-                <span style={styles.labelIcon}>👤</span>
-                Full Name
-              </label>
-              <div style={getInputWrapperStyle('name')}>
-                <input
-                  type="text"
-                  name="name"
-                  value={formData.name}
-                  onChange={handleChange}
-                  onFocus={() => setFocusedField('name')}
-                  onBlur={() => setFocusedField(null)}
-                  placeholder="Enter full name"
-                  required
-                  style={styles.input}
-                />
-              </div>
-            </div>
 
-            {/* Email Field */}
-            <div style={styles.inputGroup}>
-              <label style={styles.label}>
-                <span style={styles.labelIcon}>📧</span>
-                Email Address
-              </label>
-              <div style={getInputWrapperStyle('email')}>
-                <input
-                  type="email"
-                  name="email"
-                  value={formData.email}
-                  onChange={handleChange}
-                  onFocus={() => setFocusedField('email')}
-                  onBlur={() => setFocusedField(null)}
-                  placeholder="user@example.com"
-                  required
-                  style={styles.input}
-                />
-              </div>
-            </div>
+          <div style={styles.inputGroup}>
+            <label style={styles.label}>Password</label>
+            <input type="password" name="password" value={formData.password} onChange={handleChange} required style={styles.input} />
+          </div>
 
-            {/* Password Field */}
-            <div style={styles.inputGroup}>
-              <label style={styles.label}>
-                <span style={styles.labelIcon}>🔐</span>
-                Password
-              </label>
-              <div style={getInputWrapperStyle('password')}>
-                <input
-                  type={showPassword ? 'text' : 'password'}
-                  name="password"
-                  value={formData.password}
-                  onChange={handleChange}
-                  onFocus={() => setFocusedField('password')}
-                  onBlur={() => setFocusedField(null)}
-                  placeholder="Create a strong password"
-                  required
-                  style={{ ...styles.input, paddingRight: '50px' }}
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  style={styles.eyeButton}
-                >
-                  {showPassword ? '🙈' : '👁️'}
-                </button>
-              </div>
-              {/* Password Strength Indicator */}
-              {formData.password && (
-                <div style={styles.strengthContainer}>
-                  <div style={styles.strengthBar}>
-                    <div style={{
-                      ...styles.strengthFill,
-                      width: `${passwordStrength.strength}%`,
-                      backgroundColor: passwordStrength.color
-                    }}></div>
-                  </div>
-                  <span style={{ ...styles.strengthLabel, color: passwordStrength.color }}>
-                    {passwordStrength.label}
-                  </span>
-                </div>
-              )}
-            </div>
+          <div style={styles.inputGroup}>
+            <label style={styles.label}>Role</label>
+            <select name="role" value={formData.role} onChange={handleChange} style={styles.input}>
+              {roles.map(r => <option key={r.value} value={r.value}>{r.icon} {r.label}</option>)}
+            </select>
+          </div>
 
-            {/* Role Selection - Using Select Dropdown */}
-            <div style={styles.inputGroup}>
-              <label style={styles.label}>
-                <span style={styles.labelIcon}>🎭</span>
-                Select Role
-              </label>
-              <div style={getInputWrapperStyle('role')}>
-                <div style={styles.selectContainer}>
-                  <span style={styles.selectIcon}>{getSelectedRole().icon}</span>
-                  <select
-                    name="role"
-                    value={formData.role}
-                    onChange={handleChange}
-                    onFocus={() => setFocusedField('role')}
-                    onBlur={() => setFocusedField(null)}
-                    style={styles.select}
-                  >
-                    {roles.map((role) => (
-                      <option key={role.value} value={role.value}>
-                        {role.icon} {role.label}
-                      </option>
-                    ))}
-                  </select>
-                  <span style={styles.selectArrow}>▼</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Submit Button */}
-            <button
-              type="submit"
-              disabled={isSubmitting}
-              style={{
-                ...styles.button,
-                opacity: isSubmitting ? 0.8 : 1,
-                cursor: isSubmitting ? 'not-allowed' : 'pointer'
-              }}
-            >
-              {isSubmitting ? (
-                <div style={styles.buttonContent}>
-                  <div style={styles.spinner}></div>
-                  <span>Creating User...</span>
-                </div>
-              ) : (
-                <div style={styles.buttonContent}>
-                  <span>Create User</span>
-                  <span style={styles.buttonArrow}>→</span>
-                </div>
-              )}
-            </button>
-          </form>
-        )}
+          <button type="submit" disabled={isSubmitting} style={styles.button}>
+            {isSubmitting ? 'Processing...' : 'Create User'}
+          </button>
+        </form>
       </div>
 
-      <style>{`
-        @keyframes float1 {
-          0%, 100% { transform: translate(0, 0) rotate(0deg); }
-          50% { transform: translate(30px, -30px) rotate(180deg); }
-        }
-        @keyframes float2 {
-          0%, 100% { transform: translate(0, 0) rotate(0deg); }
-          50% { transform: translate(-20px, 20px) rotate(-180deg); }
-        }
-        @keyframes float3 {
-          0%, 100% { transform: translate(0, 0); }
-          50% { transform: translate(15px, -15px); }
-        }
-        @keyframes spin {
-          0% { transform: rotate(0deg); }
-          100% { transform: rotate(360deg); }
-        }
-        @keyframes successPop {
-          0% { transform: scale(0); opacity: 0; }
-          50% { transform: scale(1.2); }
-          100% { transform: scale(1); opacity: 1; }
-        }
-        @keyframes shake {
-          0%, 100% { transform: translateX(0); }
-          25% { transform: translateX(-5px); }
-          75% { transform: translateX(5px); }
-        }
-      `}</style>
+      {/* RIGHT COLUMN: USER LIST */}
+      <div style={styles.listContainer}>
+        <div style={styles.header}>
+          <h1 style={styles.title}>Existing Users</h1>
+          <p style={styles.subtitle}>Total registered: {users.length}</p>
+        </div>
+        
+        <div style={styles.scrollArea}>
+          {users.map((user) => (
+            <div key={user.uid} style={styles.userCard}>
+              <div style={{...styles.roleIcon, backgroundColor: roles.find(r=>r.value === user.role)?.color}}>
+                {roles.find(r=>r.value === user.role)?.icon}
+              </div>
+              <div style={styles.userInfo}>
+                <h4 style={styles.userName}>{user.name}</h4>
+                <p style={styles.userEmail}>{user.email}</p>
+                <span style={styles.roleBadge}>{user.role}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
     </div>
   );
 };
 
 const styles = {
-  wrapper: {
-    minHeight: '100vh',
-    background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: '20px',
-    position: 'relative',
-    overflow: 'hidden',
-    fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif"
-  },
-  bgShape1: {
-    position: 'absolute',
-    width: '300px',
-    height: '300px',
-    background: 'rgba(255,255,255,0.1)',
-    borderRadius: '50%',
-    top: '-100px',
-    right: '-100px',
-    animation: 'float1 8s ease-in-out infinite'
-  },
-  bgShape2: {
-    position: 'absolute',
-    width: '200px',
-    height: '200px',
-    background: 'rgba(255,255,255,0.08)',
-    borderRadius: '30% 70% 70% 30% / 30% 30% 70% 70%',
-    bottom: '-50px',
-    left: '-50px',
-    animation: 'float2 10s ease-in-out infinite'
-  },
-  bgShape3: {
-    position: 'absolute',
-    width: '150px',
-    height: '150px',
-    background: 'rgba(255,255,255,0.05)',
-    borderRadius: '50%',
-    top: '50%',
-    left: '10%',
-    animation: 'float3 6s ease-in-out infinite'
-  },
-  container: {
-    width: '100%',
-    maxWidth: '480px',
-    background: 'rgba(255, 255, 255, 0.95)',
-    backdropFilter: 'blur(20px)',
-    borderRadius: '24px',
-    boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+  pageLayout: {
+    display: 'grid',
+    gridTemplateColumns: '1fr 1fr',
+    gap: '40px',
     padding: '40px',
-    position: 'relative',
-    zIndex: 1
+    maxWidth: '1200px',
+    margin: '0 auto',
+    fontFamily: 'system-ui'
   },
-  header: {
-    textAlign: 'center',
-    marginBottom: '32px'
-  },
-  iconContainer: {
-    width: '70px',
-    height: '70px',
-    background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-    borderRadius: '20px',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    margin: '0 auto 16px',
-    boxShadow: '0 10px 30px -10px rgba(102, 126, 234, 0.5)'
-  },
-  headerIcon: {
-    fontSize: '32px'
-  },
-  title: {
-    fontSize: '28px',
-    fontWeight: '700',
-    color: '#1F2937',
-    margin: '0 0 8px'
-  },
-  subtitle: {
-    fontSize: '14px',
-    color: '#6B7280',
-    margin: 0
-  },
-  errorContainer: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '10px',
-    padding: '14px 16px',
-    backgroundColor: '#FEF2F2',
-    borderRadius: '12px',
-    marginBottom: '20px',
-    borderWidth: '1px',
-    borderStyle: 'solid',
-    borderColor: '#FECACA',
-    animation: 'shake 0.5s ease-in-out'
-  },
-  errorIcon: {
-    fontSize: '18px'
-  },
-  errorText: {
-    fontSize: '14px',
-    color: '#DC2626',
-    fontWeight: '500'
-  },
-  form: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '24px'
-  },
-  inputGroup: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '8px'
-  },
-  label: {
-    fontSize: '14px',
-    fontWeight: '600',
-    color: '#374151',
-    display: 'flex',
-    alignItems: 'center',
-    gap: '8px'
-  },
-  labelIcon: {
-    fontSize: '16px'
-  },
-  inputWrapper: {
-    position: 'relative',
-    borderRadius: '12px',
-    borderWidth: '2px',
-    borderStyle: 'solid',
-    borderColor: '#E5E7EB',
-    backgroundColor: '#F9FAFB',
-    transition: 'all 0.3s ease'
-  },
-  input: {
-    width: '100%',
-    padding: '14px 16px',
-    fontSize: '15px',
-    border: 'none',
-    background: 'transparent',
-    outline: 'none',
-    color: '#1F2937',
-    boxSizing: 'border-box'
-  },
-  eyeButton: {
-    position: 'absolute',
-    right: '12px',
-    top: '50%',
-    transform: 'translateY(-50%)',
-    background: 'none',
-    border: 'none',
-    fontSize: '18px',
-    cursor: 'pointer',
-    padding: '4px'
-  },
-  strengthContainer: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '12px',
-    marginTop: '4px'
-  },
-  strengthBar: {
-    flex: 1,
-    height: '4px',
-    background: '#E5E7EB',
-    borderRadius: '2px',
-    overflow: 'hidden'
-  },
-  strengthFill: {
-    height: '100%',
-    borderRadius: '2px',
-    transition: 'all 0.3s ease'
-  },
-  strengthLabel: {
-    fontSize: '12px',
-    fontWeight: '600',
-    minWidth: '50px'
-  },
-  // Select dropdown styles
-  selectContainer: {
-    position: 'relative',
-    display: 'flex',
-    alignItems: 'center'
-  },
-  selectIcon: {
-    position: 'absolute',
-    left: '16px',
-    fontSize: '20px',
-    pointerEvents: 'none',
-    zIndex: 1
-  },
-  select: {
-    width: '100%',
-    padding: '14px 40px 14px 48px',
-    fontSize: '15px',
-    border: 'none',
-    background: 'transparent',
-    outline: 'none',
-    color: '#1F2937',
-    boxSizing: 'border-box',
-    cursor: 'pointer',
-    appearance: 'none',
-    WebkitAppearance: 'none',
-    MozAppearance: 'none'
-  },
-  selectArrow: {
-    position: 'absolute',
-    right: '16px',
-    fontSize: '12px',
-    color: '#6B7280',
-    pointerEvents: 'none'
-  },
-  button: {
-    padding: '16px 24px',
-    fontSize: '16px',
-    fontWeight: '600',
-    color: '#fff',
-    background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-    border: 'none',
-    borderRadius: '12px',
-    cursor: 'pointer',
-    transition: 'all 0.3s ease',
-    boxShadow: '0 10px 30px -10px rgba(102, 126, 234, 0.5)',
-    marginTop: '8px'
-  },
-  buttonContent: {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: '8px'
-  },
-  buttonArrow: {
-    transition: 'transform 0.3s ease',
-    fontSize: '18px'
-  },
-  spinner: {
-    width: '20px',
-    height: '20px',
-    borderWidth: '3px',
-    borderStyle: 'solid',
-    borderColor: 'rgba(255,255,255,0.3)',
-    borderTopColor: '#fff',
-    borderRadius: '50%',
-    animation: 'spin 1s linear infinite'
-  },
-  successContainer: {
-    textAlign: 'center',
-    padding: '40px 20px',
-    animation: 'successPop 0.5s ease-out'
-  },
-  successIcon: {
-    width: '80px',
-    height: '80px',
-    background: 'linear-gradient(135deg, #10B981 0%, #059669 100%)',
-    borderRadius: '50%',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    margin: '0 auto 20px',
-    fontSize: '40px',
-    color: '#fff',
-    fontWeight: 'bold'
-  },
-  successTitle: {
-    fontSize: '24px',
-    fontWeight: '700',
-    color: '#1F2937',
-    margin: '0 0 8px'
-  },
-  successText: {
-    fontSize: '14px',
-    color: '#6B7280',
-    margin: 0
-  }
+  container: { background: '#fff', padding: '30px', borderRadius: '20px', boxShadow: '0 4px 20px rgba(0,0,0,0.08)' },
+  listContainer: { background: '#f8fafc', padding: '30px', borderRadius: '20px', border: '1px solid #e2e8f0', maxHeight: '80vh', display: 'flex', flexDirection: 'column' },
+  header: { marginBottom: '20px' },
+  title: { fontSize: '22px', margin: 0, color: '#1e293b' },
+  subtitle: { fontSize: '14px', color: '#64748b' },
+  form: { display: 'flex', flexDirection: 'column', gap: '15px' },
+  inputGroup: { display: 'flex', flexDirection: 'column', gap: '5px' },
+  label: { fontSize: '13px', fontWeight: '600', color: '#475569' },
+  input: { padding: '12px', borderRadius: '8px', border: '1px solid #cbd5e1', outline: 'none' },
+  button: { padding: '14px', background: '#4318ff', color: '#fff', border: 'none', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', marginTop: '10px' },
+  scrollArea: { overflowY: 'auto', flex: 1, paddingRight: '10px' },
+  userCard: { display: 'flex', alignItems: 'center', gap: '15px', background: '#fff', padding: '15px', borderRadius: '12px', marginBottom: '10px', boxShadow: '0 2px 5px rgba(0,0,0,0.03)' },
+  roleIcon: { width: '40px', height: '40px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px' },
+  userInfo: { flex: 1 },
+  userName: { margin: 0, fontSize: '15px', color: '#1e293b' },
+  userEmail: { margin: 0, fontSize: '12px', color: '#64748b' },
+  roleBadge: { fontSize: '10px', fontWeight: 'bold', textTransform: 'uppercase', color: '#4318ff', background: '#eef2ff', padding: '2px 6px', borderRadius: '4px', marginTop: '4px', display: 'inline-block' },
+  errorContainer: { padding: '10px', background: '#fee2e2', color: '#b91c1c', borderRadius: '8px', marginBottom: '15px', fontSize: '13px' }
 };
 
 export default CreateUser;

@@ -11,6 +11,7 @@ export const AuthProvider = ({ children }) => {
     const savedUser = localStorage.getItem('app_user');
     return savedUser ? JSON.parse(savedUser) : null;
   });
+  console.log(currentUser)
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
