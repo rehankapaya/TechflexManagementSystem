@@ -87,6 +87,10 @@ const Dashboard = () => {
               <span style={styles.navIcon}>👨‍🎓</span>
               {!sidebarCollapsed && <span style={styles.navText}>Students</span>}
             </Link>
+               <Link to="/dashboard/studentstatus" style={getLinkStyle('/dashboard/studentstatus')}>
+              <span style={styles.navIcon}>👨‍🎓</span>
+              {!sidebarCollapsed && <span style={styles.navText}>Students Status</span>}
+            </Link>
 
             <Link to="/dashboard/classes" style={getLinkStyle('/dashboard/classes')}>
               <span style={styles.navIcon}>📚</span>
@@ -94,8 +98,13 @@ const Dashboard = () => {
             </Link>
 
             <Link to="/dashboard/fees" style={getLinkStyle('/dashboard/fees')}>
-              <span style={styles.navIcon}>💰</span>
+              <span style={styles.navIcon}>➕</span>
               {!sidebarCollapsed && <span style={styles.navText}>Fees</span>}
+            </Link>
+
+             <Link to="/dashboard/feestatus" style={getLinkStyle('/dashboard/feestatus')}>
+              <span style={styles.navIcon}>💰</span>
+              {!sidebarCollapsed && <span style={styles.navText}>Fee Status</span>}
             </Link>
           </div>
 
@@ -157,8 +166,10 @@ const Dashboard = () => {
               {location.pathname === '/dashboard/users' && '➕ Create New User'}
               {location.pathname === '/dashboard/courses' && '➕ Courses'}
               {location.pathname === '/dashboard/students' && '👨‍🎓 Student Management'}
+              {location.pathname === '/dashboard/studentstatus' && '👨‍🎓 Student Status'}
               {location.pathname === '/dashboard/classes' && '📚 Class Management'}
-              {location.pathname === '/dashboard/fees' && '💰 Fee Management'}
+              {location.pathname === '/dashboard/fees' && '➕ Add Fee '}
+              {location.pathname === '/dashboard/feestatus' && '💰 Fee Management'}
               {location.pathname === '/dashboard/settings' && '⚙️ Settings'}
             </h2>
             <p style={styles.breadcrumb}>

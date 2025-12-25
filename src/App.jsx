@@ -8,6 +8,9 @@ import CreateUser from './components/CreateUser';
 import Overview from './components/Overview';
 import Courses from './components/Courses';
 import Students from './components/Students';
+import Fees from './components/Fees';
+import FeeStatus from './components/FeeStatus';
+import StudentStatus from './components/StudentStatus';
 
 
 function App() {
@@ -46,12 +49,37 @@ function App() {
                 </ProtectedRoute>
               }
             />
+            <Route
+              path="fees"
+              element={
+                <ProtectedRoute   >
+                  <Fees />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="feestatus"
+              element={
+                <ProtectedRoute   >
+                  <FeeStatus />
+                </ProtectedRoute>
+              }
+            />
 
             <Route
               path="students"
               element={
                 <ProtectedRoute >
                   <Students />
+                </ProtectedRoute>
+              }
+            />
+
+                       <Route
+              path="studentstatus"
+              element={
+                <ProtectedRoute >
+                  <StudentStatus />
                 </ProtectedRoute>
               }
             />

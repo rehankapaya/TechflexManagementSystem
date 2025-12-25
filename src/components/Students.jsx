@@ -9,16 +9,15 @@ const Students = () => {
   const [pendingStudents, setPendingStudents] = useState([]);
   const [courses, setCourses] = useState([]);
 
-  // Edit State
   const [isEditing, setIsEditing] = useState(null); 
-
-  // Search & Filter States
   const [searchTerm, setSearchTerm] = useState('');
   const [filterCourse, setFilterCourse] = useState('');
   const [loading, setLoading] = useState(false);
 
+  // 1. Added 'contact' to formData
   const [formData, setFormData] = useState({
     name: '',
+    contact: '',
     courseId: '',
     agreed_monthly_fee: ''
   });
@@ -50,7 +49,7 @@ const Students = () => {
     }
   };
 
-  const handleSubmit = async (e) => {
+const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
 
@@ -59,9 +58,14 @@ const Students = () => {
 
     try {
       if (isEditing) {
+        // Find existing student to preserve their status during update
+        const currentStudent = students.find(s => s.id === isEditing);
+        
         const studentPayload = {
           name: formData.name,
+          contact: formData.contact,
           courseId: formData.courseId,
+          status: currentStudent?.status || 'active', // Preserve current status
           enrolled_courses: {
             [formData.courseId]: {
               course_name: selectedCourse?.name || 'Unknown',
@@ -74,11 +78,8 @@ const Students = () => {
         alert("Student Updated!");
         setIsEditing(null);
       } else {
-        const allExistingIds = [
-          ...students.map(s => s.student_id),
-          ...pendingStudents.map(s => s.student_id)
-        ];
-
+        // --- LOGIC FOR NEW CREATION ---
+        const allExistingIds = [...students.map(s => s.student_id), ...pendingStudents.map(s => s.student_id)];
         let nextNumber = 1;
         if (allExistingIds.length > 0) {
           const numbers = allExistingIds.map(id => {
@@ -94,9 +95,11 @@ const Students = () => {
         const payloadWithMeta = {
           student_id: customId,
           name: formData.name,
+          contact: formData.contact,
           courseId: formData.courseId,
           addedBy: currentUser.name,
           createdAt: new Date().toISOString(),
+          status: 'active', // <--- ALWAYS MARK NEW STUDENTS AS ACTIVE
           enrolled_courses: {
             [formData.courseId]: {
               course_name: selectedCourse?.name || 'Unknown',
@@ -107,36 +110,19 @@ const Students = () => {
         };
 
         if (isAdmin) {
-          await set(push(ref(db, 'students')), { ...payloadWithMeta, status: 'active' });
+          await set(push(ref(db, 'students')), { ...payloadWithMeta });
           alert(`Enrolled as: ${customId}`);
         } else {
+          // Note: In pending, we use status: 'pending' until approved
           await set(push(ref(db, 'pending_approvals')), { ...payloadWithMeta, status: 'pending' });
           alert(`Requested as: ${customId}`);
         }
       }
-      setFormData({ name: '', courseId: '', agreed_monthly_fee: '' });
+      setFormData({ name: '', contact: '', courseId: '', agreed_monthly_fee: '' });
     } catch (err) {
       alert("Error: " + err.message);
     } finally {
       setLoading(false);
-    }
-  };
-
-  const handleDelete = async (id) => {
-    if (window.confirm("Are you sure you want to delete this student record?")) {
-      await remove(ref(db, `students/${id}`));
-    }
-  };
-
-  // --- NEW: REJECT REQUEST FUNCTION ---
-  const handleReject = async (id) => {
-    if (window.confirm("Are you sure you want to reject this enrollment request?")) {
-      try {
-        await remove(ref(db, `pending_approvals/${id}`));
-        alert("Request Rejected.");
-      } catch (err) {
-        alert("Error: " + err.message);
-      }
     }
   };
 
@@ -146,9 +132,23 @@ const Students = () => {
     setIsEditing(student.id);
     setFormData({
       name: student.name,
+      contact: student.contact || '', // 4. Populate contact for edit
       courseId: student.courseId,
       agreed_monthly_fee: courseData.agreed_monthly_fee
     });
+  };
+
+  const handleDelete = async (id) => {
+    if (window.confirm("Are you sure you want to delete this student record?")) {
+      await remove(ref(db, `students/${id}`));
+    }
+  };
+
+  const handleReject = async (id) => {
+    if (window.confirm("Are you sure you want to reject this enrollment request?")) {
+      await remove(ref(db, `pending_approvals/${id}`));
+      alert("Request Rejected.");
+    }
   };
 
   const handleApprove = async (tempId, studentData) => {
@@ -172,7 +172,8 @@ const Students = () => {
   };
 
   const filteredStudents = students.filter(s => {
-    const matchesSearch = s.name.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesSearch = s.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                          (s.contact && s.contact.includes(searchTerm)); // 5. Search by contact too
     const matchesCourse = filterCourse === '' || s.courseId === filterCourse;
     return matchesSearch && matchesCourse;
   });
@@ -187,6 +188,9 @@ const Students = () => {
 
         <form onSubmit={handleSubmit} style={{ ...styles.quickForm, border: isEditing ? '2px solid #4318ff' : 'none' }}>
           <input type="text" name="name" placeholder="Student Name" value={formData.name} onChange={handleChange} required style={styles.input} />
+          {/* 6. Contact Input added to form */}
+          <input type="text" name="contact" placeholder="Contact Number" value={formData.contact} onChange={handleChange} required style={{...styles.input, width: '150px'}} />
+          
           <select name="courseId" value={formData.courseId} onChange={handleChange} required style={styles.input}>
             <option value="">Course</option>
             {courses.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
@@ -198,11 +202,7 @@ const Students = () => {
           </button>
           
           {isEditing && (
-            <button 
-              type="button" 
-              onClick={() => {setIsEditing(null); setFormData({name:'', courseId:'', agreed_monthly_fee:''})}} 
-              style={styles.btnCancel}
-            >
+            <button type="button" onClick={() => {setIsEditing(null); setFormData({name:'', contact: '', courseId:'', agreed_monthly_fee:''})}} style={styles.btnCancel}>
               Cancel
             </button>
           )}
@@ -218,9 +218,9 @@ const Students = () => {
               <tr style={styles.thRow}>
                 <th>S.ID</th>
                 <th>Name</th>
+                <th>Contact</th>
                 <th>Course</th>
                 <th>Fee</th>
-                <th>Added By</th>
                 <th>Requested On</th>
                 <th>Action</th>
               </tr>
@@ -230,9 +230,9 @@ const Students = () => {
                 <tr key={s.id} style={styles.tr}>
                   <td style={{ fontWeight: 'bold', color: '#4318ff' }}>{s.student_id || 'N/A'}</td>
                   <td>{s.name}</td>
+                  <td>{s.contact || 'N/A'}</td>
                   <td>{Object.values(s.enrolled_courses)[0].course_name}</td>
                   <td>{Object.values(s.enrolled_courses)[0].agreed_monthly_fee}</td>
-                  <td>{s.addedBy}</td>
                   <td style={{ fontWeight: '600', color: '#b45309' }}>{formatDate(s.createdAt)}</td>
                   <td>
                     <div style={{ display: 'flex', gap: '5px' }}>
@@ -252,7 +252,7 @@ const Students = () => {
         <div style={styles.filterBar}>
           <h3>Active Students</h3>
           <div style={{ display: 'flex', gap: '10px' }}>
-            <input type="text" placeholder="🔍 Search name..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} style={styles.filterInput} />
+            <input type="text" placeholder="🔍 Name or Phone..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} style={styles.filterInput} />
             <select value={filterCourse} onChange={(e) => setFilterCourse(e.target.value)} style={styles.filterInput}>
               <option value="">All Courses</option>
               {courses.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
@@ -265,11 +265,11 @@ const Students = () => {
             <tr style={styles.thRow}>
               <th>S.ID</th>
               <th>Full Name</th>
+              <th>Contact</th>
               <th>Course</th>
               <th>Duration</th>
               <th>Agreed Fee</th>
               <th>Joined Date</th>
-              <th>Added By</th>
               {isAdmin && <th>Actions</th>}
             </tr>
           </thead>
@@ -282,11 +282,11 @@ const Students = () => {
                 <tr key={s.id} style={styles.tr}>
                   <td style={{ fontWeight: 'bold', color: '#4318ff' }}>{s.student_id || 'N/A'}</td>
                   <td style={{ fontWeight: '600' }}>{s.name}</td>
+                  <td>{s.contact || 'N/A'}</td>
                   <td>{course?.course_name || 'N/A'}</td>
                   <td>{course?.duration ? `${course.duration} Months` : 'Not Set'}</td>
                   <td>PKR {course?.agreed_monthly_fee}</td>
                   <td>{formatDate(s.createdAt)}</td>
-                  <td>{s.addedBy}</td>
                   {isAdmin && (
                     <td>
                       <div style={{ display: 'flex', gap: '5px' }}>
@@ -309,11 +309,11 @@ const Students = () => {
 
 const styles = {
   container: { padding: '30px', background: '#f1f5f9', minHeight: '100vh' },
-  topSection: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px' },
-  quickForm: { display: 'flex', gap: '10px', background: '#fff', padding: '15px', borderRadius: '12px', boxShadow: '0 2px 4px rgba(0,0,0,0.05)' },
+  topSection: { display: 'flex',flexWrap:'wrap', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px' },
+  quickForm: { display: 'flex',flexWrap:"wrap", gap: '10px', background: '#fff', padding: '15px', borderRadius: '12px', boxShadow: '0 2px 4px rgba(0,0,0,0.05)' },
   input: { padding: '10px', borderRadius: '6px', border: '1px solid #e2e8f0' },
   btnPrimary: { background: '#4318ff', color: '#fff', border: 'none', padding: '10px 20px', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer' },
-  btnCancel: { background: '#e2e8f0', color: '#475569', border: 'none', padding: '10px 15px', borderRadius: '6px', cursor: 'pointer' },
+  btnCancel: { background: '#e2e8f0', color: '#475559', border: 'none', padding: '10px 15px', borderRadius: '6px', cursor: 'pointer' },
   card: { background: '#fff', padding: '20px', borderRadius: '16px', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' },
   filterBar: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' },
   filterInput: { padding: '8px 12px', borderRadius: '8px', border: '1px solid #cbd5e1' },
