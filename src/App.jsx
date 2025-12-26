@@ -11,6 +11,7 @@ import Students from './components/Students';
 import Fees from './components/Fees';
 import FeeStatus from './components/FeeStatus';
 import StudentStatus from './components/StudentStatus';
+import CourseEnrollment from './components/CourseEnrollment';
 
 
 function App() {
@@ -75,7 +76,16 @@ function App() {
               }
             />
 
-                       <Route
+            <Route
+              path="courseenrollment"
+              element={
+                <ProtectedRoute >
+                  <CourseEnrollment />
+                </ProtectedRoute>
+              }
+            />
+
+            <Route
               path="studentstatus"
               element={
                 <ProtectedRoute >

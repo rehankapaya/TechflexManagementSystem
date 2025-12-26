@@ -82,7 +82,10 @@ const Dashboard = () => {
               
             )}
 
-
+             <Link to="/dashboard/courseenrollment" style={getLinkStyle('/dashboard/courseenrollment')}>
+                <span style={styles.navIcon}>➕</span>
+                {!sidebarCollapsed && <span style={styles.navText}>Course Enrollment</span>}
+              </Link>
             <Link to="/dashboard/students" style={getLinkStyle('/dashboard/students')}>
               <span style={styles.navIcon}>👨‍🎓</span>
               {!sidebarCollapsed && <span style={styles.navText}>Students</span>}
@@ -165,6 +168,7 @@ const Dashboard = () => {
               {location.pathname === '/dashboard' && '📊 Dashboard Overview'}
               {location.pathname === '/dashboard/users' && '➕ Create New User'}
               {location.pathname === '/dashboard/courses' && '➕ Courses'}
+              {location.pathname === '/dashboard/courseenrollment' && '➕ Course Enrollment'}
               {location.pathname === '/dashboard/students' && '👨‍🎓 Student Management'}
               {location.pathname === '/dashboard/studentstatus' && '👨‍🎓 Student Status'}
               {location.pathname === '/dashboard/classes' && '📚 Class Management'}
