@@ -17,14 +17,16 @@ const Fees = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(false);
 
-  // Form State
-  const [formData, setFormData] = useState({
+  // Form State Defaults
+  const initialFormState = {
     month: new Date().toLocaleString('default', { month: 'short' }),
     year: new Date().getFullYear().toString(),
     payable: 0,
     paid: 0,
     waived: 0
-  });
+  };
+
+  const [formData, setFormData] = useState(initialFormState);
 
   // --- 1. Realtime Listeners ---
   useEffect(() => {
@@ -44,9 +46,18 @@ const Fees = () => {
   }, []);
 
   // --- 2. Logic Functions ---
+  
+  // CLEAR / RESET FUNCTION
+  const handleReset = () => {
+    setSelectedStudent(null);
+    setSelectedCourseId('');
+    setSearchTerm('');
+    setFormData(initialFormState);
+  };
+
   const handleStudentSelect = (student) => {
     setSelectedStudent(student);
-    setSelectedCourseId(''); // Reset course selection
+    setSelectedCourseId(''); 
     setFormData(prev => ({ ...prev, payable: 0, paid: 0, waived: 0 }));
     setSearchTerm("");
   };
@@ -133,8 +144,13 @@ const Fees = () => {
   return (
     <div style={styles.container}>
       <header style={styles.header}>
-        <h2 style={{margin: 0}}>Fee Management</h2>
-        <p style={{color: '#64748b'}}>Multi-Course Billing System</p>
+        <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
+            <div>
+                <h2 style={{margin: 0}}>Fee Management</h2>
+                <p style={{color: '#64748b', margin: '5px 0 0 0'}}>Multi-Course Billing System</p>
+            </div>
+            <button onClick={handleReset} style={styles.btnResetTop}>🔄 Clear All</button>
+        </div>
       </header>
 
       <div style={styles.layout}>
@@ -206,9 +222,12 @@ const Fees = () => {
 
                     <div style={styles.balanceSummary}>Balance: PKR {formData.payable - formData.paid - formData.waived}</div>
 
-                    <button type="submit" disabled={loading} style={styles.btnPrimary}>
-                       {loading ? "Saving..." : (formData.waived > 0 && !isAdmin ? "Submit Waiver Request" : "Update Ledger")}
-                    </button>
+                    <div style={{display: 'flex', gap: '10px'}}>
+                        <button type="submit" disabled={loading} style={{...styles.btnPrimary, flex: 2}}>
+                           {loading ? "Saving..." : (formData.waived > 0 && !isAdmin ? "Submit Waiver" : "Update Ledger")}
+                        </button>
+                        <button type="button" onClick={handleReset} style={{...styles.btnReset, flex: 1}}>Reset</button>
+                    </div>
                   </>
                 )}
               </form>
@@ -299,6 +318,8 @@ const styles = {
   selectionInfo: { background: '#eef2ff', padding: '10px', borderRadius: '8px', color: '#4318ff', marginBottom: '15px', fontSize: '14px' },
   balanceSummary: { padding: '15px', background: '#f1f5f9', borderRadius: '8px', textAlign: 'center', fontWeight: 'bold', margin: '10px 0 20px 0' },
   btnPrimary: { background: '#4318ff', color: '#fff', padding: '14px', border: 'none', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer' },
+  btnReset: { background: '#f1f5f9', color: '#64748b', padding: '14px', border: '1px solid #e2e8f0', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer' },
+  btnResetTop: { background: '#fff', color: '#ef4444', padding: '8px 15px', border: '1px solid #fecaca', borderRadius: '8px', fontWeight: '600', cursor: 'pointer', fontSize: '13px' },
   pendingCard: { background: '#fffbeb', padding: '20px', borderRadius: '16px', border: '1px solid #fef3c7', marginBottom: '30px' },
   table: { width: '100%', borderCollapse: 'collapse' },
   thRow: { textAlign: 'left', color: '#64748b', fontSize: '11px', textTransform: 'uppercase', borderBottom: '2px solid #f1f5f9' },
@@ -307,10 +328,5 @@ const styles = {
   btnReject: { background: '#ef4444', color: '#fff', border: 'none', padding: '5px 10px', borderRadius: '6px', cursor: 'pointer' },
   placeholder: { textAlign: 'center', padding: '60px', color: '#94a3b8', border: '2px dashed #e2e8f0', borderRadius: '12px' }
 };
-
-const globalStyles = `th, td { padding: 12px 10px; }`;
-const styleTag = document.createElement("style");
-styleTag.innerText = globalStyles;
-document.head.appendChild(styleTag);
 
 export default Fees;

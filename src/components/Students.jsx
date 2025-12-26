@@ -15,11 +15,16 @@ const Students = () => {
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState({ type: '', msg: '' });
 
+  const today = new Date().toISOString().split('T')[0];
+
   const [formData, setFormData] = useState({
     name: '',
     contact: '',
+    gender: '',
     courseId: '',
-    agreed_monthly_fee: ''
+    agreed_monthly_fee: '',
+    admission_fee: '',
+    createdAt: today 
   });
 
   useEffect(() => {
@@ -45,7 +50,13 @@ const Students = () => {
 
     if (name === 'courseId' && !isEditing) {
       const selectedCourse = courses.find(c => c.id === value);
-      if (selectedCourse) setFormData(prev => ({ ...prev, agreed_monthly_fee: selectedCourse.base_fee }));
+      if (selectedCourse) {
+        setFormData(prev => ({ 
+          ...prev, 
+          agreed_monthly_fee: selectedCourse.base_fee,
+          admission_fee: selectedCourse.admission_fee || '' 
+        }));
+      }
     }
   };
 
@@ -53,35 +64,35 @@ const Students = () => {
     e.preventDefault();
     setLoading(true);
 
-    const selectedCourse = courses.find(c => c.id === formData.courseId);
-    const courseDuration = selectedCourse?.duration || "N/A";
-    const now = new Date().toISOString();
+    const admissionDateTime = new Date(formData.createdAt).toISOString();
 
     try {
       if (isEditing) {
         const currentStudent = students.find(s => s.id === isEditing);
-        const existingCourseData = currentStudent?.enrolled_courses?.[formData.courseId] || {};
-
-        const studentPayload = {
+        const courseId = formData.courseId; // This is locked during edit
+        
+        const updatedStudent = {
+          ...currentStudent, 
           name: formData.name,
           contact: formData.contact,
-          courseId: formData.courseId,
-          status: currentStudent?.status || 'active',
+          gender: formData.gender,
+          createdAt: admissionDateTime,
           enrolled_courses: {
-            ...currentStudent?.enrolled_courses,
-            [formData.courseId]: {
-              course_name: selectedCourse?.name || 'Unknown',
-              duration: courseDuration,
+            ...currentStudent.enrolled_courses,
+            [courseId]: {
+              ...currentStudent.enrolled_courses[courseId],
               agreed_monthly_fee: Number(formData.agreed_monthly_fee),
-              enrolledAt: existingCourseData.enrolledAt || now,
-              course_status: existingCourseData.course_status || "active"
             }
           }
         };
-        await update(ref(db, `students/${isEditing}`), studentPayload);
+        
+        await set(ref(db, `students/${isEditing}`), updatedStudent);
         setStatus({ type: 'success', msg: 'Student profile updated!' });
         setIsEditing(null);
       } else {
+        // Enrollment Logic
+        const selectedCourse = courses.find(c => c.id === formData.courseId);
+        const courseDuration = selectedCourse?.duration || "N/A";
         const allExistingIds = [...students.map(s => s.student_id), ...pendingStudents.map(s => s.student_id)];
         let nextNumber = 1;
         if (allExistingIds.length > 0) {
@@ -99,16 +110,17 @@ const Students = () => {
           student_id: customId,
           name: formData.name,
           contact: formData.contact,
-          courseId: formData.courseId,
+          gender: formData.gender,
+          admission_fee: Number(formData.admission_fee),
           addedBy: currentUser.name || currentUser.email,
-          createdAt: now,
+          createdAt: admissionDateTime,
           status: 'active',
           enrolled_courses: {
             [formData.courseId]: {
               course_name: selectedCourse?.name || 'Unknown',
               duration: courseDuration,
               agreed_monthly_fee: Number(formData.agreed_monthly_fee),
-              enrolledAt: now,
+              enrolledAt: admissionDateTime,
               course_status: "active"
             }
           }
@@ -122,7 +134,7 @@ const Students = () => {
           setStatus({ type: 'success', msg: `Request Sent: ${customId}` });
         }
       }
-      setFormData({ name: '', contact: '', courseId: '', agreed_monthly_fee: '' });
+      setFormData({ name: '', contact: '', gender: '', courseId: '', agreed_monthly_fee: '', admission_fee: '', createdAt: today });
     } catch (err) {
       setStatus({ type: 'error', msg: err.message });
     } finally {
@@ -130,27 +142,18 @@ const Students = () => {
     }
   };
 
-  const handleApprove = async (tempId, studentData) => {
-    const now = new Date().toISOString();
-    const approvedStudent = {
-      ...studentData,
-      status: 'active',
-      approvedBy: currentUser.name || currentUser.email,
-      approvedAt: now,
-    };
-    await set(ref(db, `students/${tempId}`), approvedStudent);
-    await remove(ref(db, `pending_approvals/${tempId}`));
-  };
-
   const startEdit = (student) => {
-    const courseKey = Object.keys(student.enrolled_courses)[0];
+    const courseKey = Object.keys(student.enrolled_courses || {})[0];
     const courseData = student.enrolled_courses[courseKey];
     setIsEditing(student.id);
     setFormData({
       name: student.name,
       contact: student.contact || '', 
+      gender: student.gender || '',
       courseId: courseKey,
-      agreed_monthly_fee: courseData.agreed_monthly_fee
+      agreed_monthly_fee: courseData.agreed_monthly_fee,
+      admission_fee: student.admission_fee || '',
+      createdAt: student.createdAt ? student.createdAt.split('T')[0] : today
     });
   };
 
@@ -163,7 +166,7 @@ const Students = () => {
   const filteredStudents = students.filter(s => {
     const matchesSearch = s.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
                           (s.contact && s.contact.includes(searchTerm)); 
-    const matchesCourse = filterCourse === '' || Object.keys(s.enrolled_courses).includes(filterCourse);
+    const matchesCourse = filterCourse === '' || Object.keys(s.enrolled_courses || {}).includes(filterCourse);
     return matchesSearch && matchesCourse;
   });
 
@@ -179,106 +182,77 @@ const Students = () => {
           <input type="text" name="name" placeholder="Full Name" value={formData.name} onChange={handleChange} required style={styles.input} />
           <input type="text" name="contact" placeholder="Phone" value={formData.contact} onChange={handleChange} required style={styles.inputSmall} />
           
-          <select name="courseId" value={formData.courseId} onChange={handleChange} required style={styles.select}>
-            <option value="">Course</option>
-            {courses.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+          <select name="gender" value={formData.gender} onChange={handleChange} required style={styles.select}>
+            <option value="">Gender</option>
+            <option value="Male">Male</option>
+            <option value="Female">Female</option>
+            <option value="Other">Other</option>
           </select>
-          <input type="number" name="agreed_monthly_fee" placeholder="Fee" value={formData.agreed_monthly_fee} onChange={handleChange} required style={styles.inputTiny} />
+
+          {/* COURSE DROPDOWN: Only visible when NOT editing */}
+          {!isEditing && (
+            <select name="courseId" value={formData.courseId} onChange={handleChange} required style={styles.select}>
+                <option value="">Select Course</option>
+                {courses.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+            </select>
+          ) }
+
+          <input type="date" name="createdAt" value={formData.createdAt} onChange={handleChange} required style={styles.inputSmall} title="Admission Date" />
+          
+          {!isEditing && (
+            <input type="number" name="admission_fee" placeholder="Adm. Fee" value={formData.admission_fee} onChange={handleChange} required style={styles.inputTiny} />
+          )}
+
+          <input type="number" name="agreed_monthly_fee" placeholder="Monthly Fee" value={formData.agreed_monthly_fee} onChange={handleChange} required style={styles.inputTiny} />
 
           <button type="submit" disabled={loading} style={styles.btnPrimary}>
             {loading ? "..." : isEditing ? "Update" : (isAdmin ? "Enroll" : "Request")}
           </button>
           
           {isEditing && (
-            <button type="button" onClick={() => {setIsEditing(null); setFormData({name:'', contact: '', courseId:'', agreed_monthly_fee:''})}} style={styles.btnCancel}>
+            <button type="button" onClick={() => {setIsEditing(null); setFormData({name:'', contact: '', gender: '', courseId:'', agreed_monthly_fee:'', admission_fee: '', createdAt: today})}} style={styles.btnCancel}>
               ✕
             </button>
           )}
         </form>
       </header>
 
-      {isAdmin && pendingStudents.length > 0 && (
-        <div style={styles.pendingCard}>
-          <h4 style={styles.pendingTitle}>⏳ Pending Enrollment Approvals</h4>
-          <div style={styles.tableWrapper}>
-            <table style={styles.table}>
-              <thead>
-                <tr style={styles.thRow}>
-                  <th style={styles.th}>ID</th>
-                  <th style={styles.th}>Name</th>
-                  <th style={styles.th}>Course Info</th>
-                  <th style={styles.th}>Monthly Fee</th>
-                  <th style={styles.th}>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {pendingStudents.map((s) => (
-                  <tr key={s.id} style={styles.tr}>
-                    <td style={styles.idCell}>{s.student_id}</td>
-                    <td style={styles.nameCell}>{s.name}</td>
-                    <td>
-                      {Object.values(s.enrolled_courses).map((course, idx) => (
-                        <div key={idx} style={styles.courseBadge}>{course.course_name}</div>
-                      ))}
-                    </td>
-                    <td style={styles.feeCell}>
-                      {Object.values(s.enrolled_courses).map((course, idx) => (
-                        <div key={idx}>PKR {course.agreed_monthly_fee.toLocaleString()}</div>
-                      ))}
-                    </td>
-                    <td>
-                      <div style={styles.actionGroup}>
-                        <button onClick={() => handleApprove(s.id, s)} style={styles.btnApprove}>Approve</button>
-                        <button onClick={() => remove(ref(db, `pending_approvals/${s.id}`))} style={styles.btnReject}>Reject</button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
-
       <div style={styles.mainCard}>
         <div style={styles.filterBar}>
-          <div style={styles.searchBox}>
-            <span style={styles.searchIcon}>🔍</span>
-            <input type="text" placeholder="Search by name or phone..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} style={styles.filterInput} />
-          </div>
-          <select value={filterCourse} onChange={(e) => setFilterCourse(e.target.value)} style={styles.filterSelect}>
-            <option value="">All Courses</option>
-            {courses.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-          </select>
+            <div style={styles.searchBox}>
+                <span style={styles.searchIcon}>🔍</span>
+                <input type="text" placeholder="Search students..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} style={styles.filterInput} />
+            </div>
         </div>
-
         <div style={styles.tableWrapper}>
           <table style={styles.table}>
             <thead>
               <tr style={styles.thRow}>
                 <th style={styles.th}>S.ID</th>
-                <th style={styles.th}>Name</th>
+                <th style={styles.th}>Name / Gender</th>
                 <th style={styles.th}>Courses</th>
-                <th style={styles.th}>Fee Detail</th>
-                <th style={styles.th}>Joined</th>
+                <th style={styles.th}>Adm. Fee</th>
+                <th style={styles.th}>Monthly Fee</th>
+                <th style={styles.th}>Adm. Date</th>
                 {isAdmin && <th style={styles.th}>Manage</th>}
               </tr>
             </thead>
             <tbody>
-              {filteredStudents.length > 0 ? filteredStudents.map((s) => (
+              {filteredStudents.map((s) => (
                 <tr key={s.id} style={styles.tr}>
                   <td style={styles.idCell}>{s.student_id}</td>
                   <td style={styles.nameCell}>
-                    <div>{s.name}</div>
+                    <div>{s.name} <span style={{fontSize: '10px', color: '#94A3B8'}}>({s.gender})</span></div>
                     <div style={styles.contactSub}>{s.contact}</div>
                   </td>
                   <td>
-                    {Object.values(s.enrolled_courses).map((course, idx) => (
+                    {Object.values(s.enrolled_courses || {}).map((course, idx) => (
                       <div key={idx} style={styles.courseTag}>{course.course_name}</div>
                     ))}
                   </td>
+                  <td style={styles.feeCell}>PKR {s.admission_fee?.toLocaleString() || 0}</td>
                   <td style={styles.feeCell}>
-                    {Object.values(s.enrolled_courses).map((course, idx) => (
+                    {Object.values(s.enrolled_courses || {}).map((course, idx) => (
                       <div key={idx}>PKR {course.agreed_monthly_fee.toLocaleString()}</div>
                     ))}
                   </td>
@@ -292,9 +266,7 @@ const Students = () => {
                     </td>
                   )}
                 </tr>
-              )) : (
-                <tr><td colSpan="6" style={styles.emptyState}>No student records found.</td></tr>
-              )}
+              ))}
             </tbody>
           </table>
         </div>
@@ -303,8 +275,6 @@ const Students = () => {
   );
 };
 
-
-
 const styles = {
   container: { maxWidth: '1200px', margin: '0 auto' },
   header: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px', flexWrap: 'wrap', gap: '20px' },
@@ -312,7 +282,7 @@ const styles = {
   title: { fontSize: '24px', fontWeight: '800', color: '#1E293B', margin: 0 },
   subtitle: { color: '#64748B', fontSize: '14px', marginTop: '4px' },
   
-  quickForm: { background: '#fff', padding: '12px', borderRadius: '14px', display: 'flex', gap: '8px', border: '1px solid #E2E8F0', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)' },
+  quickForm: { background: '#fff', padding: '12px', borderRadius: '14px', display: 'flex', flexWrap:"wrap", gap: '8px', border: '1px solid #E2E8F0', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)' },
   input: { padding: '10px 14px', borderRadius: '10px', border: '1px solid #E2E8F0', outline: 'none', fontSize: '14px', width: '200px' },
   inputSmall: { padding: '10px 14px', borderRadius: '10px', border: '1px solid #E2E8F0', outline: 'none', fontSize: '14px', width: '120px' },
   inputTiny: { padding: '10px 14px', borderRadius: '10px', border: '1px solid #E2E8F0', outline: 'none', fontSize: '14px', width: '80px' },

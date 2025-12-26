@@ -54,7 +54,7 @@ function App() {
             <Route
               path="studentstatus"
               element={
-                <ProtectedRoute requiredRole="admin">
+                <ProtectedRoute >
                   <StudentStatus />
                 </ProtectedRoute>
               }

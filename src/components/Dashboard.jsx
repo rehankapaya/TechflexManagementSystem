@@ -54,12 +54,12 @@ const Dashboard = () => {
             <SidebarLink to="/dashboard/studentstatus" icon="👨‍🎓" label="Student Status" collapsed={sidebarCollapsed} active={isActive('/dashboard/studentstatus')} />
           </div>
 
-          <div style={styles.navGroup}>
+          {isAdmin &&  <div style={styles.navGroup}>
             {!sidebarCollapsed && <span style={styles.groupLabel}>ACADEMICS</span>}
-            <SidebarLink to="/dashboard/courses" icon="📖" label="Courses" collapsed={sidebarCollapsed} active={isActive('/dashboard/courses')} />
+          <SidebarLink to="/dashboard/courses" icon="📖" label="Courses" collapsed={sidebarCollapsed} active={isActive('/dashboard/courses')} />
             <SidebarLink to="/dashboard/courseenrollment" icon="📝" label="Enrollment" collapsed={sidebarCollapsed} active={isActive('/dashboard/courseenrollment')} />
           </div>
-
+}
           <div style={styles.navGroup}>
             {!sidebarCollapsed && <span style={styles.groupLabel}>FINANCE</span>}
             <SidebarLink to="/dashboard/fees" icon="💳" label="Fee Entry" collapsed={sidebarCollapsed} active={isActive('/dashboard/fees')} />
