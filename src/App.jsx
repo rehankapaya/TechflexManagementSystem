@@ -1,7 +1,7 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
-import ProtectedRoute from './components/ProtectedRoute'; // Import our new file
+import ProtectedRoute from './components/ProtectedRoute';
 import Login from './components/Login';
 import Dashboard from './components/Dashboard';
 import CreateUser from './components/CreateUser';
@@ -13,7 +13,6 @@ import FeeStatus from './components/FeeStatus';
 import StudentStatus from './components/StudentStatus';
 import CourseEnrollment from './components/CourseEnrollment';
 
-
 function App() {
   return (
     <AuthProvider>
@@ -21,7 +20,7 @@ function App() {
         <Routes>
           <Route path="/login" element={<Login />} />
 
-          {/* All dashboard routes share this layout */}
+          {/* Main Dashboard Layout */}
           <Route
             path="/dashboard"
             element={
@@ -30,10 +29,10 @@ function App() {
               </ProtectedRoute>
             }
           >
-            {/* The index route /dashboard */}
+            {/* Default View */}
             <Route index element={<Overview />} />
 
-            {/* Sub-route /dashboard/users */}
+            {/* Admin Only Routes */}
             <Route
               path="users"
               element={
@@ -50,10 +49,22 @@ function App() {
                 </ProtectedRoute>
               }
             />
+            
+            {/* NEW: Status Management should probably be Admin Only */}
+            <Route
+              path="studentstatus"
+              element={
+                <ProtectedRoute requiredRole="admin">
+                  <StudentStatus />
+                </ProtectedRoute>
+              }
+            />
+
+            {/* Shared Routes (Admin & Cashier) */}
             <Route
               path="fees"
               element={
-                <ProtectedRoute   >
+                <ProtectedRoute>
                   <Fees />
                 </ProtectedRoute>
               }
@@ -61,40 +72,30 @@ function App() {
             <Route
               path="feestatus"
               element={
-                <ProtectedRoute   >
+                <ProtectedRoute>
                   <FeeStatus />
                 </ProtectedRoute>
               }
             />
-
             <Route
               path="students"
               element={
-                <ProtectedRoute >
+                <ProtectedRoute>
                   <Students />
                 </ProtectedRoute>
               }
             />
-
             <Route
               path="courseenrollment"
               element={
-                <ProtectedRoute >
+                <ProtectedRoute>
                   <CourseEnrollment />
-                </ProtectedRoute>
-              }
-            />
-
-            <Route
-              path="studentstatus"
-              element={
-                <ProtectedRoute >
-                  <StudentStatus />
                 </ProtectedRoute>
               }
             />
           </Route>
 
+          {/* Redirection Logic */}
           <Route path="/" element={<Navigate to="/dashboard" replace />} />
           <Route path="*" element={<Navigate to="/login" replace />} />
         </Routes>

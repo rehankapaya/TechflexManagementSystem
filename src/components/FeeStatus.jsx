@@ -46,36 +46,28 @@ const FeeStatus = () => {
     const record = feesData[studentId]?.[courseId]?.[monthKey];
     
     if (!record) {
-      return { label: 'Unpaid', color: '#ef4444', bg: '#fee2e2', paid: 0, balance: agreedFee };
+      return { label: 'Unpaid', color: '#EF4444', bg: '#FEF2F2', paid: 0, balance: agreedFee };
     }
 
     if (record.balance <= 0) {
-      return { label: 'Paid', color: '#10b981', bg: '#dcfce7', paid: record.paid, balance: 0 };
+      return { label: 'Paid', color: '#10B981', bg: '#DCFCE7', paid: record.paid, balance: 0 };
     } else {
-      return { label: 'Partial', color: '#f59e0b', bg: '#fef3c7', paid: record.paid, balance: record.balance };
+      return { label: 'Partial', color: '#F59E0B', bg: '#FFFBEB', paid: record.paid, balance: record.balance };
     }
   };
 
-  // --- UPDATED LOGIC: Filter out Completed/Dropout ---
   const flattenedStatusList = [];
 
   students.forEach(student => {
-    // Skip if main student status is not active (optional safety)
     if (student.status === 'inactive') return;
-
     const courses = student.enrolled_courses || {};
     
     Object.keys(courses).forEach(courseId => {
       const courseInfo = courses[courseId];
-      
-      // 1. RULE: Only include 'active' courses
       const isCourseActive = courseInfo.course_status === 'active';
-      
-      // 2. Filter logic: Search Term
       const matchesSearch = student.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
                             student.student_id?.toLowerCase().includes(searchTerm.toLowerCase());
       
-      // 3. Filter logic: Date Enrollment Check
       const wasEnrolledInThisCourse = isEnrolledInCourseByDate(courseInfo.enrolledAt);
 
       if (isCourseActive && matchesSearch && wasEnrolledInThisCourse) {
@@ -97,18 +89,21 @@ const FeeStatus = () => {
     <div style={styles.container}>
       <header style={styles.header}>
         <div style={styles.titleArea}>
-          <h2 style={{margin: 0}}>Active Monthly Fee Status 📊</h2>
-          <p style={{color: '#64748b'}}>Tracking active enrollments for {filterMonth} {filterYear}</p>
+          <h2 style={styles.title}>Fee Status Tracking 📊</h2>
+          <p style={styles.subtitle}>Showing active enrollments for <strong>{filterMonth} {filterYear}</strong></p>
         </div>
 
         <div style={styles.filterBar}>
-          <input 
-            type="text" 
-            placeholder="Search Active Students..." 
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            style={styles.searchInput}
-          />
+          <div style={styles.searchWrapper}>
+            <span style={styles.searchIcon}>🔍</span>
+            <input 
+              type="text" 
+              placeholder="Search student or ID..." 
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              style={styles.searchInput}
+            />
+          </div>
           <select value={filterMonth} onChange={(e) => setFilterMonth(e.target.value)} style={styles.select}>
             {Object.keys(monthsMap).map(m => <option key={m} value={m}>{m}</option>)}
           </select>
@@ -116,73 +111,100 @@ const FeeStatus = () => {
             type="number" 
             value={filterYear} 
             onChange={(e) => setFilterYear(e.target.value)} 
-            style={{...styles.select, width: '90px'}} 
+            style={styles.yearInput} 
           />
         </div>
       </header>
 
       <div style={styles.card}>
-        <table style={styles.table}>
-          <thead>
-            <tr style={styles.thRow}>
-              <th>Student ID</th>
-              <th>Student Name</th>
-              <th>Course</th>
-              <th>Enrolled Date</th>
-              <th>Monthly Fee</th>
-              <th>Status</th>
-              <th>Paid</th>
-              <th>Balance</th>
-            </tr>
-          </thead>
-          <tbody>
-            {flattenedStatusList.length > 0 ? flattenedStatusList.map((item) => {
-              const payment = getCourseStatus(item.studentKey, item.courseId, item.agreedFee);
-
-              return (
-                <tr key={`${item.studentKey}_${item.courseId}`} style={styles.tr}>
-                  <td style={{fontWeight: 'bold', color: '#4318ff'}}>{item.studentId}</td>
-                  <td>{item.name}</td>
-                  <td style={{fontWeight: '500'}}>{item.courseName}</td>
-                  <td style={{fontSize: '12px', color: '#64748b'}}>
-                    {item.enrolledAt ? new Date(item.enrolledAt).toLocaleDateString('en-GB', { month: 'short', year: 'numeric'}) : 'N/A'}
-                  </td>
-                  <td>PKR {item.agreedFee}</td>
-                  <td>
-                    <span style={{...styles.badge, backgroundColor: payment.bg, color: payment.color}}>
-                      {payment.label}
-                    </span>
-                  </td>
-                  <td style={{fontWeight: '600', color: '#059669'}}>{payment.paid}</td>
-                  <td style={{color: payment.balance > 0 ? '#ef4444' : '#10b981', fontWeight: 'bold'}}>
-                    {payment.balance}
-                  </td>
-                </tr>
-              );
-            }) : (
-              <tr>
-                <td colSpan="8" style={styles.emptyState}>No active enrollments found for this search.</td>
+        <div style={styles.tableWrapper}>
+          <table style={styles.table}>
+            <thead>
+              <tr style={styles.thRow}>
+                <th style={styles.th}>ID</th>
+                <th style={styles.th}>Student Name</th>
+                <th style={styles.th}>Course</th>
+                <th style={styles.th}>Enrolled</th>
+                <th style={styles.th}>Fee</th>
+                <th style={styles.th}>Status</th>
+                <th style={styles.th}>Paid</th>
+                <th style={styles.th}>Balance</th>
               </tr>
-            )}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {flattenedStatusList.length > 0 ? flattenedStatusList.map((item) => {
+                const payment = getCourseStatus(item.studentKey, item.courseId, item.agreedFee);
+
+                return (
+                  <tr key={`${item.studentKey}_${item.courseId}`} style={styles.tr}>
+                    <td style={styles.idCell}>{item.studentId}</td>
+                    <td style={styles.nameCell}>{item.name}</td>
+                    <td style={styles.courseCell}>{item.courseName}</td>
+                    <td style={styles.dateCell}>
+                      {item.enrolledAt ? new Date(item.enrolledAt).toLocaleDateString('en-GB', { month: 'short', year: 'numeric'}) : 'N/A'}
+                    </td>
+                    <td style={styles.feeCell}>PKR {item.agreedFee.toLocaleString()}</td>
+                    <td>
+                      <span style={{...styles.badge, backgroundColor: payment.bg, color: payment.color}}>
+                        {payment.label}
+                      </span>
+                    </td>
+                    <td style={styles.paidCell}>{payment.paid > 0 ? `PKR ${payment.paid.toLocaleString()}` : '—'}</td>
+                    <td style={{...styles.balanceCell, color: payment.balance > 0 ? '#EF4444' : '#10B981'}}>
+                      {payment.balance > 0 ? `PKR ${payment.balance.toLocaleString()}` : 'Cleared'}
+                    </td>
+                  </tr>
+                );
+              }) : (
+                <tr>
+                  <td colSpan="8" style={styles.emptyState}>No records match your filters.</td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   );
 };
 
 const styles = {
-  container: { padding: '30px', background: '#f8fafc', minHeight: '100vh', fontFamily: 'system-ui' },
-  header: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '25px' },
-  filterBar: { display: 'flex', gap: '12px' },
-  searchInput: { padding: '10px 15px', borderRadius: '10px', border: '1px solid #e2e8f0', width: '220px', outline: 'none' },
-  select: { padding: '10px', borderRadius: '10px', border: '1px solid #e2e8f0', background: '#fff' },
-  card: { background: '#fff', borderRadius: '16px', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)', overflow: 'hidden' },
-  table: { width: '100%', borderCollapse: 'collapse' },
-  thRow: { textAlign: 'left', background: '#f1f5f9', color: '#64748b', fontSize: '11px', textTransform: 'uppercase' },
-  tr: { borderBottom: '1px solid #f1f5f9', transition: '0.2s' },
-  badge: { padding: '4px 10px', borderRadius: '20px', fontSize: '10px', fontWeight: 'bold' },
-  emptyState: { textAlign: 'center', padding: '40px', color: '#94a3b8' }
+  container: { maxWidth: '1200px', margin: '0 auto' },
+  header: { 
+    display: 'flex', 
+    justifyContent: 'space-between', 
+    alignItems: 'flex-end', 
+    marginBottom: '30px',
+    flexWrap: 'wrap',
+    gap: '20px'
+  },
+  title: { fontSize: '24px', fontWeight: '700', color: '#1E293B', margin: 0 },
+  subtitle: { color: '#64748B', fontSize: '14px', marginTop: '4px' },
+  
+  filterBar: { display: 'flex', gap: '12px', alignItems: 'center' },
+  searchWrapper: { position: 'relative' },
+  searchIcon: { position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', opacity: 0.4, fontSize: '14px' },
+  searchInput: { padding: '10px 12px 10px 35px', borderRadius: '10px', border: '1px solid #E2E8F0', width: '220px', outline: 'none', backgroundColor: '#fff' },
+  select: { padding: '10px', borderRadius: '10px', border: '1px solid #E2E8F0', background: '#fff', cursor: 'pointer', outline: 'none' },
+  yearInput: { padding: '10px', borderRadius: '10px', border: '1px solid #E2E8F0', background: '#fff', width: '80px', outline: 'none' },
+  
+  card: { background: '#fff', borderRadius: '16px', border: '1px solid #E2E8F0', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)', overflow: 'hidden' },
+  tableWrapper: { overflowX: 'auto' },
+  table: { width: '100%', borderCollapse: 'collapse', textAlign: 'left', minWidth: '900px' },
+  thRow: { background: '#F8FAFC', borderBottom: '1px solid #E2E8F0' },
+  th: { padding: '14px 20px', color: '#64748B', fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.05em' },
+  tr: { borderBottom: '1px solid #F1F5F9', transition: '0.2s hover', backgroundColor: '#fff' },
+  
+  idCell: { padding: '16px 20px', fontWeight: '700', color: '#3B82F6', fontSize: '13px' },
+  nameCell: { padding: '16px 20px', fontWeight: '600', color: '#1E293B', fontSize: '14px' },
+  courseCell: { padding: '16px 20px', color: '#475569', fontSize: '14px' },
+  dateCell: { padding: '16px 20px', color: '#94A3B8', fontSize: '12px' },
+  feeCell: { padding: '16px 20px', color: '#1E293B', fontSize: '14px', fontWeight: '500' },
+  paidCell: { padding: '16px 20px', color: '#10B981', fontWeight: '600', fontSize: '14px' },
+  balanceCell: { padding: '16px 20px', fontWeight: '700', fontSize: '14px' },
+  
+  badge: { padding: '6px 12px', borderRadius: '20px', fontSize: '11px', fontWeight: '700', display: 'inline-block' },
+  emptyState: { textAlign: 'center', padding: '60px', color: '#94A3B8', fontSize: '15px' }
 };
 
 export default FeeStatus;

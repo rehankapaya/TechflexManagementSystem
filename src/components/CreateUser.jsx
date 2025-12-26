@@ -10,12 +10,9 @@ const CreateUser = () => {
     password: '',
     role: 'teacher'
   });
-  const [users, setUsers] = useState([]); // State to hold the list of users
-  const [showPassword, setShowPassword] = useState(false);
+  const [users, setUsers] = useState([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isSuccess, setIsSuccess] = useState(false);
-  const [focusedField, setFocusedField] = useState(null);
-  const [error, setError] = useState(null);
+  const [status, setStatus] = useState({ type: '', msg: '' });
 
   const roles = [
     { value: 'admin', label: 'Admin', icon: '👑', color: '#8B5CF6' },
@@ -23,34 +20,37 @@ const CreateUser = () => {
     { value: 'feescashier', label: 'Cashier', icon: '💰', color: '#10B981' }
   ];
 
-  // --- 1. Realtime Listener for Users ---
   useEffect(() => {
     const usersRef = ref(db, 'users');
     const unsubscribe = onValue(usersRef, (snapshot) => {
       const data = snapshot.val();
       if (data) {
-        // Convert object into array and sort by newest
         const userList = Object.values(data).reverse();
         setUsers(userList);
       }
     });
-
-    return () => unsubscribe(); // Cleanup listener on unmount
+    return () => unsubscribe();
   }, []);
+
+  useEffect(() => {
+    if (status.msg) {
+      const timer = setTimeout(() => setStatus({ type: '', msg: '' }), 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [status]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData((prevState) => ({
-      ...prevState,
-      [name]: name === "email" ? value.toLowerCase() : value
+    setFormData((prev) => ({
+      ...prev,
+      [name]: name === "email" ? value.toLowerCase().trim() : value
     }));
-    if (error) setError(null);
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsSubmitting(true);
-    setError(null);
+    setStatus({ type: '', msg: '' });
 
     try {
       const userCredential = await createUserWithEmailAndPassword(
@@ -68,83 +68,112 @@ const CreateUser = () => {
         uid: user.uid
       });
 
-      setIsSubmitting(false);
-      setIsSuccess(true);
-      
-      setTimeout(() => {
-        setIsSuccess(false);
-        setFormData({ name: '', email: '', password: '', role: 'teacher' });
-      }, 2500);
+      setStatus({ type: 'success', msg: `User ${formData.name} created successfully!` });
+      setFormData({ name: '', email: '', password: '', role: 'teacher' });
 
     } catch (err) {
+      if (err.code === 'auth/email-already-in-use') setStatus({ type: 'error', msg: "Email already exists." });
+      else setStatus({ type: 'error', msg: "Failed to create user. Check permissions." });
+    } finally {
       setIsSubmitting(false);
-      if (err.code === 'auth/email-already-in-use') setError("Email already exists.");
-      else setError("Failed to create user.");
     }
   };
 
-  const getSelectedRole = () => roles.find(r => r.value === formData.role) || roles[1];
-
   return (
     <div style={styles.pageLayout}>
-      {/* LEFT COLUMN: FORM */}
-      <div style={styles.container}>
+      {/* LEFT: FORM SECTION */}
+      <div style={styles.formCard}>
         <div style={styles.header}>
-          <h1 style={styles.title}>Create New User</h1>
-          <p style={styles.subtitle}>Fill details to register staff</p>
+          <h2 style={styles.title}>Register Staff 👤</h2>
+          <p style={styles.subtitle}>Provide account credentials and system role.</p>
         </div>
 
-        {error && <div style={styles.errorContainer}>{error}</div>}
+        {status.msg && (
+          <div style={{
+            ...styles.statusBanner,
+            backgroundColor: status.type === 'success' ? '#F0FDF4' : '#FEF2F2',
+            color: status.type === 'success' ? '#166534' : '#991B1B',
+            borderColor: status.type === 'success' ? '#BBF7D0' : '#FCA5A5'
+          }}>
+            {status.type === 'success' ? '✅ ' : '⚠️ '} {status.msg}
+          </div>
+        )}
 
         <form onSubmit={handleSubmit} style={styles.form}>
           <div style={styles.inputGroup}>
             <label style={styles.label}>Full Name</label>
-            <input type="text" name="name" value={formData.name} onChange={handleChange} required style={styles.input} />
+            <input 
+              type="text" name="name" placeholder="John Doe"
+              value={formData.name} onChange={handleChange} 
+              required style={styles.input} 
+            />
           </div>
 
           <div style={styles.inputGroup}>
-            <label style={styles.label}>Email</label>
-            <input type="email" name="email" value={formData.email} onChange={handleChange} required style={styles.input} />
+            <label style={styles.label}>Email Address</label>
+            <input 
+              type="email" name="email" placeholder="staff@edu.com"
+              value={formData.email} onChange={handleChange} 
+              required style={styles.input} 
+            />
           </div>
 
           <div style={styles.inputGroup}>
             <label style={styles.label}>Password</label>
-            <input type="password" name="password" value={formData.password} onChange={handleChange} required style={styles.input} />
+            <input 
+              type="password" name="password" placeholder="Min. 6 characters"
+              value={formData.password} onChange={handleChange} 
+              required style={styles.input} 
+            />
           </div>
 
           <div style={styles.inputGroup}>
-            <label style={styles.label}>Role</label>
+            <label style={styles.label}>System Role</label>
             <select name="role" value={formData.role} onChange={handleChange} style={styles.input}>
-              {roles.map(r => <option key={r.value} value={r.value}>{r.icon} {r.label}</option>)}
+              {roles.map(r => (
+                <option key={r.value} value={r.value}>
+                  {r.icon} {r.label}
+                </option>
+              ))}
             </select>
           </div>
 
           <button type="submit" disabled={isSubmitting} style={styles.button}>
-            {isSubmitting ? 'Processing...' : 'Create User'}
+            {isSubmitting ? 'Creating Profile...' : 'Register User'}
           </button>
         </form>
       </div>
 
-      {/* RIGHT COLUMN: USER LIST */}
-      <div style={styles.listContainer}>
-        <div style={styles.header}>
-          <h1 style={styles.title}>Existing Users</h1>
-          <p style={styles.subtitle}>Total registered: {users.length}</p>
+      {/* RIGHT: DIRECTORY SECTION */}
+      <div style={styles.listCard}>
+        <div style={styles.tableHeader}>
+          <div>
+            <h2 style={styles.title}>Staff Directory</h2>
+            <p style={styles.subtitle}>{users.length} active team members</p>
+          </div>
+          <span style={styles.liveBadge}>LIVE</span>
         </div>
         
         <div style={styles.scrollArea}>
-          {users.map((user) => (
-            <div key={user.uid} style={styles.userCard}>
-              <div style={{...styles.roleIcon, backgroundColor: roles.find(r=>r.value === user.role)?.color}}>
-                {roles.find(r=>r.value === user.role)?.icon}
+          {users.map((user) => {
+            const roleInfo = roles.find(r => r.value === user.role) || roles[1];
+            return (
+              <div key={user.uid} style={styles.userCard}>
+                <div style={{ ...styles.avatar, backgroundColor: roleInfo.color }}>
+                  {user.name.charAt(0).toUpperCase()}
+                </div>
+                <div style={styles.userInfo}>
+                  <div style={styles.nameRow}>
+                    <h4 style={styles.userName}>{user.name}</h4>
+                    <span style={{ ...styles.roleTag, color: roleInfo.color, borderColor: roleInfo.color }}>
+                      {roleInfo.label}
+                    </span>
+                  </div>
+                  <p style={styles.userEmail}>{user.email}</p>
+                </div>
               </div>
-              <div style={styles.userInfo}>
-                <h4 style={styles.userName}>{user.name}</h4>
-                <p style={styles.userEmail}>{user.email}</p>
-                <span style={styles.roleBadge}>{user.role}</span>
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
     </div>
@@ -154,31 +183,104 @@ const CreateUser = () => {
 const styles = {
   pageLayout: {
     display: 'grid',
-    gridTemplateColumns: '1fr 1fr',
-    gap: '40px',
-    padding: '40px',
+    gridTemplateColumns: 'minmax(350px, 450px) 1fr',
+    gap: '30px',
     maxWidth: '1200px',
     margin: '0 auto',
-    fontFamily: 'system-ui'
+    animation: 'fadeIn 0.5s ease-out'
   },
-  container: { background: '#fff', padding: '30px', borderRadius: '20px', boxShadow: '0 4px 20px rgba(0,0,0,0.08)' },
-  listContainer: { background: '#f8fafc', padding: '30px', borderRadius: '20px', border: '1px solid #e2e8f0', maxHeight: '80vh', display: 'flex', flexDirection: 'column' },
-  header: { marginBottom: '20px' },
-  title: { fontSize: '22px', margin: 0, color: '#1e293b' },
-  subtitle: { fontSize: '14px', color: '#64748b' },
-  form: { display: 'flex', flexDirection: 'column', gap: '15px' },
-  inputGroup: { display: 'flex', flexDirection: 'column', gap: '5px' },
-  label: { fontSize: '13px', fontWeight: '600', color: '#475569' },
-  input: { padding: '12px', borderRadius: '8px', border: '1px solid #cbd5e1', outline: 'none' },
-  button: { padding: '14px', background: '#4318ff', color: '#fff', border: 'none', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer', marginTop: '10px' },
+  formCard: { 
+    background: '#fff', 
+    padding: '30px', 
+    borderRadius: '16px', 
+    border: '1px solid #E2E8F0', 
+    boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)',
+    height: 'fit-content'
+  },
+  listCard: { 
+    background: '#fff', 
+    padding: '30px', 
+    borderRadius: '16px', 
+    border: '1px solid #E2E8F0', 
+    boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)',
+    maxHeight: '85vh', 
+    display: 'flex', 
+    flexDirection: 'column' 
+  },
+  header: { marginBottom: '25px' },
+  title: { fontSize: '20px', fontWeight: '700', color: '#1E293B', margin: 0 },
+  subtitle: { fontSize: '13px', color: '#64748B', marginTop: '4px' },
+  
+  statusBanner: { padding: '12px 16px', borderRadius: '10px', marginBottom: '20px', border: '1px solid', fontSize: '13px' },
+  
+  form: { display: 'flex', flexDirection: 'column', gap: '18px' },
+  inputGroup: { display: 'flex', flexDirection: 'column', gap: '6px' },
+  label: { fontSize: '12px', fontWeight: '600', color: '#475569' },
+  input: { 
+    padding: '12px 15px', 
+    borderRadius: '10px', 
+    border: '1px solid #E2E8F0', 
+    backgroundColor: '#F8FAFC', 
+    outline: 'none',
+    fontSize: '14px',
+    transition: '0.2s'
+  },
+  button: { 
+    padding: '14px', 
+    background: '#3B82F6', 
+    color: '#fff', 
+    border: 'none', 
+    borderRadius: '10px', 
+    fontWeight: '700', 
+    cursor: 'pointer', 
+    marginTop: '10px',
+    boxShadow: '0 4px 12px rgba(59, 130, 246, 0.25)' 
+  },
+
+  tableHeader: { 
+    display: 'flex', 
+    justifyContent: 'space-between', 
+    alignItems: 'flex-start', 
+    marginBottom: '25px',
+    borderBottom: '1px solid #F1F5F9',
+    paddingBottom: '15px'
+  },
+  liveBadge: { fontSize: '9px', fontWeight: '800', color: '#10B981', background: '#DCFCE7', padding: '2px 8px', borderRadius: '20px' },
+  
   scrollArea: { overflowY: 'auto', flex: 1, paddingRight: '10px' },
-  userCard: { display: 'flex', alignItems: 'center', gap: '15px', background: '#fff', padding: '15px', borderRadius: '12px', marginBottom: '10px', boxShadow: '0 2px 5px rgba(0,0,0,0.03)' },
-  roleIcon: { width: '40px', height: '40px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px' },
+  userCard: { 
+    display: 'flex', 
+    alignItems: 'center', 
+    gap: '15px', 
+    padding: '15px', 
+    borderRadius: '12px', 
+    marginBottom: '10px', 
+    border: '1px solid #F1F5F9',
+    transition: '0.2s'
+  },
+  avatar: { 
+    width: '42px', 
+    height: '42px', 
+    borderRadius: '12px', 
+    display: 'flex', 
+    alignItems: 'center', 
+    justifyContent: 'center', 
+    fontSize: '16px', 
+    fontWeight: 'bold', 
+    color: '#fff' 
+  },
   userInfo: { flex: 1 },
-  userName: { margin: 0, fontSize: '15px', color: '#1e293b' },
-  userEmail: { margin: 0, fontSize: '12px', color: '#64748b' },
-  roleBadge: { fontSize: '10px', fontWeight: 'bold', textTransform: 'uppercase', color: '#4318ff', background: '#eef2ff', padding: '2px 6px', borderRadius: '4px', marginTop: '4px', display: 'inline-block' },
-  errorContainer: { padding: '10px', background: '#fee2e2', color: '#b91c1c', borderRadius: '8px', marginBottom: '15px', fontSize: '13px' }
+  nameRow: { display: 'flex', justifyContent: 'space-between', alignItems: 'center' },
+  userName: { margin: 0, fontSize: '15px', fontWeight: '600', color: '#1E293B' },
+  userEmail: { margin: '2px 0 0 0', fontSize: '12px', color: '#64748B' },
+  roleTag: { 
+    fontSize: '10px', 
+    fontWeight: '700', 
+    textTransform: 'uppercase', 
+    padding: '2px 8px', 
+    borderRadius: '6px', 
+    border: '1px solid' 
+  }
 };
 
 export default CreateUser;

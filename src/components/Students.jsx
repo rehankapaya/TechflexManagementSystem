@@ -13,6 +13,7 @@ const Students = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterCourse, setFilterCourse] = useState('');
   const [loading, setLoading] = useState(false);
+  const [status, setStatus] = useState({ type: '', msg: '' });
 
   const [formData, setFormData] = useState({
     name: '',
@@ -78,7 +79,7 @@ const Students = () => {
           }
         };
         await update(ref(db, `students/${isEditing}`), studentPayload);
-        alert("Student Updated!");
+        setStatus({ type: 'success', msg: 'Student profile updated!' });
         setIsEditing(null);
       } else {
         const allExistingIds = [...students.map(s => s.student_id), ...pendingStudents.map(s => s.student_id)];
@@ -99,7 +100,7 @@ const Students = () => {
           name: formData.name,
           contact: formData.contact,
           courseId: formData.courseId,
-          addedBy: currentUser.name,
+          addedBy: currentUser.name || currentUser.email,
           createdAt: now,
           status: 'active',
           enrolled_courses: {
@@ -115,15 +116,15 @@ const Students = () => {
 
         if (isAdmin) {
           await set(push(ref(db, 'students')), payloadWithMeta);
-          alert(`Enrolled as: ${customId}`);
+          setStatus({ type: 'success', msg: `Enrolled: ${customId}` });
         } else {
           await set(push(ref(db, 'pending_approvals')), { ...payloadWithMeta, status: 'pending' });
-          alert(`Requested as: ${customId}`);
+          setStatus({ type: 'success', msg: `Request Sent: ${customId}` });
         }
       }
       setFormData({ name: '', contact: '', courseId: '', agreed_monthly_fee: '' });
     } catch (err) {
-      alert("Error: " + err.message);
+      setStatus({ type: 'error', msg: err.message });
     } finally {
       setLoading(false);
     }
@@ -131,20 +132,10 @@ const Students = () => {
 
   const handleApprove = async (tempId, studentData) => {
     const now = new Date().toISOString();
-    const updatedCourses = {};
-    Object.keys(studentData.enrolled_courses).forEach(courseId => {
-      updatedCourses[courseId] = {
-        ...studentData.enrolled_courses[courseId],
-        enrolledAt: studentData.enrolled_courses[courseId].enrolledAt || now,
-        course_status: studentData.enrolled_courses[courseId].course_status || "active"
-      };
-    });
-
     const approvedStudent = {
       ...studentData,
-      enrolled_courses: updatedCourses,
       status: 'active',
-      approvedBy: currentUser.name,
+      approvedBy: currentUser.name || currentUser.email,
       approvedAt: now,
     };
     await set(ref(db, `students/${tempId}`), approvedStudent);
@@ -163,26 +154,10 @@ const Students = () => {
     });
   };
 
-  const handleDelete = async (id) => {
-    if (window.confirm("Are you sure you want to delete this student record?")) {
-      await remove(ref(db, `students/${id}`));
-    }
-  };
-
-  const handleReject = async (id) => {
-    if (window.confirm("Are you sure you want to reject this enrollment request?")) {
-      await remove(ref(db, `pending_approvals/${id}`));
-      alert("Request Rejected.");
-    }
-  };
-
   const formatDate = (dateString) => {
-    if (!dateString) return "N/A";
+    if (!dateString) return "—";
     const date = new Date(dateString);
-    const day = date.getDate();
-    const month = date.toLocaleString('en-GB', { month: 'long' });
-    const year = date.getFullYear();
-    return `${day}/ ${month} /${year}`;
+    return date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
   };
 
   const filteredStudents = students.filter(s => {
@@ -194,171 +169,187 @@ const Students = () => {
 
   return (
     <div style={styles.container}>
-      <div style={styles.topSection}>
-        <div>
-          <h2>{isEditing ? "📝 Editing Student" : "Student Enrollment Registry"}</h2>
-          <p style={{ color: '#64748b' }}>Manage active students and pending approvals</p>
+      <header style={styles.header}>
+        <div style={styles.titleArea}>
+          <h2 style={styles.title}>{isEditing ? "Edit Student Profile 👤" : "Student Directory 👨‍🎓"}</h2>
+          <p style={styles.subtitle}>Registration and Course Enrollment Management</p>
         </div>
 
-        <form onSubmit={handleSubmit} style={{ ...styles.quickForm, border: isEditing ? '2px solid #4318ff' : 'none' }}>
-          <input type="text" name="name" placeholder="Student Name" value={formData.name} onChange={handleChange} required style={styles.input} />
-          <input type="text" name="contact" placeholder="Contact Number" value={formData.contact} onChange={handleChange} required style={{...styles.input, width: '150px'}} />
+        <form onSubmit={handleSubmit} style={{ ...styles.quickForm, borderColor: isEditing ? '#3B82F6' : '#E2E8F0' }}>
+          <input type="text" name="name" placeholder="Full Name" value={formData.name} onChange={handleChange} required style={styles.input} />
+          <input type="text" name="contact" placeholder="Phone" value={formData.contact} onChange={handleChange} required style={styles.inputSmall} />
           
-          <select name="courseId" value={formData.courseId} onChange={handleChange} required style={styles.input}>
+          <select name="courseId" value={formData.courseId} onChange={handleChange} required style={styles.select}>
             <option value="">Course</option>
             {courses.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
           </select>
-          <input type="number" name="agreed_monthly_fee" placeholder="Fee" value={formData.agreed_monthly_fee} onChange={handleChange} required style={{ ...styles.input, width: '100px' }} />
+          <input type="number" name="agreed_monthly_fee" placeholder="Fee" value={formData.agreed_monthly_fee} onChange={handleChange} required style={styles.inputTiny} />
 
           <button type="submit" disabled={loading} style={styles.btnPrimary}>
-            {loading ? "Processing..." : isEditing ? "Update" : (isAdmin ? "Add" : "Request")}
+            {loading ? "..." : isEditing ? "Update" : (isAdmin ? "Enroll" : "Request")}
           </button>
           
           {isEditing && (
             <button type="button" onClick={() => {setIsEditing(null); setFormData({name:'', contact: '', courseId:'', agreed_monthly_fee:''})}} style={styles.btnCancel}>
-              Cancel
+              ✕
             </button>
           )}
         </form>
-      </div>
+      </header>
 
-      {/* Pending Section for Admin */}
       {isAdmin && pendingStudents.length > 0 && (
-        <div style={styles.pendingSection}>
-          <h4 style={{ color: '#b45309', marginBottom: '15px' }}>⏳ Pending Approvals</h4>
-          <table style={styles.table}>
-            <thead>
-              <tr style={styles.thRow}>
-                <th>S.ID</th>
-                <th>Name</th>
-                <th>Contact</th>
-                <th>Course(s)</th>
-                <th>Fee(s)</th>
-                <th>Requested On</th>
-                <th>Action</th>
-              </tr>
-            </thead>
-            <tbody>
-              {pendingStudents.map((s) => (
-                <tr key={s.id} style={styles.tr}>
-                  <td style={{ fontWeight: 'bold', color: '#4318ff' }}>{s.student_id || 'N/A'}</td>
-                  <td>{s.name}</td>
-                  <td>{s.contact || 'N/A'}</td>
-                  <td>
-                    {Object.values(s.enrolled_courses).map((course, idx) => (
-                      <div key={idx} style={styles.courseBadge}>{course.course_name}</div>
-                    ))}
-                  </td>
-                  <td>
-                    {Object.values(s.enrolled_courses).map((course, idx) => (
-                      <div key={idx}>PKR {course.agreed_monthly_fee}</div>
-                    ))}
-                  </td>
-                  <td style={{ fontWeight: '600', color: '#b45309' }}>{formatDate(s.createdAt)}</td>
-                  <td>
-                    <div style={{ display: 'flex', gap: '5px' }}>
-                      <button onClick={() => handleApprove(s.id, s)} style={styles.btnApprove}>Approve</button>
-                      <button onClick={() => handleReject(s.id)} style={styles.btnDelete}>Reject</button>
-                    </div>
-                  </td>
+        <div style={styles.pendingCard}>
+          <h4 style={styles.pendingTitle}>⏳ Pending Enrollment Approvals</h4>
+          <div style={styles.tableWrapper}>
+            <table style={styles.table}>
+              <thead>
+                <tr style={styles.thRow}>
+                  <th style={styles.th}>ID</th>
+                  <th style={styles.th}>Name</th>
+                  <th style={styles.th}>Course Info</th>
+                  <th style={styles.th}>Monthly Fee</th>
+                  <th style={styles.th}>Actions</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {pendingStudents.map((s) => (
+                  <tr key={s.id} style={styles.tr}>
+                    <td style={styles.idCell}>{s.student_id}</td>
+                    <td style={styles.nameCell}>{s.name}</td>
+                    <td>
+                      {Object.values(s.enrolled_courses).map((course, idx) => (
+                        <div key={idx} style={styles.courseBadge}>{course.course_name}</div>
+                      ))}
+                    </td>
+                    <td style={styles.feeCell}>
+                      {Object.values(s.enrolled_courses).map((course, idx) => (
+                        <div key={idx}>PKR {course.agreed_monthly_fee.toLocaleString()}</div>
+                      ))}
+                    </td>
+                    <td>
+                      <div style={styles.actionGroup}>
+                        <button onClick={() => handleApprove(s.id, s)} style={styles.btnApprove}>Approve</button>
+                        <button onClick={() => remove(ref(db, `pending_approvals/${s.id}`))} style={styles.btnReject}>Reject</button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
 
-      <div style={styles.card}>
+      <div style={styles.mainCard}>
         <div style={styles.filterBar}>
-          <h3>Active Students</h3>
-          <div style={{ display: 'flex', gap: '10px' }}>
-            <input type="text" placeholder="🔍 Name or Phone..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} style={styles.filterInput} />
-            <select value={filterCourse} onChange={(e) => setFilterCourse(e.target.value)} style={styles.filterInput}>
-              <option value="">All Courses</option>
-              {courses.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-            </select>
+          <div style={styles.searchBox}>
+            <span style={styles.searchIcon}>🔍</span>
+            <input type="text" placeholder="Search by name or phone..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} style={styles.filterInput} />
           </div>
+          <select value={filterCourse} onChange={(e) => setFilterCourse(e.target.value)} style={styles.filterSelect}>
+            <option value="">All Courses</option>
+            {courses.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+          </select>
         </div>
 
-        <table style={styles.table}>
-          <thead>
-            <tr style={styles.thRow}>
-              <th>S.ID</th>
-              <th>Full Name</th>
-              <th>Contact</th>
-              <th>Enrolled Courses</th>
-              <th>Duration</th>
-              <th>Fee Info</th>
-              <th>Joined Date</th>
-              {isAdmin && <th>Actions</th>}
-            </tr>
-          </thead>
-          <tbody>
-            {filteredStudents.length > 0 ? filteredStudents.map((s) => (
-              <tr key={s.id} style={styles.tr}>
-                <td style={{ fontWeight: 'bold', color: '#4318ff' }}>{s.student_id || 'N/A'}</td>
-                <td style={{ fontWeight: '600' }}>{s.name}</td>
-                <td>{s.contact || 'N/A'}</td>
-                <td>
-                  {Object.values(s.enrolled_courses).map((course, idx) => (
-                    <div key={idx} style={{...styles.courseBadge, color: course.course_status === 'active' ? '#10b981' : '#64748b'}}>
-                      {course.course_name} 
-                    </div>
-                  ))}
-                </td>
-                <td>
-                  {Object.values(s.enrolled_courses).map((course, idx) => (
-                    <div key={idx}>{course.duration} Months</div>
-                  ))}
-                </td>
-                <td>
-                  {Object.values(s.enrolled_courses).map((course, idx) => (
-                    <div key={idx}>PKR {course.agreed_monthly_fee}</div>
-                  ))}
-                </td>
-                <td>{formatDate(s.createdAt)}</td>
-                {isAdmin && (
-                  <td>
-                    <div style={{ display: 'flex', gap: '5px' }}>
-                      <button onClick={() => startEdit(s)} style={styles.btnEdit}>Edit</button>
-                      <button onClick={() => handleDelete(s.id)} style={styles.btnDelete}>Delete</button>
-                    </div>
-                  </td>
-                )}
+        <div style={styles.tableWrapper}>
+          <table style={styles.table}>
+            <thead>
+              <tr style={styles.thRow}>
+                <th style={styles.th}>S.ID</th>
+                <th style={styles.th}>Name</th>
+                <th style={styles.th}>Courses</th>
+                <th style={styles.th}>Fee Detail</th>
+                <th style={styles.th}>Joined</th>
+                {isAdmin && <th style={styles.th}>Manage</th>}
               </tr>
-            )) : (
-              <tr><td colSpan={isAdmin ? "8" : "7"} style={{ textAlign: 'center', padding: '20px' }}>No students found.</td></tr>
-            )}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {filteredStudents.length > 0 ? filteredStudents.map((s) => (
+                <tr key={s.id} style={styles.tr}>
+                  <td style={styles.idCell}>{s.student_id}</td>
+                  <td style={styles.nameCell}>
+                    <div>{s.name}</div>
+                    <div style={styles.contactSub}>{s.contact}</div>
+                  </td>
+                  <td>
+                    {Object.values(s.enrolled_courses).map((course, idx) => (
+                      <div key={idx} style={styles.courseTag}>{course.course_name}</div>
+                    ))}
+                  </td>
+                  <td style={styles.feeCell}>
+                    {Object.values(s.enrolled_courses).map((course, idx) => (
+                      <div key={idx}>PKR {course.agreed_monthly_fee.toLocaleString()}</div>
+                    ))}
+                  </td>
+                  <td style={styles.dateCell}>{formatDate(s.createdAt)}</td>
+                  {isAdmin && (
+                    <td>
+                      <div style={styles.actionGroup}>
+                        <button onClick={() => startEdit(s)} style={styles.btnEdit}>Edit</button>
+                        <button onClick={() => { if(window.confirm("Delete record?")) remove(ref(db, `students/${s.id}`))}} style={styles.btnDelete}>🗑️</button>
+                      </div>
+                    </td>
+                  )}
+                </tr>
+              )) : (
+                <tr><td colSpan="6" style={styles.emptyState}>No student records found.</td></tr>
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   );
 };
 
-const styles = {
-  container: { padding: '30px', background: '#f1f5f9', minHeight: '100vh' },
-  topSection: { display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px' },
-  quickForm: { display: 'flex', flexWrap: "wrap", gap: '10px', background: '#fff', padding: '15px', borderRadius: '12px', boxShadow: '0 2px 4px rgba(0,0,0,0.05)' },
-  input: { padding: '10px', borderRadius: '6px', border: '1px solid #e2e8f0' },
-  btnPrimary: { background: '#4318ff', color: '#fff', border: 'none', padding: '10px 20px', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer' },
-  btnCancel: { background: '#e2e8f0', color: '#475569', border: 'none', padding: '10px 15px', borderRadius: '6px', cursor: 'pointer' },
-  card: { background: '#fff', padding: '20px', borderRadius: '16px', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' },
-  filterBar: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' },
-  filterInput: { padding: '8px 12px', borderRadius: '8px', border: '1px solid #cbd5e1' },
-  table: { width: '100%', borderCollapse: 'collapse', marginTop: '10px' },
-  thRow: { textAlign: 'left', borderBottom: '2px solid #f1f5f9', color: '#64748b', fontSize: '13px' },
-  tr: { borderBottom: '1px solid #f1f5f9', fontSize: '14px', transition: '0.2s' },
-  btnApprove: { background: '#10b981', color: '#fff', border: 'none', padding: '6px 12px', borderRadius: '4px', cursor: 'pointer', fontSize: '12px' },
-  btnEdit: { background: '#eef2ff', color: '#4318ff', border: 'none', padding: '5px 10px', borderRadius: '4px', cursor: 'pointer', fontSize: '12px' },
-  btnDelete: { background: '#fff5f5', color: '#ef4444', border: 'none', padding: '5px 10px', borderRadius: '4px', cursor: 'pointer', fontSize: '12px' },
-  pendingSection: { background: '#fffbeb', padding: '20px', borderRadius: '16px', border: '1px solid #fef3c7', marginBottom: '20px' },
-  courseBadge: { fontSize: '12px', fontWeight: 'bold', marginBottom: '4px' }
-};
 
-const globalStyles = `th, td { padding: 12px; }`;
-const styleTag = document.createElement("style");
-styleTag.innerText = globalStyles;
-document.head.appendChild(styleTag);
+
+const styles = {
+  container: { maxWidth: '1200px', margin: '0 auto' },
+  header: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px', flexWrap: 'wrap', gap: '20px' },
+  titleArea: { flex: 1 },
+  title: { fontSize: '24px', fontWeight: '800', color: '#1E293B', margin: 0 },
+  subtitle: { color: '#64748B', fontSize: '14px', marginTop: '4px' },
+  
+  quickForm: { background: '#fff', padding: '12px', borderRadius: '14px', display: 'flex', gap: '8px', border: '1px solid #E2E8F0', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)' },
+  input: { padding: '10px 14px', borderRadius: '10px', border: '1px solid #E2E8F0', outline: 'none', fontSize: '14px', width: '200px' },
+  inputSmall: { padding: '10px 14px', borderRadius: '10px', border: '1px solid #E2E8F0', outline: 'none', fontSize: '14px', width: '120px' },
+  inputTiny: { padding: '10px 14px', borderRadius: '10px', border: '1px solid #E2E8F0', outline: 'none', fontSize: '14px', width: '80px' },
+  select: { padding: '10px', borderRadius: '10px', border: '1px solid #E2E8F0', outline: 'none', background: '#F8FAFC', fontSize: '14px' },
+  btnPrimary: { background: '#3B82F6', color: '#fff', border: 'none', padding: '10px 20px', borderRadius: '10px', fontWeight: '700', cursor: 'pointer' },
+  btnCancel: { background: '#F1F5F9', color: '#64748B', border: 'none', width: '38px', borderRadius: '10px', cursor: 'pointer' },
+
+  pendingCard: { background: '#FFFBEB', padding: '24px', borderRadius: '16px', border: '1px solid #FEF3C7', marginBottom: '30px' },
+  pendingTitle: { margin: '0 0 15px 0', color: '#92400E', fontSize: '16px' },
+  
+  mainCard: { background: '#fff', borderRadius: '16px', border: '1px solid #E2E8F0', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', overflow: 'hidden' },
+  filterBar: { padding: '20px', borderBottom: '1px solid #F1F5F9', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '15px' },
+  searchBox: { position: 'relative' },
+  searchIcon: { position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', opacity: 0.4 },
+  filterInput: { padding: '10px 12px 10px 35px', borderRadius: '10px', border: '1px solid #E2E8F0', width: '250px', outline: 'none' },
+  filterSelect: { padding: '10px', borderRadius: '10px', border: '1px solid #E2E8F0', background: '#fff', outline: 'none' },
+
+  tableWrapper: { overflowX: 'auto' },
+  table: { width: '100%', borderCollapse: 'collapse', textAlign: 'left' },
+  thRow: { background: '#F8FAFC', borderBottom: '1px solid #E2E8F0' },
+  th: { padding: '15px 20px', color: '#64748B', fontSize: '12px', fontWeight: '700', textTransform: 'uppercase' },
+  tr: { borderBottom: '1px solid #F1F5F9', transition: 'background 0.2s' },
+  
+  idCell: { padding: '16px 20px', fontWeight: '700', color: '#3B82F6', fontSize: '13px' },
+  nameCell: { padding: '16px 20px', fontSize: '14px' },
+  contactSub: { fontSize: '11px', color: '#94A3B8', marginTop: '2px' },
+  courseTag: { fontSize: '12px', fontWeight: '600', color: '#475569', background: '#F1F5F9', padding: '2px 8px', borderRadius: '6px', marginBottom: '4px', display: 'inline-block' },
+  courseBadge: { fontSize: '11px', fontWeight: '700', color: '#B45309', background: '#FEF3C7', padding: '2px 8px', borderRadius: '6px', marginBottom: '4px' },
+  feeCell: { padding: '16px 20px', fontSize: '13px', fontWeight: '600', color: '#1E293B' },
+  dateCell: { padding: '16px 20px', color: '#64748B', fontSize: '12px' },
+  
+  actionGroup: { display: 'flex', gap: '8px' },
+  btnApprove: { background: '#10B981', color: '#fff', border: 'none', padding: '6px 12px', borderRadius: '8px', fontSize: '12px', fontWeight: '700', cursor: 'pointer' },
+  btnReject: { background: '#EF4444', color: '#fff', border: 'none', padding: '6px 12px', borderRadius: '8px', fontSize: '12px', fontWeight: '700', cursor: 'pointer' },
+  btnEdit: { background: '#EFF6FF', color: '#3B82F6', border: 'none', padding: '6px 12px', borderRadius: '8px', fontSize: '12px', fontWeight: '700', cursor: 'pointer' },
+  btnDelete: { background: '#fff', border: '1px solid #FEE2E2', padding: '6px', borderRadius: '8px', cursor: 'pointer' },
+  emptyState: { padding: '50px', textAlign: 'center', color: '#94A3B8' }
+};
 
 export default Students;

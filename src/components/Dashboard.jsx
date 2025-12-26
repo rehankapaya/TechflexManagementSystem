@@ -1,610 +1,224 @@
-import React, { useState } from 'react';
-import { Outlet, Link, useLocation } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 
 const Dashboard = () => {
   const { currentUser, logout, isAdmin } = useAuth();
   const location = useLocation();
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const navigate = useNavigate();
 
-  // Check if a link is active
-  const isActiveLink = (path) => {
-    if (path === '/dashboard') {
-      return location.pathname === '/dashboard';
+  // UI State
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [showProfileDropdown, setShowProfileDropdown] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [error, setError] = useState(null);
+
+  // Auto-clear errors after 5 seconds
+  useEffect(() => {
+    if (error) {
+      const timer = setTimeout(() => setError(null), 5000);
+      return () => clearTimeout(timer);
     }
-    return location.pathname.startsWith(path);
+  }, [error]);
+
+  const handleLogout = async () => {
+    try {
+      await logout();
+      navigate('/login');
+    } catch (err) {
+      setError("Failed to logout. Please try again.");
+    }
   };
 
-  // Get link styles based on active state
-  const getLinkStyle = (path) => ({
-    ...styles.navLink,
-    backgroundColor: isActiveLink(path) ? 'rgba(255, 255, 255, 0.2)' : 'transparent',
-    borderLeftColor: isActiveLink(path) ? '#fff' : 'transparent',
-    transform: isActiveLink(path) ? 'translateX(5px)' : 'translateX(0)'
-  });
-
-  // Get user initials for avatar
   const getInitials = (name) => {
-    if (!name) return '?';
+    if (!name) return '??';
     return name.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
   };
 
-  // Get role badge color
-  const getRoleBadgeStyle = () => {
-    if (isAdmin) return { backgroundColor: '#8B5CF6', color: '#fff' };
-    return { backgroundColor: '#3B82F6', color: '#fff' };
-  };
+  const isActive = (path) => location.pathname === path || location.pathname.startsWith(path + '/');
 
   return (
-    <div style={styles.wrapper}>
-      {/* Sidebar */}
-      <aside style={{
-        ...styles.sidebar,
-        width: sidebarCollapsed ? '80px' : '280px'
-      }}>
-        {/* Logo Section */}
-        <div style={styles.logoSection}>
-          <div style={styles.logoContainer}>
-            <span style={styles.logoIcon}>🎓</span>
-          </div>
-          {!sidebarCollapsed && (
-            <div style={styles.logoText}>
-              <h1 style={styles.logoTitle}>EduAdmin</h1>
-              <span style={styles.logoSubtitle}>Management System</span>
-            </div>
-          )}
+    <div style={styles.dashboardWrapper}>
+      {/* SIDEBAR */}
+      <aside style={{ ...styles.sidebar, width: sidebarCollapsed ? '80px' : '260px' }}>
+        <div style={styles.sidebarHeader}>
+          <div style={styles.logoBox}>🎓</div>
+          {!sidebarCollapsed && <span style={styles.logoText}>EduAdmin</span>}
         </div>
 
-        {/* Navigation */}
-        <nav style={styles.nav}>
-          <div style={styles.navSection}>
-            {!sidebarCollapsed && <span style={styles.navSectionTitle}>MAIN MENU</span>}
-            
-            <Link to="/dashboard" style={getLinkStyle('/dashboard')}>
-              <span style={styles.navIcon}>🏠</span>
-              {!sidebarCollapsed && <span style={styles.navText}>Dashboard</span>}
-            </Link>
-
-            {isAdmin && (
-              <Link to="/dashboard/users" style={getLinkStyle('/dashboard/users')}>
-                <span style={styles.navIcon}>➕</span>
-                {!sidebarCollapsed && <span style={styles.navText}>Create User</span>}
-              </Link>
-
-              
-            )}
-              {isAdmin && (
-              <Link to="/dashboard/courses" style={getLinkStyle('/dashboard/courses')}>
-                <span style={styles.navIcon}>➕</span>
-                {!sidebarCollapsed && <span style={styles.navText}>Courses</span>}
-              </Link>
-
-              
-            )}
-
-             <Link to="/dashboard/courseenrollment" style={getLinkStyle('/dashboard/courseenrollment')}>
-                <span style={styles.navIcon}>➕</span>
-                {!sidebarCollapsed && <span style={styles.navText}>Course Enrollment</span>}
-              </Link>
-            <Link to="/dashboard/students" style={getLinkStyle('/dashboard/students')}>
-              <span style={styles.navIcon}>👨‍🎓</span>
-              {!sidebarCollapsed && <span style={styles.navText}>Students</span>}
-            </Link>
-               <Link to="/dashboard/studentstatus" style={getLinkStyle('/dashboard/studentstatus')}>
-              <span style={styles.navIcon}>👨‍🎓</span>
-              {!sidebarCollapsed && <span style={styles.navText}>Students Status</span>}
-            </Link>
-
-            <Link to="/dashboard/classes" style={getLinkStyle('/dashboard/classes')}>
-              <span style={styles.navIcon}>📚</span>
-              {!sidebarCollapsed && <span style={styles.navText}>Classes</span>}
-            </Link>
-
-            <Link to="/dashboard/fees" style={getLinkStyle('/dashboard/fees')}>
-              <span style={styles.navIcon}>➕</span>
-              {!sidebarCollapsed && <span style={styles.navText}>Fees</span>}
-            </Link>
-
-             <Link to="/dashboard/feestatus" style={getLinkStyle('/dashboard/feestatus')}>
-              <span style={styles.navIcon}>💰</span>
-              {!sidebarCollapsed && <span style={styles.navText}>Fee Status</span>}
-            </Link>
+        <nav style={styles.navContainer}>
+          <div style={styles.navGroup}>
+            {!sidebarCollapsed && <span style={styles.groupLabel}>GENERAL</span>}
+            <SidebarLink to="/dashboard" icon="🏠" label="Overview" collapsed={sidebarCollapsed} active={location.pathname === '/dashboard'} />
+            <SidebarLink to="/dashboard/students" icon="👨‍🎓" label="Students" collapsed={sidebarCollapsed} active={isActive('/dashboard/students')} />
+            <SidebarLink to="/dashboard/studentstatus" icon="👨‍🎓" label="Student Status" collapsed={sidebarCollapsed} active={isActive('/dashboard/studentstatus')} />
           </div>
 
-          {!sidebarCollapsed && (
-            <div style={styles.navSection}>
-              <span style={styles.navSectionTitle}>SETTINGS</span>
-              
-              <Link to="/dashboard/settings" style={getLinkStyle('/dashboard/settings')}>
-                <span style={styles.navIcon}>⚙️</span>
-                <span style={styles.navText}>Settings</span>
-              </Link>
+          <div style={styles.navGroup}>
+            {!sidebarCollapsed && <span style={styles.groupLabel}>ACADEMICS</span>}
+            <SidebarLink to="/dashboard/courses" icon="📖" label="Courses" collapsed={sidebarCollapsed} active={isActive('/dashboard/courses')} />
+            <SidebarLink to="/dashboard/courseenrollment" icon="📝" label="Enrollment" collapsed={sidebarCollapsed} active={isActive('/dashboard/courseenrollment')} />
+          </div>
 
-              <Link to="/dashboard/help" style={getLinkStyle('/dashboard/help')}>
-                <span style={styles.navIcon}>❓</span>
-                <span style={styles.navText}>Help Center</span>
-              </Link>
+          <div style={styles.navGroup}>
+            {!sidebarCollapsed && <span style={styles.groupLabel}>FINANCE</span>}
+            <SidebarLink to="/dashboard/fees" icon="💳" label="Fee Entry" collapsed={sidebarCollapsed} active={isActive('/dashboard/fees')} />
+            <SidebarLink to="/dashboard/feestatus" icon="💰" label="Fee Status" collapsed={sidebarCollapsed} active={isActive('/dashboard/feestatus')} />
+          </div>
+
+          {isAdmin && (
+            <div style={styles.navGroup}>
+              {!sidebarCollapsed && <span style={styles.groupLabel}>ADMIN</span>}
+              <SidebarLink to="/dashboard/users" icon="👤" label="User Management" collapsed={sidebarCollapsed} active={isActive('/dashboard/users')} />
+              <SidebarLink to="/dashboard/settings" icon="⚙️" label="Settings" collapsed={sidebarCollapsed} active={isActive('/dashboard/settings')} />
             </div>
           )}
         </nav>
 
-        {/* User Profile Section */}
-        <div style={styles.profileSection}>
-          <div style={styles.profileCard}>
-            <div style={styles.avatar}>
-              {getInitials(currentUser?.name)}
-            </div>
-            {!sidebarCollapsed && (
-              <div style={styles.profileInfo}>
-                <span style={styles.profileName}>{currentUser?.name || 'User'}</span>
-                <span style={{...styles.roleBadge, ...getRoleBadgeStyle()}}>
-                  {isAdmin ? '👑 Admin' : '📚 Teacher'}
-                </span>
-              </div>
-            )}
-          </div>
-          
-          <button onClick={logout} style={styles.logoutBtn}>
-            <span style={styles.logoutIcon}>🚪</span>
-            {!sidebarCollapsed && <span>Logout</span>}
-          </button>
-        </div>
-
-        {/* Collapse Toggle */}
-        <button 
-          onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-          style={styles.collapseBtn}
-        >
+        <button onClick={() => setSidebarCollapsed(!sidebarCollapsed)} style={styles.collapseToggle}>
           {sidebarCollapsed ? '→' : '←'}
         </button>
       </aside>
 
-      {/* Main Content Area */}
-      <main style={styles.main}>
-        {/* Header */}
-        <header style={styles.header}>
-          <div style={styles.headerLeft}>
-            <h2 style={styles.pageTitle}>
-              {location.pathname === '/dashboard' && '📊 Dashboard Overview'}
-              {location.pathname === '/dashboard/users' && '➕ Create New User'}
-              {location.pathname === '/dashboard/courses' && '➕ Courses'}
-              {location.pathname === '/dashboard/courseenrollment' && '➕ Course Enrollment'}
-              {location.pathname === '/dashboard/students' && '👨‍🎓 Student Management'}
-              {location.pathname === '/dashboard/studentstatus' && '👨‍🎓 Student Status'}
-              {location.pathname === '/dashboard/classes' && '📚 Class Management'}
-              {location.pathname === '/dashboard/fees' && '➕ Add Fee '}
-              {location.pathname === '/dashboard/feestatus' && '💰 Fee Management'}
-              {location.pathname === '/dashboard/settings' && '⚙️ Settings'}
-            </h2>
-            <p style={styles.breadcrumb}>
-              Home {location.pathname !== '/dashboard' && `/ ${location.pathname.split('/').pop().replace('-', ' ')}`}
-            </p>
-          </div>
-
-          <div style={styles.headerRight}>
-            {/* Search Bar */}
-            <div style={styles.searchContainer}>
+      {/* MAIN CONTENT AREA */}
+      <div style={styles.mainContent}>
+        
+        {/* TOP NAVBAR */}
+        <header style={styles.navbar}>
+          <div style={styles.navLeft}>
+            <div style={styles.searchWrapper}>
               <span style={styles.searchIcon}>🔍</span>
               <input 
                 type="text" 
-                placeholder="Search..." 
-                style={styles.searchInput}
+                placeholder="Search everything..." 
+                style={styles.navInput} 
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
               />
             </div>
+          </div>
 
-            {/* Notifications */}
-            <button style={styles.iconButton}>
-              <span>🔔</span>
-              <span style={styles.notificationBadge}>3</span>
-            </button>
+          <div style={styles.navRight}>
+            <div style={styles.iconActions}>
+              <div style={styles.notifIcon}>🔔<span style={styles.notifBadge}>3</span></div>
+              <div style={styles.helpIcon}>❓</div>
+            </div>
 
-            {/* User Quick Access */}
-            <div style={styles.headerProfile}>
-              <div style={styles.headerAvatar}>
-                {getInitials(currentUser?.name)}
+            <div style={styles.vDivider} />
+
+            <div style={styles.profileTrigger} onClick={() => setShowProfileDropdown(!showProfileDropdown)}>
+              <div style={styles.navAvatar}>{getInitials(currentUser?.name)}</div>
+              <div style={styles.navUserInfo}>
+                <span style={styles.navName}>{currentUser?.name || "User"}</span>
+                <span style={styles.navRole}>{isAdmin ? "Administrator" : "Staff"}</span>
               </div>
-              <div style={styles.headerUserInfo}>
-                <span style={styles.headerUserName}>{currentUser?.name}</span>
-                <span style={styles.headerUserRole}>{currentUser?.role}</span>
-              </div>
+              <span style={styles.chevron}>▼</span>
+
+              {showProfileDropdown && (
+                <div style={styles.profileDropdown}>
+                  <div style={styles.dropdownInfo}>
+                    <strong>{currentUser?.email}</strong>
+                  </div>
+                  <div style={styles.dropdownDivider} />
+                  <Link to="/dashboard/profile" style={styles.dropdownLink}>My Profile</Link>
+                  <button onClick={handleLogout} style={styles.logoutAction}>Logout</button>
+                </div>
+              )}
             </div>
           </div>
         </header>
 
-        {/* Content Area */}
-        <div style={styles.contentWrapper}>
-          <div style={styles.contentArea}>
-            <Outlet />
+        {/* PAGE BODY */}
+        <main style={styles.pageBody}>
+          {error && (
+            <div style={styles.errorAlert}>
+              <span>⚠️ <strong>Error:</strong> {error}</span>
+              <button onClick={() => setError(null)} style={styles.errorClose}>×</button>
+            </div>
+          )}
+          
+          <div style={styles.contentCard}>
+            <Outlet context={{ searchTerm }} />
           </div>
-        </div>
+        </main>
 
-        {/* Footer */}
         <footer style={styles.footer}>
-          <span>© 2024 EduAdmin. All rights reserved.</span>
-          <span style={styles.footerLinks}>
-            <a href="#" style={styles.footerLink}>Privacy Policy</a>
-            <span style={styles.footerDivider}>•</span>
-            <a href="#" style={styles.footerLink}>Terms of Service</a>
-          </span>
+          <span>© 2025 EduAdmin System v2.0</span>
+          <div style={styles.footerLinks}>
+            <a href="#support" style={styles.fLink}>Support</a>
+            <a href="#privacy" style={styles.fLink}>Privacy</a>
+          </div>
         </footer>
-      </main>
-
-      <style>{`
-        @keyframes slideIn {
-          from { opacity: 0; transform: translateX(-20px); }
-          to { opacity: 1; transform: translateX(0); }
-        }
-        @keyframes fadeIn {
-          from { opacity: 0; }
-          to { opacity: 1; }
-        }
-        a:hover {
-          background-color: rgba(255, 255, 255, 0.15) !important;
-        }
-      `}</style>
+      </div>
     </div>
   );
 };
 
+// Sub-component for Sidebar Links
+const SidebarLink = ({ to, icon, label, collapsed, active }) => (
+  <Link to={to} style={{
+    ...styles.sidebarLink,
+    backgroundColor: active ? 'rgba(59, 130, 246, 0.15)' : 'transparent',
+    color: active ? '#60A5FA' : '#94A3B8',
+    borderLeft: active ? '4px solid #3B82F6' : '4px solid transparent'
+  }}>
+    <span style={styles.linkIcon}>{icon}</span>
+    {!collapsed && <span style={styles.linkText}>{label}</span>}
+  </Link>
+);
+
 const styles = {
-  wrapper: {
-    display: 'flex',
-    minHeight: '100vh',
-    fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif",
-    backgroundColor: '#F3F4F6'
-  },
+  dashboardWrapper: { display: 'flex', height: '100vh', backgroundColor: '#F1F5F9', overflow: 'hidden', fontFamily: 'Inter, sans-serif' },
   
-  // Sidebar Styles
-  sidebar: {
-    background: 'linear-gradient(180deg, #667eea 0%, #764ba2 100%)',
-    color: 'white',
-    display: 'flex',
-    flexDirection: 'column',
-    position: 'relative',
-    transition: 'width 0.3s ease',
-    boxShadow: '4px 0 20px rgba(0, 0, 0, 0.1)'
-  },
-  logoSection: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '12px',
-    padding: '24px 20px',
-    borderBottomWidth: '1px',
-    borderBottomStyle: 'solid',
-    borderBottomColor: 'rgba(255, 255, 255, 0.1)'
-  },
-  logoContainer: {
-    width: '45px',
-    height: '45px',
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    borderRadius: '12px',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexShrink: 0
-  },
-  logoIcon: {
-    fontSize: '24px'
-  },
-  logoText: {
-    display: 'flex',
-    flexDirection: 'column'
-  },
-  logoTitle: {
-    fontSize: '20px',
-    fontWeight: '700',
-    margin: 0,
-    letterSpacing: '-0.5px'
-  },
-  logoSubtitle: {
-    fontSize: '11px',
-    opacity: 0.8
-  },
+  // Sidebar
+  sidebar: { backgroundColor: '#0F172A', color: '#fff', display: 'flex', flexDirection: 'column', transition: 'width 0.3s ease', position: 'relative', zIndex: 10 },
+  sidebarHeader: { padding: '25px 20px', display: 'flex', alignItems: 'center', gap: '12px', borderBottom: '1px solid rgba(255,255,255,0.05)' },
+  logoBox: { width: '35px', height: '35px', backgroundColor: '#3B82F6', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '20px' },
+  logoText: { fontSize: '18px', fontWeight: 'bold', letterSpacing: '0.5px' },
+  navContainer: { flex: 1, padding: '20px 0', overflowY: 'auto' },
+  navGroup: { marginBottom: '25px' },
+  groupLabel: { fontSize: '10px', color: '#475569', fontWeight: 'bold', padding: '0 24px', marginBottom: '10px', display: 'block', letterSpacing: '1px' },
+  sidebarLink: { display: 'flex', alignItems: 'center', padding: '12px 20px', textDecoration: 'none', transition: '0.2s', gap: '15px' },
+  linkIcon: { fontSize: '18px', width: '20px', textAlign: 'center' },
+  linkText: { fontSize: '14px', fontWeight: '500' },
+  collapseToggle: { position: 'absolute', bottom: '20px', right: '-12px', width: '24px', height: '24px', borderRadius: '50%', backgroundColor: '#3B82F6', border: 'none', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' },
+
+  // Main & Navbar
+  mainContent: { flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' },
+  navbar: { height: '70px', backgroundColor: '#fff', borderBottom: '1px solid #E2E8F0', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 30px' },
+  navLeft: { flex: 1 },
+  searchWrapper: { position: 'relative', maxWidth: '400px' },
+  searchIcon: { position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', opacity: 0.4 },
+  navInput: { width: '100%', padding: '10px 15px 10px 40px', borderRadius: '10px', border: '1px solid #E2E8F0', backgroundColor: '#F8FAFC' },
   
-  // Navigation Styles
-  nav: {
-    flex: 1,
-    padding: '20px 12px',
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '24px',
-    overflowY: 'auto'
-  },
-  navSection: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '4px'
-  },
-  navSectionTitle: {
-    fontSize: '11px',
-    fontWeight: '600',
-    opacity: 0.6,
-    letterSpacing: '1px',
-    padding: '0 12px',
-    marginBottom: '8px'
-  },
-  navLink: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '12px',
-    padding: '12px 16px',
-    color: 'white',
-    textDecoration: 'none',
-    borderRadius: '10px',
-    transition: 'all 0.2s ease',
-    borderLeftWidth: '3px',
-    borderLeftStyle: 'solid',
-    borderLeftColor: 'transparent',
-    fontSize: '14px'
-  },
-  navIcon: {
-    fontSize: '18px',
-    width: '24px',
-    textAlign: 'center'
-  },
-  navText: {
-    fontWeight: '500'
-  },
+  navRight: { display: 'flex', alignItems: 'center', gap: '25px' },
+  iconActions: { display: 'flex', gap: '15px', color: '#64748B', fontSize: '18px' },
+  notifIcon: { position: 'relative', cursor: 'pointer' },
+  notifBadge: { position: 'absolute', top: '-5px', right: '-5px', backgroundColor: '#EF4444', color: '#fff', fontSize: '9px', padding: '2px 5px', borderRadius: '10px' },
+  vDivider: { width: '1px', height: '24px', backgroundColor: '#E2E8F0' },
   
-  // Profile Section
-  profileSection: {
-    padding: '20px',
-    borderTopWidth: '1px',
-    borderTopStyle: 'solid',
-    borderTopColor: 'rgba(255, 255, 255, 0.1)',
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '12px'
-  },
-  profileCard: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '12px',
-    padding: '12px',
-    backgroundColor: 'rgba(255, 255, 255, 0.1)',
-    borderRadius: '12px'
-  },
-  avatar: {
-    width: '40px',
-    height: '40px',
-    borderRadius: '10px',
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    fontSize: '14px',
-    fontWeight: '700',
-    flexShrink: 0
-  },
-  profileInfo: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '4px',
-    overflow: 'hidden'
-  },
-  profileName: {
-    fontSize: '14px',
-    fontWeight: '600',
-    whiteSpace: 'nowrap',
-    overflow: 'hidden',
-    textOverflow: 'ellipsis'
-  },
-  roleBadge: {
-    fontSize: '10px',
-    padding: '3px 8px',
-    borderRadius: '20px',
-    fontWeight: '600',
-    width: 'fit-content'
-  },
-  logoutBtn: {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: '8px',
-    padding: '12px',
-    backgroundColor: 'rgba(239, 68, 68, 0.2)',
-    borderWidth: '1px',
-    borderStyle: 'solid',
-    borderColor: 'rgba(239, 68, 68, 0.3)',
-    color: '#FCA5A5',
-    borderRadius: '10px',
-    cursor: 'pointer',
-    fontSize: '14px',
-    fontWeight: '500',
-    transition: 'all 0.2s ease'
-  },
-  logoutIcon: {
-    fontSize: '16px'
-  },
-  collapseBtn: {
-    position: 'absolute',
-    right: '-12px',
-    top: '50%',
-    transform: 'translateY(-50%)',
-    width: '24px',
-    height: '24px',
-    borderRadius: '50%',
-    backgroundColor: '#667eea',
-    borderWidth: '2px',
-    borderStyle: 'solid',
-    borderColor: '#fff',
-    color: '#fff',
-    cursor: 'pointer',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    fontSize: '12px',
-    fontWeight: 'bold',
-    boxShadow: '0 2px 10px rgba(0, 0, 0, 0.2)',
-    zIndex: 10
-  },
+  // Profile
+  profileTrigger: { display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer', position: 'relative' },
+  navAvatar: { width: '38px', height: '38px', borderRadius: '50%', backgroundColor: '#3B82F6', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold' },
+  navUserInfo: { display: 'flex', flexDirection: 'column' },
+  navName: { fontSize: '14px', fontWeight: '600', color: '#1E293B' },
+  navRole: { fontSize: '11px', color: '#64748B' },
+  chevron: { fontSize: '9px', color: '#94A3B8' },
+  profileDropdown: { position: 'absolute', top: '50px', right: 0, width: '200px', backgroundColor: '#fff', borderRadius: '12px', boxShadow: '0 10px 25px rgba(0,0,0,0.1)', border: '1px solid #E2E8F0', padding: '10px', zIndex: 100 },
+  dropdownInfo: { padding: '10px', fontSize: '12px', color: '#64748B', overflow: 'hidden', textOverflow: 'ellipsis' },
+  dropdownDivider: { height: '1px', backgroundColor: '#E2E8F0', margin: '5px 0' },
+  dropdownLink: { display: 'block', padding: '10px', textDecoration: 'none', color: '#1E293B', fontSize: '13px', borderRadius: '6px' },
+  logoutAction: { width: '100%', textAlign: 'left', padding: '10px', border: 'none', background: 'none', color: '#EF4444', cursor: 'pointer', fontSize: '13px', fontWeight: '600' },
+
+  // Body
+  pageBody: { flex: 1, padding: '30px', overflowY: 'auto' },
+  errorAlert: { backgroundColor: '#FEF2F2', border: '1px solid #FCA5A5', color: '#B91C1C', padding: '15px 20px', borderRadius: '10px', marginBottom: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' },
+  errorClose: { background: 'none', border: 'none', fontSize: '20px', cursor: 'pointer', color: '#B91C1C' },
+  contentCard: { backgroundColor: '#fff', borderRadius: '16px', padding: '25px', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)', minHeight: '100%' },
   
-  // Main Content Styles
-  main: {
-    flex: 1,
-    display: 'flex',
-    flexDirection: 'column',
-    minWidth: 0
-  },
-  
-  // Header Styles
-  header: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: '16px 32px',
-    backgroundColor: '#fff',
-    borderBottomWidth: '1px',
-    borderBottomStyle: 'solid',
-    borderBottomColor: '#E5E7EB',
-    boxShadow: '0 1px 3px rgba(0, 0, 0, 0.05)'
-  },
-  headerLeft: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '4px'
-  },
-  pageTitle: {
-    fontSize: '20px',
-    fontWeight: '700',
-    color: '#1F2937',
-    margin: 0
-  },
-  breadcrumb: {
-    fontSize: '13px',
-    color: '#9CA3AF',
-    margin: 0,
-    textTransform: 'capitalize'
-  },
-  headerRight: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '16px'
-  },
-  searchContainer: {
-    position: 'relative',
-    display: 'flex',
-    alignItems: 'center'
-  },
-  searchIcon: {
-    position: 'absolute',
-    left: '12px',
-    fontSize: '14px',
-    opacity: 0.5
-  },
-  searchInput: {
-    padding: '10px 16px 10px 40px',
-    borderRadius: '10px',
-    borderWidth: '1px',
-    borderStyle: 'solid',
-    borderColor: '#E5E7EB',
-    backgroundColor: '#F9FAFB',
-    fontSize: '14px',
-    width: '250px',
-    outline: 'none',
-    transition: 'all 0.2s ease'
-  },
-  iconButton: {
-    position: 'relative',
-    width: '42px',
-    height: '42px',
-    borderRadius: '10px',
-    backgroundColor: '#F3F4F6',
-    border: 'none',
-    cursor: 'pointer',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    fontSize: '18px',
-    transition: 'all 0.2s ease'
-  },
-  notificationBadge: {
-    position: 'absolute',
-    top: '6px',
-    right: '6px',
-    width: '18px',
-    height: '18px',
-    borderRadius: '50%',
-    backgroundColor: '#EF4444',
-    color: '#fff',
-    fontSize: '10px',
-    fontWeight: '700',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center'
-  },
-  headerProfile: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '12px',
-    padding: '8px 16px 8px 8px',
-    backgroundColor: '#F9FAFB',
-    borderRadius: '12px',
-    cursor: 'pointer'
-  },
-  headerAvatar: {
-    width: '36px',
-    height: '36px',
-    borderRadius: '10px',
-    background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    color: '#fff',
-    fontSize: '13px',
-    fontWeight: '700'
-  },
-  headerUserInfo: {
-    display: 'flex',
-    flexDirection: 'column'
-  },
-  headerUserName: {
-    fontSize: '13px',
-    fontWeight: '600',
-    color: '#1F2937'
-  },
-  headerUserRole: {
-    fontSize: '11px',
-    color: '#9CA3AF',
-    textTransform: 'capitalize'
-  },
-  
-  // Content Area Styles
-  contentWrapper: {
-    flex: 1,
-    padding: '32px',
-    overflowY: 'auto',
-    backgroundColor: '#F3F4F6'
-  },
-  contentArea: {
-    animation: 'fadeIn 0.3s ease'
-  },
-  
-  // Footer Styles
-  footer: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: '16px 32px',
-    backgroundColor: '#fff',
-    borderTopWidth: '1px',
-    borderTopStyle: 'solid',
-    borderTopColor: '#E5E7EB',
-    fontSize: '13px',
-    color: '#9CA3AF'
-  },
-  footerLinks: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '8px'
-  },
-  footerLink: {
-    color: '#6B7280',
-    textDecoration: 'none'
-  },
-  footerDivider: {
-    opacity: 0.5
-  }
+  footer: { padding: '20px 30px', display: 'flex', justifyContent: 'space-between', color: '#94A3B8', fontSize: '12px', borderTop: '1px solid #E2E8F0' },
+  footerLinks: { display: 'flex', gap: '15px' },
+  fLink: { color: '#64748B', textDecoration: 'none' }
 };
 
 export default Dashboard;
