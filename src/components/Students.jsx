@@ -104,7 +104,7 @@ const Students = () => {
           nextNumber = Math.max(...numbers) + 1;
         }
 
-        const customId = `STU-2025-${String(nextNumber).padStart(3, '0')}`;
+        const customId = `STU-${String(nextNumber).padStart(3, '0')}`;
 
         const payloadWithMeta = {
           student_id: customId,
