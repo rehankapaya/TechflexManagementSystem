@@ -5,12 +5,12 @@ import { ref, set, push, onValue, remove, update } from 'firebase/database';
 
 const Fees = () => {
   const { currentUser, isAdmin } = useAuth();
-  
+
   // Data States
   const [students, setStudents] = useState([]);
   const [feesData, setFeesData] = useState({});
   const [pendingFees, setPendingFees] = useState([]);
-  
+
   // UI States
   const [selectedStudent, setSelectedStudent] = useState(null);
   const [selectedCourseId, setSelectedCourseId] = useState('');
@@ -46,7 +46,7 @@ const Fees = () => {
   }, []);
 
   // --- 2. Logic Functions ---
-  
+
   // CLEAR / RESET FUNCTION
   const handleReset = () => {
     setSelectedStudent(null);
@@ -57,7 +57,7 @@ const Fees = () => {
 
   const handleStudentSelect = (student) => {
     setSelectedStudent(student);
-    setSelectedCourseId(''); 
+    setSelectedCourseId('');
     setFormData(prev => ({ ...prev, payable: 0, paid: 0, waived: 0 }));
     setSearchTerm("");
   };
@@ -75,44 +75,68 @@ const Fees = () => {
     }
   };
 
-  const handlePaymentSubmit = async (e) => {
-    e.preventDefault();
-    if (!selectedStudent || !selectedCourseId) return alert("Select student and course");
+  const handleDeleteFee = async (monthKey) => {
+    if (!selectedStudent || !selectedCourseId) return;
 
-    setLoading(true);
-    const monthKey = `${formData.month}_${formData.year}`;
-    const balance = Number(formData.payable) - Number(formData.paid) - Number(formData.waived);
+    const confirmDelete = window.confirm(
+      `Are you sure you want to delete the record for ${monthKey.replace('_', ' ')}?`
+    );
 
-    const transaction = {
-      student_id: selectedStudent.id,
-      student_name: selectedStudent.name,
-      student_custom_id: selectedStudent.student_id,
-      course_id: selectedCourseId,
-      course_name: selectedStudent.enrolled_courses[selectedCourseId].course_name,
-      month_key: monthKey,
-      payable: Number(formData.payable),
-      paid: Number(formData.paid),
-      waived: Number(formData.waived),
-      balance: balance,
-      addedBy: currentUser.name,
-      timestamp: Date.now()
-    };
-
-    try {
-      if (transaction.waived > 0 && !isAdmin) {
-        await push(ref(db, 'pending_fee_approvals'), transaction);
-        alert("Waiver request sent to Admin.");
-      } else {
-        await update(ref(db, `fee_transactions/${selectedStudent.id}/${selectedCourseId}/${monthKey}`), transaction);
-        alert("Payment recorded.");
+    if (confirmDelete) {
+      try {
+        await remove(ref(db, `fee_transactions/${selectedStudent.id}/${selectedCourseId}/${monthKey}`));
+        alert("Record deleted successfully.");
+      } catch (err) {
+        alert("Error deleting record: " + err.message);
       }
-      setFormData(prev => ({ ...prev, paid: 0, waived: 0 }));
-    } catch (err) {
-      alert(err.message);
-    } finally {
-      setLoading(false);
     }
   };
+
+  const handlePaymentSubmit = async (e) => {
+  e.preventDefault();
+  if (!selectedStudent || !selectedCourseId) return alert("Select student and course");
+
+  setLoading(true);
+  const monthKey = `${formData.month}_${formData.year}`;
+  const balance = Number(formData.payable) - Number(formData.paid) - Number(formData.waived);
+
+  const transaction = {
+    student_id: selectedStudent.id,
+    student_name: selectedStudent.name,
+    student_custom_id: selectedStudent.student_id,
+    course_id: selectedCourseId,
+    course_name: selectedStudent.enrolled_courses[selectedCourseId].course_name,
+    month_key: monthKey,
+    payable: Number(formData.payable),
+    paid: Number(formData.paid),
+    waived: Number(formData.waived),
+    balance: balance,
+    addedBy: currentUser.displayName || 'Staff',
+    timestamp: Date.now()
+  };
+
+  try {
+    if (transaction.waived > 0 && !isAdmin) {
+      await push(ref(db, 'pending_fee_approvals'), transaction);
+      alert("Waiver request sent to Admin.");
+    } else {
+      await update(ref(db, `fee_transactions/${selectedStudent.id}/${selectedCourseId}/${monthKey}`), transaction);
+      alert("Payment recorded.");
+    }
+
+    // RESET LOGIC: Set Paid back to the full Payable amount, and Waiver to 0
+    setFormData(prev => ({
+      ...prev,
+      paid: prev.payable, // Set paid field equal to the monthly fee
+      waived: 0           // Clear the waiver
+    }));
+
+  } catch (err) {
+    alert(err.message);
+  } finally {
+    setLoading(false);
+  }
+};
 
   const approveFee = async (reqId, data) => {
     try {
@@ -127,7 +151,7 @@ const Fees = () => {
   };
 
   const rejectFee = async (reqId) => {
-    if(window.confirm("Reject request?")) await remove(ref(db, `pending_fee_approvals/${reqId}`));
+    if (window.confirm("Reject request?")) await remove(ref(db, `pending_fee_approvals/${reqId}`));
   };
 
   const getHistory = () => {
@@ -136,20 +160,20 @@ const Fees = () => {
     return Object.keys(transactions).map(key => ({ id: key, ...transactions[key] }));
   };
 
-  const searchResults = students.filter(s => 
-    s.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+  const searchResults = students.filter(s =>
+    s.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     (s.student_id && s.student_id.toLowerCase().includes(searchTerm.toLowerCase()))
   ).slice(0, 5);
 
   return (
     <div style={styles.container}>
       <header style={styles.header}>
-        <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
-            <div>
-                <h2 style={{margin: 0}}>Fee Management</h2>
-                <p style={{color: '#64748b', margin: '5px 0 0 0'}}>Multi-Course Billing System</p>
-            </div>
-            <button onClick={handleReset} style={styles.btnResetTop}>🔄 Clear All</button>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div>
+            <h2 style={styles.title}>Fee Management</h2>
+            <p style={styles.subtitle}>Multi-Course Billing System</p>
+          </div>
+          <button onClick={handleReset} style={styles.btnResetTop}>🔄 Clear All</button>
         </div>
       </header>
 
@@ -158,13 +182,13 @@ const Fees = () => {
         <div style={styles.sideCol}>
           <div style={styles.card}>
             <h3>Collect Fee</h3>
-            
-            <div style={{position: 'relative', marginBottom: '15px'}}>
+
+            <div style={{ position: 'relative', marginBottom: '15px' }}>
               <label style={styles.label}>Search Student</label>
-              <input 
-                type="text" 
-                placeholder="Ex: STU-2025-001" 
-                value={searchTerm} 
+              <input
+                type="text"
+                placeholder="Ex: STU-2025-001"
+                value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 style={styles.input}
               />
@@ -184,10 +208,10 @@ const Fees = () => {
                 <div style={styles.selectionInfo}>Student: <strong>{selectedStudent.name}</strong></div>
 
                 <label style={styles.label}>Select Enrolled Course</label>
-                <select 
-                  value={selectedCourseId} 
-                  onChange={(e) => handleCourseSelect(e.target.value)} 
-                  style={styles.input} 
+                <select
+                  value={selectedCourseId}
+                  onChange={(e) => handleCourseSelect(e.target.value)}
+                  style={styles.input}
                   required
                 >
                   <option value="">-- Choose Course --</option>
@@ -199,34 +223,34 @@ const Fees = () => {
                 {selectedCourseId && (
                   <>
                     <div style={styles.row}>
-                       <div style={{flex: 1}}>
-                         <label style={styles.label}>Month</label>
-                         <select value={formData.month} onChange={e => setFormData({...formData, month: e.target.value})} style={styles.input}>
-                            {["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"].map(m => <option key={m} value={m}>{m}</option>)}
-                         </select>
-                       </div>
-                       <div style={{flex: 1}}>
-                         <label style={styles.label}>Year</label>
-                         <input type="number" value={formData.year} onChange={e => setFormData({...formData, year: e.target.value})} style={styles.input} />
-                       </div>
+                      <div style={{ flex: 1 }}>
+                        <label style={styles.label}>Month</label>
+                        <select value={formData.month} onChange={e => setFormData({ ...formData, month: e.target.value })} style={styles.input}>
+                          {["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"].map(m => <option key={m} value={m}>{m}</option>)}
+                        </select>
+                      </div>
+                      <div style={{ flex: 1 }}>
+                        <label style={styles.label}>Year</label>
+                        <input type="number" value={formData.year} onChange={e => setFormData({ ...formData, year: e.target.value })} style={styles.input} />
+                      </div>
                     </div>
 
                     <label style={styles.label}>Payable for this Course</label>
-                    <input type="number" value={formData.payable} readOnly style={{...styles.input, background: '#f1f5f9'}} />
+                    <input type="number" value={formData.payable} readOnly style={{ ...styles.input, background: '#f1f5f9' }} />
 
                     <label style={styles.label}>Amount Paid</label>
-                    <input type="number" value={formData.paid} onChange={e => setFormData({...formData, paid: e.target.value})} style={styles.input} required />
+                    <input type="number" value={formData.paid} onChange={e => setFormData({ ...formData, paid: e.target.value })} style={styles.input} required />
 
                     <label style={styles.label}>Waiver/Discount</label>
-                    <input type="number" value={formData.waived} onChange={e => setFormData({...formData, waived: e.target.value})} style={styles.input} />
+                    <input type="number" value={formData.waived} onChange={e => setFormData({ ...formData, waived: e.target.value })} style={styles.input} />
 
                     <div style={styles.balanceSummary}>Balance: PKR {formData.payable - formData.paid - formData.waived}</div>
 
-                    <div style={{display: 'flex', gap: '10px'}}>
-                        <button type="submit" disabled={loading} style={{...styles.btnPrimary, flex: 2}}>
-                           {loading ? "Saving..." : (formData.waived > 0 && !isAdmin ? "Submit Waiver" : "Update Ledger")}
-                        </button>
-                        <button type="button" onClick={handleReset} style={{...styles.btnReset, flex: 1}}>Reset</button>
+                    <div style={{ display: 'flex', gap: '10px' }}>
+                      <button type="submit" disabled={loading} style={{ ...styles.btnPrimary, flex: 2 }}>
+                        {loading ? "Saving..." : (formData.waived > 0 && !isAdmin ? "Submit Waiver" : "Update Ledger")}
+                      </button>
+                      <button type="button" onClick={handleReset} style={{ ...styles.btnReset, flex: 1 }}>Reset</button>
                     </div>
                   </>
                 )}
@@ -239,7 +263,7 @@ const Fees = () => {
         <div style={styles.mainCol}>
           {isAdmin && pendingFees.length > 0 && (
             <div style={styles.pendingCard}>
-              <h4 style={{marginTop: 0, color: '#b45309'}}>⏳ Pending Waiver Approvals</h4>
+              <h4 style={{ marginTop: 0, color: '#b45309' }}>⏳ Pending Waiver Approvals</h4>
               <table style={styles.table}>
                 <thead>
                   <tr style={styles.thRow}>
@@ -256,7 +280,7 @@ const Fees = () => {
                       <td>{f.student_name}</td>
                       <td><small>{f.course_name}</small></td>
                       <td>{f.month_key}</td>
-                      <td style={{color: 'red', fontWeight: 'bold'}}>{f.waived}</td>
+                      <td style={{ color: 'red', fontWeight: 'bold' }}>{f.waived}</td>
                       <td>
                         <button onClick={() => approveFee(f.id, f)} style={styles.btnApprove}>Approve</button>
                         <button onClick={() => rejectFee(f.id)} style={styles.btnReject}>Reject</button>
@@ -279,6 +303,7 @@ const Fees = () => {
                     <th>Paid</th>
                     <th>Waived</th>
                     <th>Balance</th>
+                    {isAdmin && <th>Actions</th>}
                   </tr>
                 </thead>
                 <tbody>
@@ -286,9 +311,19 @@ const Fees = () => {
                     <tr key={h.id} style={styles.tr}>
                       <td>{h.id.replace('_', ' ')}</td>
                       <td>{h.payable}</td>
-                      <td style={{color: '#059669', fontWeight: 'bold'}}>{h.paid}</td>
+                      <td style={{ color: '#059669', fontWeight: 'bold' }}>{h.paid}</td>
                       <td>{h.waived}</td>
-                      <td style={{color: h.balance > 0 ? 'red' : 'inherit'}}>{h.balance}</td>
+                      <td style={{ color: h.balance > 0 ? 'red' : 'inherit' }}>{h.balance}</td>
+                      {isAdmin && (
+                        <td>
+                          <button
+                            onClick={() => handleDeleteFee(h.id)}
+                            style={styles.btnDeleteSmall}
+                          >
+                            🗑️
+                          </button>
+                        </td>
+                      )}
                     </tr>
                   ))}
                 </tbody>
@@ -304,6 +339,8 @@ const Fees = () => {
 };
 
 const styles = {
+   title: { fontSize: '24px', fontWeight: '800', color: '#0f172a' },
+  subtitle: { color: '#64748b', fontSize: '13px' },
   container: { padding: '30px', background: '#f8fafc', minHeight: '100vh', fontFamily: 'system-ui' },
   header: { marginBottom: '25px', borderBottom: '2px solid #e2e8f0', paddingBottom: '15px' },
   layout: { display: 'grid', gridTemplateColumns: '380px 1fr', gap: '30px' },
@@ -326,7 +363,18 @@ const styles = {
   tr: { borderBottom: '1px solid #f1f5f9', fontSize: '14px' },
   btnApprove: { background: '#10b981', color: '#fff', border: 'none', padding: '5px 10px', borderRadius: '6px', cursor: 'pointer', marginRight: '5px' },
   btnReject: { background: '#ef4444', color: '#fff', border: 'none', padding: '5px 10px', borderRadius: '6px', cursor: 'pointer' },
-  placeholder: { textAlign: 'center', padding: '60px', color: '#94a3b8', border: '2px dashed #e2e8f0', borderRadius: '12px' }
+  placeholder: { textAlign: 'center', padding: '60px', color: '#94a3b8', border: '2px dashed #e2e8f0', borderRadius: '12px' },
+  btnDeleteSmall: {
+    background: 'none',
+    border: 'none',
+    cursor: 'pointer',
+    fontSize: '16px',
+    padding: '5px',
+    borderRadius: '4px',
+    transition: 'background 0.2s',
+    ':hover': { background: '#fee2e2' } // Note: Standard JS styles don't support :hover, 
+    // but you can add it via onMouseEnter/Leave if needed.
+  },
 };
 
 export default Fees;

@@ -8,6 +8,15 @@ const StudentStatus = () => {
   const [loading, setLoading] = useState(false);
   const [selectedCourseStatus, setSelectedCourseStatus] = useState({});
   const [status, setStatus] = useState({ type: '', msg: '' });
+  // Add this state with your other states
+  const [selectedCourseFilter, setSelectedCourseFilter] = useState('');
+  const [selectedStatusFilter, setSelectedStatusFilter] = useState('');
+  // Get unique list of all courses enrolled by any student
+  const allUniqueCourses = Array.from(new Set(
+    students.flatMap(s => Object.values(s.enrolled_courses || {}).map(c => c.course_name))
+  )).sort();
+
+  // Update your filtering logic
 
   useEffect(() => {
     const studentsRef = ref(db, 'students');
@@ -48,7 +57,7 @@ const StudentStatus = () => {
 
       await update(ref(db), masterUpdate);
       setStatus({ type: 'success', msg: "Status synchronized successfully!" });
-      
+
     } catch (err) {
       setStatus({ type: 'error', msg: "Update failed: " + err.message });
     } finally {
@@ -56,39 +65,78 @@ const StudentStatus = () => {
     }
   };
 
-  const filteredStudents = students.filter(s => 
-    s.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-    s.student_id?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredStudents = students.filter(s => {
+    const matchesSearch = s.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      s.student_id?.toLowerCase().includes(searchTerm.toLowerCase());
+
+    const matchesCourse = selectedCourseFilter === '' ||
+      Object.values(s.enrolled_courses || {}).some(c => c.course_name === selectedCourseFilter);
+
+    const matchesStatus = selectedStatusFilter === '' ||
+      s.status === selectedStatusFilter;
+
+    return matchesSearch && matchesCourse && matchesStatus;
+  });
 
   return (
     <div style={styles.container}>
       <header style={styles.header}>
         <div style={styles.titleArea}>
           <h2 style={styles.title}>Student Status Sync 🔄</h2>
-          <p style={styles.subtitle}>Manage individual course completions and overall student lifecycle.</p>
+          <p style={styles.subtitle}>Manage completions and lifecycle.</p>
         </div>
-        <div style={styles.searchWrapper}>
-          <span style={styles.searchIcon}>🔍</span>
-          <input 
-            type="text" 
-            placeholder="Search by ID or Name..." 
-            value={searchTerm} 
-            onChange={(e) => setSearchTerm(e.target.value)}
-            style={styles.searchInput}
-          />
+
+        <div style={styles.filterGroup}>
+          {/* Status Filter */}
+          <div style={styles.searchWrapper}>
+            <select
+              value={selectedStatusFilter}
+              onChange={(e) => setSelectedStatusFilter(e.target.value)}
+              style={{ ...styles.searchInput, paddingLeft: '15px', width: '140px' }}
+            >
+              <option value="">All Status</option>
+              <option value="active">Active</option>
+              <option value="inactive">Inactive</option>
+            </select>
+          </div>
+
+          {/* Course Filter */}
+          <div style={styles.searchWrapper}>
+            <select
+              value={selectedCourseFilter}
+              onChange={(e) => setSelectedCourseFilter(e.target.value)}
+              style={{ ...styles.searchInput, paddingLeft: '15px', width: '180px' }}
+            >
+              <option value="">All Courses</option>
+              {allUniqueCourses.map(course => (
+                <option key={course} value={course}>{course}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Search Input */}
+          <div style={styles.searchWrapper}>
+            <span style={styles.searchIcon}>🔍</span>
+            <input
+              type="text"
+              placeholder="Search..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              style={{ ...styles.searchInput, width: '200px' }}
+            />
+          </div>
         </div>
       </header>
 
       {status.msg && (
         <div style={{
-          ...styles.statusBanner, 
+          ...styles.statusBanner,
           backgroundColor: status.type === 'success' ? '#F0FDF4' : '#FEF2F2',
           color: status.type === 'success' ? '#166534' : '#991B1B',
           borderColor: status.type === 'success' ? '#BBF7D0' : '#FCA5A5'
         }}>
           {status.type === 'success' ? '✅ ' : '⚠️ '} {status.msg}
-          <button onClick={() => setStatus({type:'', msg:''})} style={styles.closeStatus}>×</button>
+          <button onClick={() => setStatus({ type: '', msg: '' })} style={styles.closeStatus}>×</button>
         </div>
       )}
 
@@ -111,7 +159,7 @@ const StudentStatus = () => {
                   </td>
                   <td>
                     <span style={{
-                      ...styles.badge, 
+                      ...styles.badge,
                       backgroundColor: s.status === 'active' ? '#DCFCE7' : '#F1F5F9',
                       color: s.status === 'active' ? '#15803D' : '#64748B',
                       border: `1px solid ${s.status === 'active' ? '#BBF7D0' : '#E2E8F0'}`
@@ -125,15 +173,15 @@ const StudentStatus = () => {
                         <div style={styles.courseMainInfo}>
                           <span style={styles.courseName}>{cData.course_name}</span>
                           <span style={{
-                            ...styles.miniBadge, 
+                            ...styles.miniBadge,
                             color: cData.course_status === 'active' ? '#10B981' : '#EF4444'
                           }}>
                             ● {cData.course_status}
                           </span>
                         </div>
                         <div style={styles.actionGroup}>
-                          <select 
-                            onChange={(e) => setSelectedCourseStatus(prev => ({...prev, [`${s.id}_${cId}`]: e.target.value}))}
+                          <select
+                            onChange={(e) => setSelectedCourseStatus(prev => ({ ...prev, [`${s.id}_${cId}`]: e.target.value }))}
                             style={styles.select}
                           >
                             <option value="">Update Lifecycle</option>
@@ -141,7 +189,7 @@ const StudentStatus = () => {
                             <option value="coursecomplete">Graduated/Complete</option>
                             <option value="dropout">Dropout</option>
                           </select>
-                          <button 
+                          <button
                             onClick={() => handleStatusUpdate(s.id, cId)}
                             disabled={loading}
                             style={styles.btnSync}
@@ -172,7 +220,7 @@ const styles = {
   titleArea: { flex: 1 },
   title: { fontSize: '24px', fontWeight: '800', color: '#1E293B', margin: 0 },
   subtitle: { color: '#64748B', fontSize: '14px', marginTop: '4px' },
-  
+
   searchWrapper: { position: 'relative' },
   searchIcon: { position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', opacity: 0.4 },
   searchInput: { padding: '10px 15px 10px 35px', borderRadius: '10px', border: '1px solid #E2E8F0', width: '280px', outline: 'none', backgroundColor: '#fff' },
@@ -186,23 +234,29 @@ const styles = {
   thRow: { background: '#F8FAFC', borderBottom: '1px solid #E2E8F0' },
   th: { padding: '15px 20px', color: '#64748B', fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.05em' },
   tr: { borderBottom: '1px solid #F1F5F9', transition: 'background 0.2s' },
-  
+
   identityCell: { padding: '20px' },
   studentId: { fontWeight: '700', color: '#3B82F6', fontSize: '13px' },
   studentName: { fontSize: '15px', fontWeight: '600', color: '#1E293B', marginTop: '2px' },
-  
+
   badge: { padding: '4px 12px', borderRadius: '20px', fontSize: '10px', fontWeight: '800', letterSpacing: '0.5px' },
-  
+
   coursesCell: { padding: '10px 20px' },
   courseRow: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '20px', padding: '12px 0', borderBottom: '1px solid #F8FAFC' },
   courseMainInfo: { display: 'flex', flexDirection: 'column', gap: '2px', flex: 1 },
   courseName: { fontSize: '14px', fontWeight: '600', color: '#334155' },
   miniBadge: { fontSize: '11px', fontWeight: '700', textTransform: 'capitalize' },
-  
+
   actionGroup: { display: 'flex', alignItems: 'center', gap: '8px' },
   select: { padding: '8px 12px', borderRadius: '8px', border: '1px solid #E2E8F0', fontSize: '13px', backgroundColor: '#F8FAFC', outline: 'none' },
   btnSync: { background: '#3B82F6', color: '#fff', border: 'none', padding: '8px 16px', borderRadius: '8px', cursor: 'pointer', fontSize: '12px', fontWeight: '700', transition: 'background 0.2s' },
-  
+  // Add this to your styles object
+  filterGroup: {
+    display: 'flex',
+    gap: '10px',
+    alignItems: 'center',
+    flexWrap: 'wrap'
+  },
   emptyState: { padding: '60px', textAlign: 'center', color: '#94A3B8' }
 };
 

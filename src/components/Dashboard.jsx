@@ -1,5 +1,26 @@
 import React, { useState, useEffect } from 'react';
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
+import { 
+  LayoutDashboard, 
+  Users, 
+  UserCheck, 
+  BookOpen, 
+  PenSquare, 
+  CreditCard, 
+  BadgeDollarSign, 
+  UserCog, 
+  Settings, 
+  LogOut, 
+  ChevronLeft, 
+  ChevronRight, 
+  Search, 
+  Bell, 
+  HelpCircle, 
+  ChevronDown,
+  GraduationCap,
+  AlertCircle,
+  X
+} from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 
 const Dashboard = () => {
@@ -7,13 +28,11 @@ const Dashboard = () => {
   const location = useLocation();
   const navigate = useNavigate();
 
-  // UI State
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [showProfileDropdown, setShowProfileDropdown] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [error, setError] = useState(null);
 
-  // Auto-clear errors after 5 seconds
   useEffect(() => {
     if (error) {
       const timer = setTimeout(() => setError(null), 5000);
@@ -38,115 +57,166 @@ const Dashboard = () => {
   const isActive = (path) => location.pathname === path || location.pathname.startsWith(path + '/');
 
   return (
-    <div style={styles.dashboardWrapper}>
+    <div className="flex h-screen bg-slate-50 overflow-hidden font-sans">
       {/* SIDEBAR */}
-      <aside style={{ ...styles.sidebar, width: sidebarCollapsed ? '80px' : '260px' }}>
-        <div style={styles.sidebarHeader}>
-          <div style={styles.logoBox}>🎓</div>
-          {!sidebarCollapsed && <span style={styles.logoText}>EduAdmin</span>}
+      <aside 
+        className={`bg-[#0F172A] text-slate-300 flex flex-col transition-all duration-300 ease-in-out relative z-20 shadow-xl ${
+          sidebarCollapsed ? 'w-20' : 'w-64'
+        }`}
+      >
+        <div className="p-6 flex items-center gap-3 border-b border-slate-800/50">
+          <div className="w-10 h-10 bg-[#3B82F6] rounded-xl flex items-center justify-center shadow-lg shadow-blue-500/20">
+            <GraduationCap className="text-white w-6 h-6" />
+          </div>
+          {!sidebarCollapsed && (
+            <span className="text-white font-bold text-xl tracking-tight">EduAdmin</span>
+          )}
         </div>
 
-        <nav style={styles.navContainer}>
-          <div style={styles.navGroup}>
-            {!sidebarCollapsed && <span style={styles.groupLabel}>GENERAL</span>}
-            <SidebarLink to="/dashboard" icon="🏠" label="Overview" collapsed={sidebarCollapsed} active={location.pathname === '/dashboard'} />
-            <SidebarLink to="/dashboard/students" icon="👨‍🎓" label="Students" collapsed={sidebarCollapsed} active={isActive('/dashboard/students')} />
-            <SidebarLink to="/dashboard/studentstatus" icon="👨‍🎓" label="Student Status" collapsed={sidebarCollapsed} active={isActive('/dashboard/studentstatus')} />
-          </div>
-
-          {isAdmin &&  <div style={styles.navGroup}>
-            {!sidebarCollapsed && <span style={styles.groupLabel}>ACADEMICS</span>}
-          <SidebarLink to="/dashboard/courses" icon="📖" label="Courses" collapsed={sidebarCollapsed} active={isActive('/dashboard/courses')} />
-            <SidebarLink to="/dashboard/courseenrollment" icon="📝" label="Enrollment" collapsed={sidebarCollapsed} active={isActive('/dashboard/courseenrollment')} />
-          </div>
-}
-          <div style={styles.navGroup}>
-            {!sidebarCollapsed && <span style={styles.groupLabel}>FINANCE</span>}
-            <SidebarLink to="/dashboard/fees" icon="💳" label="Fee Entry" collapsed={sidebarCollapsed} active={isActive('/dashboard/fees')} />
-            <SidebarLink to="/dashboard/feestatus" icon="💰" label="Fee Status" collapsed={sidebarCollapsed} active={isActive('/dashboard/feestatus')} />
+        <nav className="flex-1 py-6 overflow-y-auto overflow-x-hidden custom-scrollbar">
+          <div className="px-4 mb-6">
+            {!sidebarCollapsed && <p className="text-[10px] font-bold text-slate-500 tracking-widest mb-4 px-2">GENERAL</p>}
+            <SidebarLink 
+              to="/dashboard" 
+              icon={<LayoutDashboard size={20} />} 
+              label="Overview" 
+              collapsed={sidebarCollapsed} 
+              active={location.pathname === '/dashboard'} 
+            />
+            <SidebarLink 
+              to="/dashboard/students" 
+              icon={<Users size={20} />} 
+              label="Students" 
+              collapsed={sidebarCollapsed} 
+              active={isActive('/dashboard/students')} 
+            />
+            <SidebarLink 
+              to="/dashboard/studentstatus" 
+              icon={<UserCheck size={20} />} 
+              label="Student Status" 
+              collapsed={sidebarCollapsed} 
+              active={isActive('/dashboard/studentstatus')} 
+            />
           </div>
 
           {isAdmin && (
-            <div style={styles.navGroup}>
-              {!sidebarCollapsed && <span style={styles.groupLabel}>ADMIN</span>}
-              <SidebarLink to="/dashboard/users" icon="👤" label="User Management" collapsed={sidebarCollapsed} active={isActive('/dashboard/users')} />
-              <SidebarLink to="/dashboard/settings" icon="⚙️" label="Settings" collapsed={sidebarCollapsed} active={isActive('/dashboard/settings')} />
+            <div className="px-4 mb-6">
+              {!sidebarCollapsed && <p className="text-[10px] font-bold text-slate-500 tracking-widest mb-4 px-2">ACADEMICS</p>}
+              <SidebarLink to="/dashboard/courses" icon={<BookOpen size={20} />} label="Courses" collapsed={sidebarCollapsed} active={isActive('/dashboard/courses')} />
+              <SidebarLink to="/dashboard/courseenrollment" icon={<PenSquare size={20} />} label="Enrollment" collapsed={sidebarCollapsed} active={isActive('/dashboard/courseenrollment')} />
+            </div>
+          )}
+
+          <div className="px-4 mb-6">
+            {!sidebarCollapsed && <p className="text-[10px] font-bold text-slate-500 tracking-widest mb-4 px-2">FINANCE</p>}
+            <SidebarLink to="/dashboard/fees" icon={<CreditCard size={20} />} label="Fee Entry" collapsed={sidebarCollapsed} active={isActive('/dashboard/fees')} />
+            <SidebarLink to="/dashboard/feestatus" icon={<BadgeDollarSign size={20} />} label="Fee Status" collapsed={sidebarCollapsed} active={isActive('/dashboard/feestatus')} />
+          </div>
+
+          {isAdmin && (
+            <div className="px-4 mb-6">
+              {!sidebarCollapsed && <p className="text-[10px] font-bold text-slate-500 tracking-widest mb-4 px-2">ADMIN</p>}
+              <SidebarLink to="/dashboard/users" icon={<UserCog size={20} />} label="User Management" collapsed={sidebarCollapsed} active={isActive('/dashboard/users')} />
+              {/* <SidebarLink to="/dashboard/settings" icon={<Settings size={20} />} label="Settings" collapsed={sidebarCollapsed} active={isActive('/dashboard/settings')} /> */}
             </div>
           )}
         </nav>
 
-        <button onClick={() => setSidebarCollapsed(!sidebarCollapsed)} style={styles.collapseToggle}>
-          {sidebarCollapsed ? '→' : '←'}
+        <button 
+          onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+          className="absolute bottom-6 -right-3 w-6 h-6 rounded-full bg-[#3B82F6] text-white flex items-center justify-center hover:bg-blue-600 transition-colors shadow-lg"
+        >
+          {sidebarCollapsed ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
         </button>
       </aside>
 
-      {/* MAIN CONTENT AREA */}
-      <div style={styles.mainContent}>
-        
-        {/* TOP NAVBAR */}
-        <header style={styles.navbar}>
-          <div style={styles.navLeft}>
-            <div style={styles.searchWrapper}>
-              <span style={styles.searchIcon}>🔍</span>
-              <input 
-                type="text" 
-                placeholder="Search everything..." 
-                style={styles.navInput} 
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
-            </div>
-          </div>
+      {/* MAIN CONTENT */}
+      <div className="flex-1 flex flex-col min-w-0">
+        <header className="h-20 bg-white border-b border-slate-200 flex items-center justify-end px-8 z-10">
+          {/* <div className="relative w-full max-w-md">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+            <input 
+              type="text" 
+              placeholder="Search data, students, or records..." 
+              className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-[#3B82F6] outline-none transition-all text-sm"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </div> */}
 
-          <div style={styles.navRight}>
-            <div style={styles.iconActions}>
-              <div style={styles.notifIcon}>🔔<span style={styles.notifBadge}>3</span></div>
-              <div style={styles.helpIcon}>❓</div>
-            </div>
+          <div className="flex items-center gap-6">
+            {/* <div className="flex items-center gap-4 text-slate-500">
+              <button className="relative p-2 hover:bg-slate-100 rounded-lg transition-colors">
+                <Bell size={20} />
+                <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full border-2 border-white"></span>
+              </button>
+              <button className="p-2 hover:bg-slate-100 rounded-lg transition-colors">
+                <HelpCircle size={20} />
+              </button>
+            </div> */}
 
-            <div style={styles.vDivider} />
+            <div className="h-8 w-[1px] bg-slate-200"></div>
 
-            <div style={styles.profileTrigger} onClick={() => setShowProfileDropdown(!showProfileDropdown)}>
-              <div style={styles.navAvatar}>{getInitials(currentUser?.name)}</div>
-              <div style={styles.navUserInfo}>
-                <span style={styles.navName}>{currentUser?.name || "User"}</span>
-                <span style={styles.navRole}>{isAdmin ? "Administrator" : "Staff"}</span>
-              </div>
-              <span style={styles.chevron}>▼</span>
+            <div className="relative">
+              <button 
+                onClick={() => setShowProfileDropdown(!showProfileDropdown)}
+                className="flex items-center gap-3 p-1.5 hover:bg-slate-50 rounded-xl transition-all"
+              >
+                <div className="w-10 h-10 rounded-full bg-[#3B82F6] flex items-center justify-center text-white font-bold text-sm shadow-inner">
+                  {getInitials(currentUser?.name)}
+                </div>
+                <div className="hidden md:flex flex-col text-left">
+                  <span className="text-sm font-semibold text-slate-800 leading-tight">{currentUser?.name || "User"}</span>
+                  <span className="text-[11px] text-slate-500 font-medium uppercase tracking-wider">{isAdmin ? "Administrator" : "Staff"}</span>
+                </div>
+                <ChevronDown size={14} className={`text-slate-400 transition-transform ${showProfileDropdown ? 'rotate-180' : ''}`} />
+              </button>
 
               {showProfileDropdown && (
-                <div style={styles.profileDropdown}>
-                  <div style={styles.dropdownInfo}>
-                    <strong>{currentUser?.email}</strong>
+                <div className="absolute top-full right-0 mt-2 w-56 bg-white rounded-xl shadow-2xl border border-slate-100 p-2 z-50 animate-in fade-in slide-in-from-top-2">
+                  <div className="px-3 py-2 mb-2">
+                    <p className="text-[11px] text-slate-400 uppercase font-bold tracking-wider">Signed in as</p>
+                    <p className="text-sm font-medium text-slate-700 truncate">{currentUser?.email}</p>
                   </div>
-                  <div style={styles.dropdownDivider} />
-                  <Link to="/dashboard/profile" style={styles.dropdownLink}>My Profile</Link>
-                  <button onClick={handleLogout} style={styles.logoutAction}>Logout</button>
+                  <div className="h-[1px] bg-slate-100 my-1"></div>
+                  {/* <Link to="/dashboard/profile" className="flex items-center gap-2 px-3 py-2 text-sm text-slate-600 hover:bg-slate-50 hover:text-[#3B82F6] rounded-lg transition-colors">
+                    <UserCog size={16} /> My Profile
+                  </Link> */}
+                  <button 
+                    onClick={handleLogout}
+                    className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors font-medium mt-1"
+                  >
+                    <LogOut size={16} /> Logout
+                  </button>
                 </div>
               )}
             </div>
           </div>
         </header>
 
-        {/* PAGE BODY */}
-        <main style={styles.pageBody}>
+        <main className="flex-1 overflow-y-auto p-8">
           {error && (
-            <div style={styles.errorAlert}>
-              <span>⚠️ <strong>Error:</strong> {error}</span>
-              <button onClick={() => setError(null)} style={styles.errorClose}>×</button>
+            <div className="mb-6 flex items-center justify-between p-4 bg-red-50 border border-red-100 text-red-700 rounded-xl animate-bounce-short">
+              <div className="flex items-center gap-3">
+                <AlertCircle size={20} />
+                <p className="text-sm font-medium">{error}</p>
+              </div>
+              <button onClick={() => setError(null)} className="text-red-400 hover:text-red-600">
+                <X size={20} />
+              </button>
             </div>
           )}
           
-          <div style={styles.contentCard}>
+          <div className="bg-white rounded-2xl shadow-sm border border-slate-200 min-h-full p-6">
             <Outlet context={{ searchTerm }} />
           </div>
         </main>
 
-        <footer style={styles.footer}>
-          <span>© 2025 EduAdmin System v2.0</span>
-          <div style={styles.footerLinks}>
-            <a href="#support" style={styles.fLink}>Support</a>
-            <a href="#privacy" style={styles.fLink}>Privacy</a>
+        <footer className="px-8 py-4 bg-white border-t border-slate-200 flex justify-between items-center text-xs text-slate-400 font-medium">
+          <span>© 2025 EduAdmin System • v2.0.4</span>
+          <div className="flex gap-4">
+            <a href="#support" className="hover:text-[#3B82F6] transition-colors">Support</a>
+            <a href="#privacy" className="hover:text-[#3B82F6] transition-colors">Privacy Policy</a>
           </div>
         </footer>
       </div>
@@ -154,71 +224,21 @@ const Dashboard = () => {
   );
 };
 
-// Sub-component for Sidebar Links
 const SidebarLink = ({ to, icon, label, collapsed, active }) => (
-  <Link to={to} style={{
-    ...styles.sidebarLink,
-    backgroundColor: active ? 'rgba(59, 130, 246, 0.15)' : 'transparent',
-    color: active ? '#60A5FA' : '#94A3B8',
-    borderLeft: active ? '4px solid #3B82F6' : '4px solid transparent'
-  }}>
-    <span style={styles.linkIcon}>{icon}</span>
-    {!collapsed && <span style={styles.linkText}>{label}</span>}
+  <Link 
+    to={to} 
+    className={`flex items-center gap-4 px-4 py-3 rounded-xl transition-all duration-200 group mb-1 ${
+      active 
+        ? 'bg-[#3B82F6] text-white shadow-lg shadow-blue-500/30' 
+        : 'hover:bg-slate-800/50 text-slate-400 hover:text-white'
+    }`}
+  >
+    <div className={`transition-transform duration-200 ${active ? 'scale-110' : 'group-hover:scale-110'}`}>
+      {icon}
+    </div>
+    {!collapsed && <span className="text-sm font-medium tracking-wide">{label}</span>}
+    {active && !collapsed && <div className="ml-auto w-1.5 h-1.5 rounded-full bg-white opacity-50"></div>}
   </Link>
 );
-
-const styles = {
-  dashboardWrapper: { display: 'flex', height: '100vh', backgroundColor: '#F1F5F9', overflow: 'hidden', fontFamily: 'Inter, sans-serif' },
-  
-  // Sidebar
-  sidebar: { backgroundColor: '#0F172A', color: '#fff', display: 'flex', flexDirection: 'column', transition: 'width 0.3s ease', position: 'relative', zIndex: 10 },
-  sidebarHeader: { padding: '25px 20px', display: 'flex', alignItems: 'center', gap: '12px', borderBottom: '1px solid rgba(255,255,255,0.05)' },
-  logoBox: { width: '35px', height: '35px', backgroundColor: '#3B82F6', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '20px' },
-  logoText: { fontSize: '18px', fontWeight: 'bold', letterSpacing: '0.5px' },
-  navContainer: { flex: 1, padding: '20px 0', overflowY: 'auto' },
-  navGroup: { marginBottom: '25px' },
-  groupLabel: { fontSize: '10px', color: '#475569', fontWeight: 'bold', padding: '0 24px', marginBottom: '10px', display: 'block', letterSpacing: '1px' },
-  sidebarLink: { display: 'flex', alignItems: 'center', padding: '12px 20px', textDecoration: 'none', transition: '0.2s', gap: '15px' },
-  linkIcon: { fontSize: '18px', width: '20px', textAlign: 'center' },
-  linkText: { fontSize: '14px', fontWeight: '500' },
-  collapseToggle: { position: 'absolute', bottom: '20px', right: '-12px', width: '24px', height: '24px', borderRadius: '50%', backgroundColor: '#3B82F6', border: 'none', color: '#fff', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' },
-
-  // Main & Navbar
-  mainContent: { flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' },
-  navbar: { height: '70px', backgroundColor: '#fff', borderBottom: '1px solid #E2E8F0', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 30px' },
-  navLeft: { flex: 1 },
-  searchWrapper: { position: 'relative', maxWidth: '400px' },
-  searchIcon: { position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', opacity: 0.4 },
-  navInput: { width: '100%', padding: '10px 15px 10px 40px', borderRadius: '10px', border: '1px solid #E2E8F0', backgroundColor: '#F8FAFC' },
-  
-  navRight: { display: 'flex', alignItems: 'center', gap: '25px' },
-  iconActions: { display: 'flex', gap: '15px', color: '#64748B', fontSize: '18px' },
-  notifIcon: { position: 'relative', cursor: 'pointer' },
-  notifBadge: { position: 'absolute', top: '-5px', right: '-5px', backgroundColor: '#EF4444', color: '#fff', fontSize: '9px', padding: '2px 5px', borderRadius: '10px' },
-  vDivider: { width: '1px', height: '24px', backgroundColor: '#E2E8F0' },
-  
-  // Profile
-  profileTrigger: { display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer', position: 'relative' },
-  navAvatar: { width: '38px', height: '38px', borderRadius: '50%', backgroundColor: '#3B82F6', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold' },
-  navUserInfo: { display: 'flex', flexDirection: 'column' },
-  navName: { fontSize: '14px', fontWeight: '600', color: '#1E293B' },
-  navRole: { fontSize: '11px', color: '#64748B' },
-  chevron: { fontSize: '9px', color: '#94A3B8' },
-  profileDropdown: { position: 'absolute', top: '50px', right: 0, width: '200px', backgroundColor: '#fff', borderRadius: '12px', boxShadow: '0 10px 25px rgba(0,0,0,0.1)', border: '1px solid #E2E8F0', padding: '10px', zIndex: 100 },
-  dropdownInfo: { padding: '10px', fontSize: '12px', color: '#64748B', overflow: 'hidden', textOverflow: 'ellipsis' },
-  dropdownDivider: { height: '1px', backgroundColor: '#E2E8F0', margin: '5px 0' },
-  dropdownLink: { display: 'block', padding: '10px', textDecoration: 'none', color: '#1E293B', fontSize: '13px', borderRadius: '6px' },
-  logoutAction: { width: '100%', textAlign: 'left', padding: '10px', border: 'none', background: 'none', color: '#EF4444', cursor: 'pointer', fontSize: '13px', fontWeight: '600' },
-
-  // Body
-  pageBody: { flex: 1, padding: '30px', overflowY: 'auto' },
-  errorAlert: { backgroundColor: '#FEF2F2', border: '1px solid #FCA5A5', color: '#B91C1C', padding: '15px 20px', borderRadius: '10px', marginBottom: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' },
-  errorClose: { background: 'none', border: 'none', fontSize: '20px', cursor: 'pointer', color: '#B91C1C' },
-  contentCard: { backgroundColor: '#fff', borderRadius: '16px', padding: '25px', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)', minHeight: '100%' },
-  
-  footer: { padding: '20px 30px', display: 'flex', justifyContent: 'space-between', color: '#94A3B8', fontSize: '12px', borderTop: '1px solid #E2E8F0' },
-  footerLinks: { display: 'flex', gap: '15px' },
-  fLink: { color: '#64748B', textDecoration: 'none' }
-};
 
 export default Dashboard;
