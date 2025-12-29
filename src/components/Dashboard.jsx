@@ -5,6 +5,7 @@ import {
   Users, 
   UserCheck, 
   BookOpen, 
+  ChartBar,
   PenSquare, 
   CreditCard, 
   BadgeDollarSign, 
@@ -117,7 +118,7 @@ const Dashboard = () => {
             <div className="px-4 mb-6">
               {!sidebarCollapsed && <p className="text-[10px] font-bold text-slate-500 tracking-widest mb-4 px-2">ADMIN</p>}
               <SidebarLink to="/dashboard/users" icon={<UserCog size={20} />} label="User Management" collapsed={sidebarCollapsed} active={isActive('/dashboard/users')} />
-              {/* <SidebarLink to="/dashboard/settings" icon={<Settings size={20} />} label="Settings" collapsed={sidebarCollapsed} active={isActive('/dashboard/settings')} /> */}
+              <SidebarLink to="/dashboard/analtyics" icon={<ChartBar size={20} />} label="Analtyics" collapsed={sidebarCollapsed} active={isActive('/dashboard/settings')} />
             </div>
           )}
         </nav>

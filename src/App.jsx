@@ -12,6 +12,7 @@ import Fees from './components/Fees';
 import FeeStatus from './components/FeeStatus';
 import StudentStatus from './components/StudentStatus';
 import CourseEnrollment from './components/CourseEnrollment';
+import MonthlyAnalytics from './components/MonthlyAnalytics';
 
 function App() {
   return (
@@ -38,6 +39,14 @@ function App() {
               element={
                 <ProtectedRoute requiredRole="admin">
                   <CreateUser />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="analtyics"
+              element={
+                <ProtectedRoute requiredRole="admin">
+                  <MonthlyAnalytics />
                 </ProtectedRoute>
               }
             />
