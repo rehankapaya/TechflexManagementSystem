@@ -12,6 +12,7 @@ const Overview = () => {
     teachers: 0,
     cashiers: 0,
     students: 0,
+    activeStudents: 0, // New Stat
   });
   const [loading, setLoading] = useState(true);
 
@@ -31,16 +32,24 @@ const Overview = () => {
           userList = Object.values(userSnap.val());
         }
 
-        let studentCount = 0;
+        let totalStudentCount = 0;
+        let activeStudentCount = 0;
+
         if (studentSnap.exists()) {
-          studentCount = Object.keys(studentSnap.val()).length;
+          const studentsData = studentSnap.val();
+          const studentList = Object.values(studentsData);
+          
+          totalStudentCount = studentList.length;
+          // Filter students whose status is exactly 'active'
+          activeStudentCount = studentList.filter(s => s.status === 'active').length;
         }
         
         setStats({
           totalUsers: userList.length,
           teachers: userList.filter(u => u.role === 'teacher').length,
           cashiers: userList.filter(u => u.role === 'feescashier').length,
-          students: studentCount,
+          students: totalStudentCount,
+          activeStudents: activeStudentCount, // Update State
         });
       } catch (error) {
         console.error("Error fetching stats:", error);
@@ -77,11 +86,16 @@ const Overview = () => {
         </div>
       </header>
 
+      {/* Grid updated to hold 5 cards now */}
       <div style={styles.statsGrid}>
         <StatCard title="Total Staff" value={stats.totalUsers} icon="👥" color="#4318ff" description="Registered team members" />
-        <StatCard title="Total Students" value={stats.students} icon="🎓" color="#3b82f6" description="Active enrollments" />
+        <StatCard title="Total Students" value={stats.students} icon="🎓" color="#3b82f6" description="All registrations" />
+        
+        {/* NEW CARD: Active Students */}
+        <StatCard title="Active Students" value={stats.activeStudents} icon="✅" color="#10b981" description="Approved & Active" />
+        
         <StatCard title="Teachers" value={stats.teachers} icon="📚" color="#8b5cf6" description="Faculty members" />
-        <StatCard title="Revenue Nodes" value={stats.cashiers} icon="💰" color="#10b981" description="Financial cashiers" />
+        <StatCard title="Cashiers" value={stats.cashiers} icon="💰" color="#ff9900" description="Financial nodes" />
       </div>
 
       <div style={styles.contentRow}>
@@ -94,17 +108,17 @@ const Overview = () => {
             <div style={styles.activityItem}>
               <div style={styles.activityIcon}>⚡</div>
               <div style={styles.activityContent}>
-                <strong>Session Active</strong>
-                <p>New {currentUser?.role} session started by {currentUser?.name}</p>
-                <span>{new Date().toLocaleTimeString()}</span>
+                <strong style={styles.activityContent_h4}>Session Active</strong>
+                <p style={styles.activityContent_p}>New session started by {currentUser?.name}</p>
+                <span style={styles.activityContent_span}>{new Date().toLocaleTimeString()}</span>
               </div>
             </div>
             <div style={styles.activityItem}>
               <div style={styles.activityIcon}>🛡️</div>
               <div style={styles.activityContent}>
-                <strong>Security Guard</strong>
-                <p>Database connection encrypted and verified.</p>
-                <span>System Protocol v2.1</span>
+                <strong style={styles.activityContent_h4}>Security Guard</strong>
+                <p style={styles.activityContent_p}>Realtime Database connection is stable.</p>
+                <span style={styles.activityContent_span}>Encryption Active</span>
               </div>
             </div>
           </div>
