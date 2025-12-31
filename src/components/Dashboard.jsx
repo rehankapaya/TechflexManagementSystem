@@ -119,6 +119,7 @@ const Dashboard = () => {
               {!sidebarCollapsed && <p className="text-[10px] font-bold text-slate-500 tracking-widest mb-4 px-2">ADMIN</p>}
               <SidebarLink to="/dashboard/users" icon={<UserCog size={20} />} label="User Management" collapsed={sidebarCollapsed} active={isActive('/dashboard/users')} />
               <SidebarLink to="/dashboard/analtyics" icon={<ChartBar size={20} />} label="Analtyics" collapsed={sidebarCollapsed} active={isActive('/dashboard/settings')} />
+              <SidebarLink to="/dashboard/record" icon={<ChartBar size={20} />} label="Record" collapsed={sidebarCollapsed} active={isActive('/dashboard/record')} />
             </div>
           )}
         </nav>

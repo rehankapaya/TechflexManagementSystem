@@ -13,6 +13,7 @@ import FeeStatus from './components/FeeStatus';
 import StudentStatus from './components/StudentStatus';
 import CourseEnrollment from './components/CourseEnrollment';
 import MonthlyAnalytics from './components/MonthlyAnalytics';
+import GlobalExport from './components/GlobalExport';
 
 function App() {
   return (
@@ -55,6 +56,14 @@ function App() {
               element={
                 <ProtectedRoute requiredRole="admin">
                   <Courses />
+                </ProtectedRoute>
+              }
+            />
+                        <Route
+              path="record"
+              element={
+                <ProtectedRoute requiredRole="admin">
+                  <GlobalExport />
                 </ProtectedRoute>
               }
             />
