@@ -65,18 +65,27 @@ const StudentStatus = () => {
     }
   };
 
-  const filteredStudents = students.filter(s => {
+  // 1. Updated Filtering Logic
+  const filteredStudents = students.map(s => {
+    // Check if student name/ID matches search
     const matchesSearch = s.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       s.student_id?.toLowerCase().includes(searchTerm.toLowerCase());
 
-    const matchesCourse = selectedCourseFilter === '' ||
-      Object.values(s.enrolled_courses || {}).some(c => c.course_name === selectedCourseFilter);
+    // Filter the individual courses within the student object
+    const filteredEnrolledCourses = Object.entries(s.enrolled_courses || {}).filter(([cId, cData]) => {
+      const matchesCourseFilter = selectedCourseFilter === '' || cData.course_name === selectedCourseFilter;
+      const matchesStatusFilter = selectedStatusFilter === '' || cData.course_status === selectedStatusFilter;
+      return matchesCourseFilter && matchesStatusFilter;
+    });
 
-    const matchesStatus = selectedStatusFilter === '' ||
-      s.status === selectedStatusFilter;
-
-    return matchesSearch && matchesCourse && matchesStatus;
-  });
+    // Return a copy of the student with only matching courses
+    return {
+      ...s,
+      filteredCourses: filteredEnrolledCourses,
+      matchesSearch
+    };
+  }).filter(s => s.matchesSearch && s.filteredCourses.length > 0);
+  // Only show student if search matches AND they have at least one course matching the filters
 
   return (
     <div style={styles.container}>
@@ -96,7 +105,9 @@ const StudentStatus = () => {
             >
               <option value="">All Status</option>
               <option value="active">Active</option>
-              <option value="inactive">Inactive</option>
+              <option value="coursecomplete">Course Complete</option>
+              <option value="dropout">Dropout</option>
+              <option value="Inactive">Inactive</option>
             </select>
           </div>
 
@@ -168,7 +179,7 @@ const StudentStatus = () => {
                     </span>
                   </td>
                   <td style={styles.coursesCell}>
-                    {Object.entries(s.enrolled_courses || {}).map(([cId, cData]) => (
+                    {s.filteredCourses.map(([cId, cData]) => (
                       <div key={cId} style={styles.courseRow}>
                         <div style={styles.courseMainInfo}>
                           <span style={styles.courseName}>{cData.course_name}</span>
