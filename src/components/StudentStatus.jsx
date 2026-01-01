@@ -7,16 +7,26 @@ const StudentStatus = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(false);
   const [selectedCourseStatus, setSelectedCourseStatus] = useState({});
+  const [selectedCustomDates, setSelectedCustomDates] = useState({}); 
   const [status, setStatus] = useState({ type: '', msg: '' });
-  // Add this state with your other states
   const [selectedCourseFilter, setSelectedCourseFilter] = useState('');
   const [selectedStatusFilter, setSelectedStatusFilter] = useState('');
-  // Get unique list of all courses enrolled by any student
+  
+  // NEW: State for Month Filter
+  const [selectedMonthFilter, setSelectedMonthFilter] = useState('');
+
+  const months = [
+    { val: '01', label: 'January' }, { val: '02', label: 'February' },
+    { val: '03', label: 'March' }, { val: '04', label: 'April' },
+    { val: '05', label: 'May' }, { val: '06', label: 'June' },
+    { val: '07', label: 'July' }, { val: '08', label: 'August' },
+    { val: '09', label: 'September' }, { val: '10', label: 'October' },
+    { val: '11', label: 'November' }, { val: '12', label: 'December' }
+  ];
+
   const allUniqueCourses = Array.from(new Set(
     students.flatMap(s => Object.values(s.enrolled_courses || {}).map(c => c.course_name))
   )).sort();
-
-  // Update your filtering logic
 
   useEffect(() => {
     const studentsRef = ref(db, 'students');
@@ -27,8 +37,17 @@ const StudentStatus = () => {
     return () => unsubscribe();
   }, []);
 
+  const formatDate = (dateString) => {
+    if (!dateString) return null;
+    return new Date(dateString).toLocaleDateString('en-GB', {
+      day: '2-digit', month: 'short', year: 'numeric'
+    });
+  };
+
   const handleStatusUpdate = async (studentId, courseId) => {
     const newCourseStatus = selectedCourseStatus[`${studentId}_${courseId}`];
+    const customDate = selectedCustomDates[`${studentId}_${courseId}`]; 
+    
     if (!newCourseStatus) {
       setStatus({ type: 'error', msg: "Please select a new status first." });
       return;
@@ -37,6 +56,8 @@ const StudentStatus = () => {
     setLoading(true);
     try {
       const student = students.find(s => s.id === studentId);
+      const updateDate = customDate ? new Date(customDate).toISOString() : new Date().toISOString();
+
       const updatedEnrolledCourses = {
         ...student.enrolled_courses,
         [courseId]: {
@@ -51,13 +72,13 @@ const StudentStatus = () => {
 
       const masterUpdate = {
         [`students/${studentId}/enrolled_courses/${courseId}/course_status`]: newCourseStatus,
+        [`students/${studentId}/enrolled_courses/${courseId}/course_status_date`]: updateDate,
         [`students/${studentId}/status`]: allCoursesFinished ? 'inactive' : 'active',
         [`students/${studentId}/statusUpdatedAt`]: new Date().toISOString()
       };
 
       await update(ref(db), masterUpdate);
-      setStatus({ type: 'success', msg: "Status synchronized successfully!" });
-
+      setStatus({ type: 'success', msg: `Status updated successfully!` });
     } catch (err) {
       setStatus({ type: 'error', msg: "Update failed: " + err.message });
     } finally {
@@ -65,27 +86,27 @@ const StudentStatus = () => {
     }
   };
 
-  // 1. Updated Filtering Logic
+  // Logic: Updated to include Month Filtering
   const filteredStudents = students.map(s => {
-    // Check if student name/ID matches search
     const matchesSearch = s.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       s.student_id?.toLowerCase().includes(searchTerm.toLowerCase());
 
-    // Filter the individual courses within the student object
     const filteredEnrolledCourses = Object.entries(s.enrolled_courses || {}).filter(([cId, cData]) => {
       const matchesCourseFilter = selectedCourseFilter === '' || cData.course_name === selectedCourseFilter;
       const matchesStatusFilter = selectedStatusFilter === '' || cData.course_status === selectedStatusFilter;
-      return matchesCourseFilter && matchesStatusFilter;
+      
+      // Check Month Match (Format: YYYY-MM-DD)
+      let matchesMonthFilter = true;
+      if (selectedMonthFilter !== '' && cData.enrolledAt) {
+        const enrollmentMonth = cData.enrolledAt.split('-')[1]; // Extracts MM
+        matchesMonthFilter = enrollmentMonth === selectedMonthFilter;
+      }
+
+      return matchesCourseFilter && matchesStatusFilter && matchesMonthFilter;
     });
 
-    // Return a copy of the student with only matching courses
-    return {
-      ...s,
-      filteredCourses: filteredEnrolledCourses,
-      matchesSearch
-    };
+    return { ...s, filteredCourses: filteredEnrolledCourses, matchesSearch };
   }).filter(s => s.matchesSearch && s.filteredCourses.length > 0);
-  // Only show student if search matches AND they have at least one course matching the filters
 
   return (
     <div style={styles.container}>
@@ -94,58 +115,43 @@ const StudentStatus = () => {
           <h2 style={styles.title}>Student Status Sync 🔄</h2>
           <p style={styles.subtitle}>Manage completions and lifecycle.</p>
         </div>
-
         <div style={styles.filterGroup}>
-          {/* Status Filter */}
+          
+          {/* NEW: Month Filter Dropdown */}
           <div style={styles.searchWrapper}>
-            <select
-              value={selectedStatusFilter}
-              onChange={(e) => setSelectedStatusFilter(e.target.value)}
-              style={{ ...styles.searchInput, paddingLeft: '15px', width: '140px' }}
+            <select 
+              value={selectedMonthFilter} 
+              onChange={(e) => setSelectedMonthFilter(e.target.value)} 
+              style={{ ...styles.searchInput, paddingLeft: '10px', width: '130px' }}
             >
+              <option value="">All Months</option>
+              {months.map(m => <option key={m.val} value={m.val}>{m.label}</option>)}
+            </select>
+          </div>
+
+          <div style={styles.searchWrapper}>
+            <select value={selectedStatusFilter} onChange={(e) => setSelectedStatusFilter(e.target.value)} style={{ ...styles.searchInput, paddingLeft: '15px', width: '130px' }}>
               <option value="">All Status</option>
               <option value="active">Active</option>
               <option value="coursecomplete">Course Complete</option>
               <option value="dropout">Dropout</option>
-              <option value="Inactive">Inactive</option>
             </select>
           </div>
-
-          {/* Course Filter */}
           <div style={styles.searchWrapper}>
-            <select
-              value={selectedCourseFilter}
-              onChange={(e) => setSelectedCourseFilter(e.target.value)}
-              style={{ ...styles.searchInput, paddingLeft: '15px', width: '180px' }}
-            >
+            <select value={selectedCourseFilter} onChange={(e) => setSelectedCourseFilter(e.target.value)} style={{ ...styles.searchInput, paddingLeft: '15px', width: '160px' }}>
               <option value="">All Courses</option>
-              {allUniqueCourses.map(course => (
-                <option key={course} value={course}>{course}</option>
-              ))}
+              {allUniqueCourses.map(course => <option key={course} value={course}>{course}</option>)}
             </select>
           </div>
-
-          {/* Search Input */}
           <div style={styles.searchWrapper}>
             <span style={styles.searchIcon}>🔍</span>
-            <input
-              type="text"
-              placeholder="Search..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              style={{ ...styles.searchInput, width: '200px' }}
-            />
+            <input type="text" placeholder="Search student..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} style={{ ...styles.searchInput, width: '180px' }} />
           </div>
         </div>
       </header>
 
       {status.msg && (
-        <div style={{
-          ...styles.statusBanner,
-          backgroundColor: status.type === 'success' ? '#F0FDF4' : '#FEF2F2',
-          color: status.type === 'success' ? '#166534' : '#991B1B',
-          borderColor: status.type === 'success' ? '#BBF7D0' : '#FCA5A5'
-        }}>
+        <div style={{ ...styles.statusBanner, backgroundColor: status.type === 'success' ? '#F0FDF4' : '#FEF2F2', color: status.type === 'success' ? '#166534' : '#991B1B', borderColor: status.type === 'success' ? '#BBF7D0' : '#FCA5A5' }}>
           {status.type === 'success' ? '✅ ' : '⚠️ '} {status.msg}
           <button onClick={() => setStatus({ type: '', msg: '' })} style={styles.closeStatus}>×</button>
         </div>
@@ -169,12 +175,7 @@ const StudentStatus = () => {
                     <div style={styles.studentName}>{s.name}</div>
                   </td>
                   <td>
-                    <span style={{
-                      ...styles.badge,
-                      backgroundColor: s.status === 'active' ? '#DCFCE7' : '#F1F5F9',
-                      color: s.status === 'active' ? '#15803D' : '#64748B',
-                      border: `1px solid ${s.status === 'active' ? '#BBF7D0' : '#E2E8F0'}`
-                    }}>
+                    <span style={{ ...styles.badge, backgroundColor: s.status === 'active' ? '#DCFCE7' : '#F1F5F9', color: s.status === 'active' ? '#15803D' : '#64748B', border: `1px solid ${s.status === 'active' ? '#BBF7D0' : '#E2E8F0'}` }}>
                       {s.status?.toUpperCase()}
                     </span>
                   </td>
@@ -183,39 +184,36 @@ const StudentStatus = () => {
                       <div key={cId} style={styles.courseRow}>
                         <div style={styles.courseMainInfo}>
                           <span style={styles.courseName}>{cData.course_name}</span>
-                          <span style={{
-                            ...styles.miniBadge,
-                            color: cData.course_status === 'active' ? '#10B981' : '#EF4444'
-                          }}>
+                          
+                          <div style={styles.dateTimeline}>
+                             <span>📅 <b>Start:</b> {formatDate(cData.enrolledAt) || "N/A"}</span>
+                             <span style={{ marginLeft: '10px' }}>
+                               🏁 <b>End:</b> {cData.course_status === 'active' ? 
+                                 <span style={{color: '#3B82F6', fontWeight: 'bold'}}>In Progress</span> : 
+                                 formatDate(cData.course_status_date)}
+                             </span>
+                          </div>
+
+                          <span style={{ ...styles.miniBadge, color: cData.course_status === 'active' ? '#10B981' : '#EF4444' }}>
                             ● {cData.course_status}
                           </span>
                         </div>
                         <div style={styles.actionGroup}>
-                          <select
-                            onChange={(e) => setSelectedCourseStatus(prev => ({ ...prev, [`${s.id}_${cId}`]: e.target.value }))}
-                            style={styles.select}
-                          >
-                            <option value="">Update Lifecycle</option>
+                          <input type="date" style={styles.dateInput} onChange={(e) => setSelectedCustomDates(prev => ({ ...prev, [`${s.id}_${cId}`]: e.target.value }))} />
+                          <select onChange={(e) => setSelectedCourseStatus(prev => ({ ...prev, [`${s.id}_${cId}`]: e.target.value }))} style={styles.select}>
+                            <option value="">Update</option>
                             <option value="active">Active</option>
-                            <option value="coursecomplete">Graduated/Complete</option>
+                            <option value="coursecomplete">Graduated</option>
                             <option value="dropout">Dropout</option>
                           </select>
-                          <button
-                            onClick={() => handleStatusUpdate(s.id, cId)}
-                            disabled={loading}
-                            style={styles.btnSync}
-                          >
-                            Sync
-                          </button>
+                          <button onClick={() => handleStatusUpdate(s.id, cId)} disabled={loading} style={styles.btnSync}>Sync</button>
                         </div>
                       </div>
                     ))}
                   </td>
                 </tr>
               )) : (
-                <tr>
-                  <td colSpan="3" style={styles.emptyState}>No students found matching your search.</td>
-                </tr>
+                <tr><td colSpan="3" style={styles.emptyState}>No matching records found.</td></tr>
               )}
             </tbody>
           </table>
@@ -226,48 +224,38 @@ const StudentStatus = () => {
 };
 
 const styles = {
-  container: { maxWidth: '1200px', margin: '0 auto' },
+  // ... Keep all existing styles provided previously ...
+  container: { maxWidth: '1200px', margin: '0 auto', padding: '20px' },
   header: { display: 'flex', justifyContent: 'space-between', marginBottom: '30px', alignItems: 'flex-end', flexWrap: 'wrap', gap: '20px' },
   titleArea: { flex: 1 },
   title: { fontSize: '24px', fontWeight: '800', color: '#1E293B', margin: 0 },
   subtitle: { color: '#64748B', fontSize: '14px', marginTop: '4px' },
-
+  filterGroup: { display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' },
   searchWrapper: { position: 'relative' },
   searchIcon: { position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', opacity: 0.4 },
-  searchInput: { padding: '10px 15px 10px 35px', borderRadius: '10px', border: '1px solid #E2E8F0', width: '280px', outline: 'none', backgroundColor: '#fff' },
-
+  searchInput: { padding: '10px 15px 10px 35px', borderRadius: '10px', border: '1px solid #E2E8F0', outline: 'none', backgroundColor: '#fff' },
   statusBanner: { padding: '12px 20px', borderRadius: '10px', marginBottom: '20px', border: '1px solid', fontSize: '14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' },
   closeStatus: { background: 'none', border: 'none', fontSize: '18px', cursor: 'pointer', opacity: 0.5 },
-
   card: { background: '#fff', borderRadius: '16px', border: '1px solid #E2E8F0', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)', overflow: 'hidden' },
   tableWrapper: { overflowX: 'auto' },
   table: { width: '100%', borderCollapse: 'collapse', textAlign: 'left', minWidth: '800px' },
   thRow: { background: '#F8FAFC', borderBottom: '1px solid #E2E8F0' },
   th: { padding: '15px 20px', color: '#64748B', fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.05em' },
-  tr: { borderBottom: '1px solid #F1F5F9', transition: 'background 0.2s' },
-
+  tr: { borderBottom: '1px solid #F1F5F9' },
   identityCell: { padding: '20px' },
   studentId: { fontWeight: '700', color: '#3B82F6', fontSize: '13px' },
   studentName: { fontSize: '15px', fontWeight: '600', color: '#1E293B', marginTop: '2px' },
-
-  badge: { padding: '4px 12px', borderRadius: '20px', fontSize: '10px', fontWeight: '800', letterSpacing: '0.5px' },
-
+  badge: { padding: '4px 12px', borderRadius: '20px', fontSize: '10px', fontWeight: '800' },
   coursesCell: { padding: '10px 20px' },
   courseRow: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '20px', padding: '12px 0', borderBottom: '1px solid #F8FAFC' },
-  courseMainInfo: { display: 'flex', flexDirection: 'column', gap: '2px', flex: 1 },
+  courseMainInfo: { display: 'flex', flexDirection: 'column', gap: '4px', flex: 1 },
   courseName: { fontSize: '14px', fontWeight: '600', color: '#334155' },
-  miniBadge: { fontSize: '11px', fontWeight: '700', textTransform: 'capitalize' },
-
+  dateTimeline: { fontSize: '12px', color: '#64748B', display: 'flex', gap: '5px', marginTop: '2px' },
+  miniBadge: { fontSize: '11px', fontWeight: '700', marginTop: '2px' },
   actionGroup: { display: 'flex', alignItems: 'center', gap: '8px' },
-  select: { padding: '8px 12px', borderRadius: '8px', border: '1px solid #E2E8F0', fontSize: '13px', backgroundColor: '#F8FAFC', outline: 'none' },
-  btnSync: { background: '#3B82F6', color: '#fff', border: 'none', padding: '8px 16px', borderRadius: '8px', cursor: 'pointer', fontSize: '12px', fontWeight: '700', transition: 'background 0.2s' },
-  // Add this to your styles object
-  filterGroup: {
-    display: 'flex',
-    gap: '10px',
-    alignItems: 'center',
-    flexWrap: 'wrap'
-  },
+  dateInput: { padding: '6px', borderRadius: '8px', border: '1px solid #E2E8F0', fontSize: '12px' },
+  select: { padding: '8px 12px', borderRadius: '8px', border: '1px solid #E2E8F0', fontSize: '13px' },
+  btnSync: { background: '#3B82F6', color: '#fff', border: 'none', padding: '8px 16px', borderRadius: '8px', cursor: 'pointer', fontWeight: '700' },
   emptyState: { padding: '60px', textAlign: 'center', color: '#94A3B8' }
 };
 

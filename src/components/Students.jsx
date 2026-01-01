@@ -2,13 +2,14 @@ import React, { useState, useEffect } from 'react';
 import { db } from '../firebase.js';
 import { useAuth } from '../contexts/AuthContext';
 import { ref, set, push, onValue, remove, update } from 'firebase/database';
+import * as XLSX from 'xlsx'; // Import the library
 
 const Students = () => {
+  // ... existing states ...
   const { currentUser, isAdmin } = useAuth();
   const [students, setStudents] = useState([]);
   const [pendingStudents, setPendingStudents] = useState([]);
   const [courses, setCourses] = useState([]);
-
   const [isEditing, setIsEditing] = useState(null); 
   const [searchTerm, setSearchTerm] = useState('');
   const [filterCourse, setFilterCourse] = useState('');
@@ -18,14 +19,42 @@ const Students = () => {
   const today = new Date().toISOString().split('T')[0];
 
   const [formData, setFormData] = useState({
-    name: '',
-    contact: '',
-    gender: '',
-    courseId: '',
-    agreed_monthly_fee: '',
-    admission_fee: '',
-    createdAt: today 
+    name: '', contact: '', gender: '', courseId: '',
+    agreed_monthly_fee: '', admission_fee: '', createdAt: today 
   });
+
+  // --- NEW: Export to Excel Function ---
+  const downloadExcel = () => {
+    if (filteredStudents.length === 0) {
+      alert("No data available to export");
+      return;
+    }
+
+    // Prepare the data specifically for Excel columns
+    const excelData = filteredStudents.map(s => {
+      // Get course details (taking the first course as primary)
+
+      return {
+        "Student ID": s.student_id,
+        "Name": s.name,
+        "Gender": s.gender,
+        "Contact": s.contact,
+        "Admission Fee": s.admission_fee || 0,
+        "Admission Date": s.createdAt ? s.createdAt.split('T')[0] : "N/A",
+        "Added By": s.addedBy || "N/A"
+      };
+    });
+
+    // Create worksheet and workbook
+    const worksheet = XLSX.utils.json_to_sheet(excelData);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Students");
+
+    // Download the file
+    XLSX.writeFile(workbook, `Student_Directory_${new Date().toLocaleDateString()}.xlsx`);
+  };
+
+  // ... (keep all your existing useEffect, handleChange, handleSubmit, startEdit, and formatDate functions) ...
 
   useEffect(() => {
     onValue(ref(db, 'courses'), (snap) => {
@@ -69,7 +98,7 @@ const Students = () => {
     try {
       if (isEditing) {
         const currentStudent = students.find(s => s.id === isEditing);
-        const courseId = formData.courseId; // This is locked during edit
+        const courseId = formData.courseId; 
         
         const updatedStudent = {
           ...currentStudent, 
@@ -90,7 +119,6 @@ const Students = () => {
         setStatus({ type: 'success', msg: 'Student profile updated!' });
         setIsEditing(null);
       } else {
-        // Enrollment Logic
         const selectedCourse = courses.find(c => c.id === formData.courseId);
         const courseDuration = selectedCourse?.duration || "N/A";
         const allExistingIds = [...students.map(s => s.student_id), ...pendingStudents.map(s => s.student_id)];
@@ -179,6 +207,7 @@ const Students = () => {
         </div>
 
         <form onSubmit={handleSubmit} style={{ ...styles.quickForm, borderColor: isEditing ? '#3B82F6' : '#E2E8F0' }}>
+            {/* ... keep existing form inputs ... */}
           <input type="text" name="name" placeholder="Full Name" value={formData.name} onChange={handleChange} required style={styles.input} />
           <input type="text" name="contact" placeholder="Phone" value={formData.contact} onChange={handleChange} required style={styles.inputSmall} />
           
@@ -189,7 +218,6 @@ const Students = () => {
             <option value="Other">Other</option>
           </select>
 
-          {/* COURSE DROPDOWN: Only visible when NOT editing */}
           {!isEditing && (
             <select name="courseId" value={formData.courseId} onChange={handleChange} required style={styles.select}>
                 <option value="">Select Course</option>
@@ -223,8 +251,14 @@ const Students = () => {
                 <span style={styles.searchIcon}>🔍</span>
                 <input type="text" placeholder="Search students..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} style={styles.filterInput} />
             </div>
+
+            {/* ADDED EXCEL BUTTON HERE */}
+            <button onClick={downloadExcel} style={styles.btnExport}>
+                📥 Download Excel
+            </button>
         </div>
         <div style={styles.tableWrapper}>
+            {/* ... keep existing table ... */}
           <table style={styles.table}>
             <thead>
               <tr style={styles.thRow}>
@@ -274,8 +308,21 @@ const Students = () => {
     </div>
   );
 };
-
 const styles = {
+
+  btnExport: {
+    background: '#10B981',
+    color: '#fff',
+    border: 'none',
+    padding: '10px 18px',
+    borderRadius: '10px',
+    fontWeight: '700',
+    cursor: 'pointer',
+    fontSize: '14px',
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px'
+  },
   container: { maxWidth: '1200px', margin: '0 auto' },
   header: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px', flexWrap: 'wrap', gap: '20px' },
   titleArea: { flex: 1 },

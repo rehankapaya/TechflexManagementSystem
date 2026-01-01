@@ -8,6 +8,7 @@ const FeeStatus = () => {
   const [coursesList, setCoursesList] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCourseFilter, setSelectedCourseFilter] = useState('');
+  const [statusFilter, setStatusFilter] = useState('active'); // 'active', 'inactive', or 'all'
 
   // Default Reference
   const currentMonthLabel = new Date().toLocaleString('default', { month: 'short' });
@@ -42,6 +43,7 @@ const FeeStatus = () => {
   const handleReset = () => {
     setSearchTerm('');
     setSelectedCourseFilter('');
+    setStatusFilter('active');
     setFromMonth(currentMonthLabel);
     setFromYear(currentYearLabel);
     setToMonth(currentMonthLabel);
@@ -78,7 +80,9 @@ const FeeStatus = () => {
   const selectedRange = getMonthRange();
 
   students.forEach(student => {
-    if (student.status === 'inactive') return;
+    // 1. Filter by Student Status
+    if (statusFilter !== 'all' && student.status !== statusFilter) return;
+
     const courses = student.enrolled_courses || {};
     
     Object.keys(courses).forEach(courseId => {
@@ -87,22 +91,27 @@ const FeeStatus = () => {
                             student.student_id?.toLowerCase().includes(searchTerm.toLowerCase());
       const matchesCourse = selectedCourseFilter === '' || courseId === selectedCourseFilter;
       
-      if (courseInfo.course_status === 'active' && matchesSearch && matchesCourse) {
+      if (matchesSearch && matchesCourse) {
+        // 2. Define Time Boundaries for the specific Course
         const enrollDate = new Date(courseInfo.enrolledAt);
-        const enrollMonth = enrollDate.getMonth();
-        const enrollYear = enrollDate.getFullYear();
+        // If inactive/ended, use course_status_date. If active, use "now" as boundary.
+        const endDate = courseInfo.course_status_date ? new Date(courseInfo.course_status_date) : new Date();
+
+        // Normalize to the first of the month for comparison
+        const startBoundary = new Date(enrollDate.getFullYear(), enrollDate.getMonth(), 1);
+        const endBoundary = new Date(endDate.getFullYear(), endDate.getMonth(), 1);
 
         selectedRange.forEach(rangeObj => {
-          const currentMonthIdx = monthsMap[rangeObj.m];
-          const currentYearNum = rangeObj.y;
-          const isEligibleMonth = (currentYearNum > enrollYear) || (currentYearNum === enrollYear && currentMonthIdx >= enrollMonth);
+          const currentMonthDate = new Date(rangeObj.y, monthsMap[rangeObj.m], 1);
 
-          if (isEligibleMonth) {
+          // 3. Only display if month is within Enrollment -> End Date
+          if (currentMonthDate >= startBoundary && currentMonthDate <= endBoundary) {
             const status = getSingleMonthStatus(student.id, courseId, rangeObj.key, courseInfo.agreed_monthly_fee);
             finalDisplayList.push({
               studentKey: student.id,
               studentId: student.student_id,
               name: student.name,
+              studentStatus: student.status,
               courseName: courseInfo.course_name,
               month: rangeObj.m,
               year: rangeObj.y,
@@ -119,13 +128,13 @@ const FeeStatus = () => {
   finalDisplayList.sort((a, b) => b.sortValue - a.sortValue);
 
   const exportToExcel = () => {
-    const headers = ["ID", "Student Name", "Course", "Month", "Year", "Monthly Fee", "Paid", "Balance", "Status"];
-    const rows = finalDisplayList.map(item => [item.studentId, `"${item.name}"`, `"${item.courseName}"`, item.month, item.year, item.agreedFee, item.paid, item.balance, item.label]);
+    const headers = ["ID", "Student Name", "Status", "Course", "Month", "Year", "Monthly Fee", "Paid", "Balance", "Status"];
+    const rows = finalDisplayList.map(item => [item.studentId, `"${item.name}"`, item.studentStatus, `"${item.courseName}"`, item.month, item.year, item.agreedFee, item.paid, item.balance, item.label]);
     const csvContent = [headers, ...rows].map(e => e.join(",")).join("\n");
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement("a");
     link.href = URL.createObjectURL(blob);
-    link.download = `Fee_Report.csv`;
+    link.download = `Fee_Report_${new Date().toLocaleDateString()}.csv`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -135,11 +144,11 @@ const FeeStatus = () => {
     <div style={styles.container}>
       <header style={styles.header}>
         <div style={styles.titleArea}>
-          <h2 style={styles.title}>Fee Ledger 📂</h2>
-          <p style={styles.subtitle}>Month-by-month payment tracking</p>
+          <h2 style={styles.title}>Student Fee Ledger 📂</h2>
+          <p style={styles.subtitle}>History from Enrollment to Termination</p>
         </div>
         <div style={styles.headerActions}>
-           <button onClick={handleReset} style={styles.btnReset}>🔄 Reset Filters</button>
+           <button onClick={handleReset} style={styles.btnReset}>🔄 Reset</button>
            <button onClick={exportToExcel} style={styles.btnExport}>📥 Export CSV</button>
         </div>
       </header>
@@ -148,6 +157,15 @@ const FeeStatus = () => {
         <div style={styles.searchWrapper}>
           <label style={styles.miniLabel}>Search Student</label>
           <input type="text" placeholder="Name or ID..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} style={styles.searchInput} />
+        </div>
+
+        <div style={styles.searchWrapper}>
+          <label style={styles.miniLabel}>Enrollment Status</label>
+          <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} style={styles.select}>
+            <option value="active">Active Only</option>
+            <option value="inactive">Inactive Only</option>
+            <option value="all">All Students</option>
+          </select>
         </div>
 
         <div style={styles.searchWrapper}>
@@ -183,6 +201,7 @@ const FeeStatus = () => {
               <tr style={styles.thRow}>
                 <th style={styles.th}>ID</th>
                 <th style={styles.th}>Student Name</th>
+                <th style={styles.th}>Type</th>
                 <th style={styles.th}>Course</th>
                 <th style={styles.th}>Billing Month</th>
                 <th style={styles.th}>Fee</th>
@@ -196,6 +215,14 @@ const FeeStatus = () => {
                 <tr key={`${item.studentId}_${idx}`} style={styles.tr}>
                   <td style={styles.idCell}>{item.studentId}</td>
                   <td style={styles.nameCell}>{item.name}</td>
+                  <td style={styles.courseCell}>
+                    <span style={{ 
+                        color: item.studentStatus === 'active' ? '#10B981' : '#94a3b8',
+                        fontSize: '10px', fontWeight: 'bold' 
+                    }}>
+                        {item.studentStatus?.toUpperCase()}
+                    </span>
+                  </td>
                   <td style={styles.courseCell}>{item.courseName}</td>
                   <td style={styles.dateCell}>{item.month} {item.year}</td>
                   <td style={styles.feeCell}>PKR {item.agreedFee.toLocaleString()}</td>
@@ -210,7 +237,7 @@ const FeeStatus = () => {
                   </td>
                 </tr>
               )) : (
-                <tr><td colSpan="8" style={styles.empty}>No records found.</td></tr>
+                <tr><td colSpan="9" style={styles.empty}>No records found for the selected criteria.</td></tr>
               )}
             </tbody>
           </table>
@@ -220,8 +247,9 @@ const FeeStatus = () => {
   );
 };
 
+// ... Styles remain the same as your original provided code ...
 const styles = {
-  container: { maxWidth: '1200px', margin: '0 auto', padding: '20px', fontFamily: 'Inter, sans-serif' },
+  container: { maxWidth: '1250px', margin: '0 auto', padding: '20px', fontFamily: 'Inter, sans-serif' },
   header: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' },
   headerActions: { display: 'flex', gap: '10px' },
   title: { fontSize: '24px', fontWeight: '800', color: '#0f172a' },
@@ -230,7 +258,7 @@ const styles = {
   btnReset: { backgroundColor: '#f1f5f9', color: '#475569', border: '1px solid #e2e8f0', padding: '10px 18px', borderRadius: '10px', fontWeight: '600', cursor: 'pointer' },
   filterSection: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', backgroundColor: '#fff', padding: '16px', borderRadius: '14px', border: '1px solid #e2e8f0', marginBottom: '20px', flexWrap: 'wrap', gap: '20px' },
   miniLabel: { display: 'block', fontSize: '11px', fontWeight: '800', color: '#94a3b8', textTransform: 'uppercase', marginBottom: '6px' },
-  searchInput: { padding: '10px 14px', borderRadius: '8px', border: '1px solid #cbd5e1', width: '200px', outline: 'none', fontSize: '14px' },
+  searchInput: { padding: '10px 14px', borderRadius: '8px', border: '1px solid #cbd5e1', width: '180px', outline: 'none', fontSize: '14px' },
   rangePickers: { display: 'flex', gap: '24px', flexWrap: 'wrap' },
   pickerGroup: { display: 'flex', gap: '8px', alignItems: 'center' },
   rangeLabel: { fontSize: '12px', fontWeight: '700', color: '#475569' },
