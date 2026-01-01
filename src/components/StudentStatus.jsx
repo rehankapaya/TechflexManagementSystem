@@ -7,12 +7,12 @@ const StudentStatus = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(false);
   const [selectedCourseStatus, setSelectedCourseStatus] = useState({});
-  const [selectedCustomDates, setSelectedCustomDates] = useState({}); 
+  const [selectedCustomDates, setSelectedCustomDates] = useState({});
+  // NEW: State for manually changing Start Date
+  const [selectedStartDates, setSelectedStartDates] = useState({});
   const [status, setStatus] = useState({ type: '', msg: '' });
   const [selectedCourseFilter, setSelectedCourseFilter] = useState('');
   const [selectedStatusFilter, setSelectedStatusFilter] = useState('');
-  
-  // NEW: State for Month Filter
   const [selectedMonthFilter, setSelectedMonthFilter] = useState('');
 
   const months = [
@@ -46,39 +46,53 @@ const StudentStatus = () => {
 
   const handleStatusUpdate = async (studentId, courseId) => {
     const newCourseStatus = selectedCourseStatus[`${studentId}_${courseId}`];
-    const customDate = selectedCustomDates[`${studentId}_${courseId}`]; 
-    
-    if (!newCourseStatus) {
-      setStatus({ type: 'error', msg: "Please select a new status first." });
+    const customStatusDate = selectedCustomDates[`${studentId}_${courseId}`];
+    const customStartDate = selectedStartDates[`${studentId}_${courseId}`];
+
+    // We only force a status selection if they are trying to change lifecycle
+    // If they only change start date, we let it pass
+    if (!newCourseStatus && !customStartDate) {
+      setStatus({ type: 'error', msg: "Please select a new status or change start date first." });
       return;
     }
 
     setLoading(true);
     try {
       const student = students.find(s => s.id === studentId);
-      const updateDate = customDate ? new Date(customDate).toISOString() : new Date().toISOString();
+      const updateDate = customStatusDate ? new Date(customStatusDate).toISOString() : new Date().toISOString();
 
-      const updatedEnrolledCourses = {
-        ...student.enrolled_courses,
-        [courseId]: {
-          ...student.enrolled_courses[courseId],
-          course_status: newCourseStatus
-        }
-      };
-
-      const allCoursesFinished = Object.values(updatedEnrolledCourses).every(
-        c => c.course_status === 'coursecomplete' || c.course_status === 'dropout'
-      );
+      const currentCourseData = student.enrolled_courses[courseId];
 
       const masterUpdate = {
-        [`students/${studentId}/enrolled_courses/${courseId}/course_status`]: newCourseStatus,
-        [`students/${studentId}/enrolled_courses/${courseId}/course_status_date`]: updateDate,
-        [`students/${studentId}/status`]: allCoursesFinished ? 'inactive' : 'active',
         [`students/${studentId}/statusUpdatedAt`]: new Date().toISOString()
       };
 
+      // If status changed
+      if (newCourseStatus) {
+        masterUpdate[`students/${studentId}/enrolled_courses/${courseId}/course_status`] = newCourseStatus;
+        masterUpdate[`students/${studentId}/enrolled_courses/${courseId}/course_status_date`] = updateDate;
+
+        // Recalculate global student status
+        const updatedEnrolledCourses = {
+          ...student.enrolled_courses,
+          [courseId]: { ...currentCourseData, course_status: newCourseStatus }
+        };
+        const allFinished = Object.values(updatedEnrolledCourses).every(
+          c => c.course_status === 'coursecomplete' || c.course_status === 'dropout'
+        );
+        masterUpdate[`students/${studentId}/status`] = allFinished ? 'inactive' : 'active';
+      }
+
+      // If Start Date changed
+      if (customStartDate) {
+        masterUpdate[`students/${studentId}/enrolled_courses/${courseId}/enrolledAt`] = new Date(customStartDate).toISOString();
+      }
+
       await update(ref(db), masterUpdate);
-      setStatus({ type: 'success', msg: `Status updated successfully!` });
+      setStatus({ type: 'success', msg: `Records updated successfully!` });
+
+      // Clear specific temp states
+      setSelectedStartDates(prev => { delete prev[`${studentId}_${courseId}`]; return { ...prev }; });
     } catch (err) {
       setStatus({ type: 'error', msg: "Update failed: " + err.message });
     } finally {
@@ -86,7 +100,6 @@ const StudentStatus = () => {
     }
   };
 
-  // Logic: Updated to include Month Filtering
   const filteredStudents = students.map(s => {
     const matchesSearch = s.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       s.student_id?.toLowerCase().includes(searchTerm.toLowerCase());
@@ -94,14 +107,11 @@ const StudentStatus = () => {
     const filteredEnrolledCourses = Object.entries(s.enrolled_courses || {}).filter(([cId, cData]) => {
       const matchesCourseFilter = selectedCourseFilter === '' || cData.course_name === selectedCourseFilter;
       const matchesStatusFilter = selectedStatusFilter === '' || cData.course_status === selectedStatusFilter;
-      
-      // Check Month Match (Format: YYYY-MM-DD)
       let matchesMonthFilter = true;
       if (selectedMonthFilter !== '' && cData.enrolledAt) {
-        const enrollmentMonth = cData.enrolledAt.split('-')[1]; // Extracts MM
+        const enrollmentMonth = cData.enrolledAt.split('-')[1];
         matchesMonthFilter = enrollmentMonth === selectedMonthFilter;
       }
-
       return matchesCourseFilter && matchesStatusFilter && matchesMonthFilter;
     });
 
@@ -113,22 +123,15 @@ const StudentStatus = () => {
       <header style={styles.header}>
         <div style={styles.titleArea}>
           <h2 style={styles.title}>Student Status Sync 🔄</h2>
-          <p style={styles.subtitle}>Manage completions and lifecycle.</p>
+          <p style={styles.subtitle}>Manage start dates and lifecycles.</p>
         </div>
         <div style={styles.filterGroup}>
-          
-          {/* NEW: Month Filter Dropdown */}
           <div style={styles.searchWrapper}>
-            <select 
-              value={selectedMonthFilter} 
-              onChange={(e) => setSelectedMonthFilter(e.target.value)} 
-              style={{ ...styles.searchInput, paddingLeft: '10px', width: '130px' }}
-            >
+            <select value={selectedMonthFilter} onChange={(e) => setSelectedMonthFilter(e.target.value)} style={{ ...styles.searchInput, paddingLeft: '10px', width: '130px' }}>
               <option value="">All Months</option>
               {months.map(m => <option key={m.val} value={m.val}>{m.label}</option>)}
             </select>
           </div>
-
           <div style={styles.searchWrapper}>
             <select value={selectedStatusFilter} onChange={(e) => setSelectedStatusFilter(e.target.value)} style={{ ...styles.searchInput, paddingLeft: '15px', width: '130px' }}>
               <option value="">All Status</option>
@@ -152,7 +155,7 @@ const StudentStatus = () => {
 
       {status.msg && (
         <div style={{ ...styles.statusBanner, backgroundColor: status.type === 'success' ? '#F0FDF4' : '#FEF2F2', color: status.type === 'success' ? '#166534' : '#991B1B', borderColor: status.type === 'success' ? '#BBF7D0' : '#FCA5A5' }}>
-          {status.type === 'success' ? '✅ ' : '⚠️ '} {status.msg}
+          {status.msg}
           <button onClick={() => setStatus({ type: '', msg: '' })} style={styles.closeStatus}>×</button>
         </div>
       )}
@@ -164,7 +167,7 @@ const StudentStatus = () => {
               <tr style={styles.thRow}>
                 <th style={styles.th}>Student Identity</th>
                 <th style={styles.th}>Account Status</th>
-                <th style={styles.th}>Enrolled Courses & Lifecycle</th>
+                <th style={styles.th}>Enrollment & Status Control</th>
               </tr>
             </thead>
             <tbody>
@@ -184,29 +187,56 @@ const StudentStatus = () => {
                       <div key={cId} style={styles.courseRow}>
                         <div style={styles.courseMainInfo}>
                           <span style={styles.courseName}>{cData.course_name}</span>
-                          
-                          <div style={styles.dateTimeline}>
-                             <span>📅 <b>Start:</b> {formatDate(cData.enrolledAt) || "N/A"}</span>
-                             <span style={{ marginLeft: '10px' }}>
-                               🏁 <b>End:</b> {cData.course_status === 'active' ? 
-                                 <span style={{color: '#3B82F6', fontWeight: 'bold'}}>In Progress</span> : 
-                                 formatDate(cData.course_status_date)}
-                             </span>
-                          </div>
-
                           <span style={{ ...styles.miniBadge, color: cData.course_status === 'active' ? '#10B981' : '#EF4444' }}>
                             ● {cData.course_status}
                           </span>
+                          <div style={styles.dateTimeline}>
+                            <span>📅 <b>Start:</b> {formatDate(cData.enrolledAt) || "N/A"}</span>
+                            <span style={{ marginLeft: '10px' }}>
+                              🏁 <b>End:</b> {cData.course_status === 'active' ?
+                                <span style={{ color: '#3B82F6', fontWeight: 'bold' }}>In Progress</span> :
+                                formatDate(cData.course_status_date)}
+                            </span>
+                          </div>
                         </div>
+
                         <div style={styles.actionGroup}>
-                          <input type="date" style={styles.dateInput} onChange={(e) => setSelectedCustomDates(prev => ({ ...prev, [`${s.id}_${cId}`]: e.target.value }))} />
-                          <select onChange={(e) => setSelectedCourseStatus(prev => ({ ...prev, [`${s.id}_${cId}`]: e.target.value }))} style={styles.select}>
-                            <option value="">Update</option>
-                            <option value="active">Active</option>
-                            <option value="coursecomplete">Graduated</option>
-                            <option value="dropout">Dropout</option>
-                          </select>
-                          <button onClick={() => handleStatusUpdate(s.id, cId)} disabled={loading} style={styles.btnSync}>Sync</button>
+                          {/* START DATE CONTROL */}
+                          <div style={styles.inputContainer}>
+                            <label style={styles.tinyLabel}>Change Start Date</label>
+                            <input
+                              type="date"
+                              style={styles.dateInput}
+                              onChange={(e) => setSelectedStartDates(prev => ({ ...prev, [`${s.id}_${cId}`]: e.target.value }))}
+                            />
+                          </div>
+
+                          {/* END/STATUS DATE CONTROL */}
+                          <div style={styles.inputContainer}>
+                            <label style={styles.tinyLabel}>Change Status Date</label>
+                            <input
+                              type="date"
+                              style={styles.dateInput}
+                              onChange={(e) => setSelectedCustomDates(prev => ({ ...prev, [`${s.id}_${cId}`]: e.target.value }))}
+                            />
+                          </div>
+
+                          <div style={styles.inputContainer}>
+                            <label style={styles.tinyLabel}>Update Status</label>
+                            <select
+                              onChange={(e) => setSelectedCourseStatus(prev => ({ ...prev, [`${s.id}_${cId}`]: e.target.value }))}
+                              style={styles.select}
+                            >
+                              <option value="">No Change</option>
+                              <option value="active">Active</option>
+                              <option value="coursecomplete">Graduated</option>
+                              <option value="dropout">Dropout</option>
+                            </select>
+                          </div>
+
+                          <button onClick={() => handleStatusUpdate(s.id, cId)} disabled={loading} style={styles.btnSync}>
+                            Sync
+                          </button>
                         </div>
                       </div>
                     ))}
@@ -224,7 +254,6 @@ const StudentStatus = () => {
 };
 
 const styles = {
-  // ... Keep all existing styles provided previously ...
   container: { maxWidth: '1200px', margin: '0 auto', padding: '20px' },
   header: { display: 'flex', justifyContent: 'space-between', marginBottom: '30px', alignItems: 'flex-end', flexWrap: 'wrap', gap: '20px' },
   titleArea: { flex: 1 },
@@ -238,7 +267,7 @@ const styles = {
   closeStatus: { background: 'none', border: 'none', fontSize: '18px', cursor: 'pointer', opacity: 0.5 },
   card: { background: '#fff', borderRadius: '16px', border: '1px solid #E2E8F0', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)', overflow: 'hidden' },
   tableWrapper: { overflowX: 'auto' },
-  table: { width: '100%', borderCollapse: 'collapse', textAlign: 'left', minWidth: '800px' },
+  table: { width: '100%', borderCollapse: 'collapse', textAlign: 'left', minWidth: '1000px' },
   thRow: { background: '#F8FAFC', borderBottom: '1px solid #E2E8F0' },
   th: { padding: '15px 20px', color: '#64748B', fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.05em' },
   tr: { borderBottom: '1px solid #F1F5F9' },
@@ -247,15 +276,17 @@ const styles = {
   studentName: { fontSize: '15px', fontWeight: '600', color: '#1E293B', marginTop: '2px' },
   badge: { padding: '4px 12px', borderRadius: '20px', fontSize: '10px', fontWeight: '800' },
   coursesCell: { padding: '10px 20px' },
-  courseRow: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '20px', padding: '12px 0', borderBottom: '1px solid #F8FAFC' },
+  courseRow: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '30px', padding: '12px 0', borderBottom: '1px solid #F8FAFC' },
   courseMainInfo: { display: 'flex', flexDirection: 'column', gap: '4px', flex: 1 },
   courseName: { fontSize: '14px', fontWeight: '600', color: '#334155' },
   dateTimeline: { fontSize: '12px', color: '#64748B', display: 'flex', gap: '5px', marginTop: '2px' },
+  actionGroup: { display: 'flex', alignItems: 'flex-end', gap: '12px' },
+  inputContainer: { display: 'flex', flexDirection: 'column', gap: '4px' },
   miniBadge: { fontSize: '11px', fontWeight: '700', marginTop: '2px' },
-  actionGroup: { display: 'flex', alignItems: 'center', gap: '8px' },
-  dateInput: { padding: '6px', borderRadius: '8px', border: '1px solid #E2E8F0', fontSize: '12px' },
-  select: { padding: '8px 12px', borderRadius: '8px', border: '1px solid #E2E8F0', fontSize: '13px' },
-  btnSync: { background: '#3B82F6', color: '#fff', border: 'none', padding: '8px 16px', borderRadius: '8px', cursor: 'pointer', fontWeight: '700' },
+  tinyLabel: { fontSize: '9px', fontWeight: '800', color: '#94A3B8', textTransform: 'uppercase' },
+  dateInput: { padding: '6px', borderRadius: '8px', border: '1px solid #E2E8F0', fontSize: '11px', backgroundColor: '#F8FAFC' },
+  select: { padding: '7px 12px', borderRadius: '8px', border: '1px solid #E2E8F0', fontSize: '12px', backgroundColor: '#F8FAFC' },
+  btnSync: { background: '#3B82F6', color: '#fff', border: 'none', padding: '9px 16px', borderRadius: '8px', cursor: 'pointer', fontWeight: '700', fontSize: '12px' },
   emptyState: { padding: '60px', textAlign: 'center', color: '#94A3B8' }
 };
 
