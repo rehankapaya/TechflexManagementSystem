@@ -14,6 +14,7 @@ import StudentStatus from './components/StudentStatus';
 import CourseEnrollment from './components/CourseEnrollment';
 import MonthlyAnalytics from './components/MonthlyAnalytics';
 import GlobalExport from './components/GlobalExport';
+import CertificateGenerator from './components/CertificateGenerator';
 
 function App() {
   return (
@@ -64,6 +65,14 @@ function App() {
               element={
                 <ProtectedRoute requiredRole="admin">
                   <GlobalExport />
+                </ProtectedRoute>
+              }
+            />
+                        <Route
+              path="certificate"
+              element={
+                <ProtectedRoute requiredRole="admin">
+                  <CertificateGenerator />
                 </ProtectedRoute>
               }
             />

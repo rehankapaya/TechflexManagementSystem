@@ -120,6 +120,7 @@ const Dashboard = () => {
               <SidebarLink to="/dashboard/users" icon={<UserCog size={20} />} label="User Management" collapsed={sidebarCollapsed} active={isActive('/dashboard/users')} />
               <SidebarLink to="/dashboard/analtyics" icon={<ChartBar size={20} />} label="Analtyics" collapsed={sidebarCollapsed} active={isActive('/dashboard/settings')} />
               <SidebarLink to="/dashboard/record" icon={<ChartBar size={20} />} label="Record" collapsed={sidebarCollapsed} active={isActive('/dashboard/record')} />
+              <SidebarLink to="/dashboard/certificate" icon={<ChartBar size={20} />} label="Certificate" collapsed={sidebarCollapsed} active={isActive('/dashboard/certificate')} />
             </div>
           )}
         </nav>
