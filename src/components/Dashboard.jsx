@@ -1,26 +1,29 @@
 import React, { useState, useEffect } from 'react';
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
-import { 
-  LayoutDashboard, 
-  Users, 
-  UserCheck, 
-  BookOpen, 
+import {
+  LayoutDashboard,
+  Users,
+  UserCheck,
+  BookOpen,
   ChartBar,
-  PenSquare, 
-  CreditCard, 
-  BadgeDollarSign, 
-  UserCog, 
-  Settings, 
-  LogOut, 
-  ChevronLeft, 
-  ChevronRight, 
-  Search, 
-  Bell, 
-  HelpCircle, 
+  PenSquare,
+  CreditCard,
+  BadgeDollarSign,
+  UserCog,
+  Settings,
+  LogOut,
+  ChevronLeft,
+  ChevronRight,
+  Search,
+  Bell,
+  HelpCircle,
   ChevronDown,
   GraduationCap,
   AlertCircle,
-  X
+  X,
+  Award,
+  FileText,
+  BarChart3
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -60,10 +63,9 @@ const Dashboard = () => {
   return (
     <div className="flex h-screen bg-slate-50 overflow-hidden font-sans">
       {/* SIDEBAR */}
-      <aside 
-        className={`bg-[#0F172A] text-slate-300 flex flex-col transition-all duration-300 ease-in-out relative z-20 shadow-xl ${
-          sidebarCollapsed ? 'w-20' : 'w-64'
-        }`}
+      <aside
+        className={`bg-[#0F172A] text-slate-300 flex flex-col transition-all duration-300 ease-in-out relative z-20 shadow-xl ${sidebarCollapsed ? 'w-20' : 'w-64'
+          }`}
       >
         <div className="p-6 flex items-center gap-3 border-b border-slate-800/50">
           <div className="w-10 h-10 bg-[#3B82F6] rounded-xl flex items-center justify-center shadow-lg shadow-blue-500/20">
@@ -77,26 +79,26 @@ const Dashboard = () => {
         <nav className="flex-1 py-6 overflow-y-auto overflow-x-hidden custom-scrollbar">
           <div className="px-4 mb-6">
             {!sidebarCollapsed && <p className="text-[10px] font-bold text-slate-500 tracking-widest mb-4 px-2">GENERAL</p>}
-            <SidebarLink 
-              to="/dashboard" 
-              icon={<LayoutDashboard size={20} />} 
-              label="Overview" 
-              collapsed={sidebarCollapsed} 
-              active={location.pathname === '/dashboard'} 
+            <SidebarLink
+              to="/dashboard"
+              icon={<LayoutDashboard size={20} />}
+              label="Overview"
+              collapsed={sidebarCollapsed}
+              active={location.pathname === '/dashboard'}
             />
-            <SidebarLink 
-              to="/dashboard/students" 
-              icon={<Users size={20} />} 
-              label="Students" 
-              collapsed={sidebarCollapsed} 
-              active={isActive('/dashboard/students')} 
+            <SidebarLink
+              to="/dashboard/students"
+              icon={<Users size={20} />}
+              label="Students"
+              collapsed={sidebarCollapsed}
+              active={isActive('/dashboard/students')}
             />
-            <SidebarLink 
-              to="/dashboard/studentstatus" 
-              icon={<UserCheck size={20} />} 
-              label="Student Status" 
-              collapsed={sidebarCollapsed} 
-              active={isActive('/dashboard/studentstatus')} 
+            <SidebarLink
+              to="/dashboard/studentstatus"
+              icon={<UserCheck size={20} />}
+              label="Student Status"
+              collapsed={sidebarCollapsed}
+              active={isActive('/dashboard/studentstatus')}
             />
           </div>
 
@@ -117,15 +119,43 @@ const Dashboard = () => {
           {isAdmin && (
             <div className="px-4 mb-6">
               {!sidebarCollapsed && <p className="text-[10px] font-bold text-slate-500 tracking-widest mb-4 px-2">ADMIN</p>}
-              <SidebarLink to="/dashboard/users" icon={<UserCog size={20} />} label="User Management" collapsed={sidebarCollapsed} active={isActive('/dashboard/users')} />
-              <SidebarLink to="/dashboard/analtyics" icon={<ChartBar size={20} />} label="Analtyics" collapsed={sidebarCollapsed} active={isActive('/dashboard/settings')} />
-              <SidebarLink to="/dashboard/record" icon={<ChartBar size={20} />} label="Record" collapsed={sidebarCollapsed} active={isActive('/dashboard/record')} />
-              <SidebarLink to="/dashboard/certificate" icon={<ChartBar size={20} />} label="Certificate" collapsed={sidebarCollapsed} active={isActive('/dashboard/certificate')} />
+              <SidebarLink
+                to="/dashboard/users"
+                icon={<UserCog size={20} />}
+                label="User Management"
+                collapsed={sidebarCollapsed}
+                active={isActive('/dashboard/users')}
+              />
+
+              <SidebarLink
+                to="/dashboard/analtyics"
+                icon={<BarChart3 size={20} />}
+                label="Analytics"
+                collapsed={sidebarCollapsed}
+                active={isActive('/dashboard/analtyics')}
+              />
+
+              <SidebarLink
+                to="/dashboard/record"
+                icon={<FileText size={20} />}
+                label="Record"
+                collapsed={sidebarCollapsed}
+                active={isActive('/dashboard/record')}
+              />
+
+              <SidebarLink
+                to="/dashboard/certificate"
+                icon={<Award size={20} />}
+                label="Certificate"
+                collapsed={sidebarCollapsed}
+                active={isActive('/dashboard/certificate')}
+              />
+
             </div>
           )}
         </nav>
 
-        <button 
+        <button
           onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
           className="absolute bottom-6 -right-3 w-6 h-6 rounded-full bg-[#3B82F6] text-white flex items-center justify-center hover:bg-blue-600 transition-colors shadow-lg"
         >
@@ -161,7 +191,7 @@ const Dashboard = () => {
             <div className="h-8 w-[1px] bg-slate-200"></div>
 
             <div className="relative">
-              <button 
+              <button
                 onClick={() => setShowProfileDropdown(!showProfileDropdown)}
                 className="flex items-center gap-3 p-1.5 hover:bg-slate-50 rounded-xl transition-all"
               >
@@ -185,7 +215,7 @@ const Dashboard = () => {
                   {/* <Link to="/dashboard/profile" className="flex items-center gap-2 px-3 py-2 text-sm text-slate-600 hover:bg-slate-50 hover:text-[#3B82F6] rounded-lg transition-colors">
                     <UserCog size={16} /> My Profile
                   </Link> */}
-                  <button 
+                  <button
                     onClick={handleLogout}
                     className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors font-medium mt-1"
                   >
@@ -209,7 +239,7 @@ const Dashboard = () => {
               </button>
             </div>
           )}
-          
+
           <div className="bg-white rounded-2xl shadow-sm border border-slate-200 min-h-full p-6">
             <Outlet context={{ searchTerm }} />
           </div>
@@ -228,13 +258,12 @@ const Dashboard = () => {
 };
 
 const SidebarLink = ({ to, icon, label, collapsed, active }) => (
-  <Link 
-    to={to} 
-    className={`flex items-center gap-4 px-4 py-3 rounded-xl transition-all duration-200 group mb-1 ${
-      active 
-        ? 'bg-[#3B82F6] text-white shadow-lg shadow-blue-500/30' 
+  <Link
+    to={to}
+    className={`flex items-center gap-4 px-4 py-3 rounded-xl transition-all duration-200 group mb-1 ${active
+        ? 'bg-[#3B82F6] text-white shadow-lg shadow-blue-500/30'
         : 'hover:bg-slate-800/50 text-slate-400 hover:text-white'
-    }`}
+      }`}
   >
     <div className={`transition-transform duration-200 ${active ? 'scale-110' : 'group-hover:scale-110'}`}>
       {icon}
