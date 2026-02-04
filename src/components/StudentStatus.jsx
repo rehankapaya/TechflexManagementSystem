@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { db } from '../firebase.js';
 import { ref, onValue, update } from 'firebase/database';
+import * as XLSX from 'xlsx'; // Import library
 
 const StudentStatus = () => {
   const [students, setStudents] = useState([]);
@@ -8,7 +9,6 @@ const StudentStatus = () => {
   const [loading, setLoading] = useState(false);
   const [selectedCourseStatus, setSelectedCourseStatus] = useState({});
   const [selectedCustomDates, setSelectedCustomDates] = useState({});
-  // NEW: State for manually changing Start Date
   const [selectedStartDates, setSelectedStartDates] = useState({});
   const [status, setStatus] = useState({ type: '', msg: '' });
   const [selectedCourseFilter, setSelectedCourseFilter] = useState('');
@@ -44,13 +44,36 @@ const StudentStatus = () => {
     });
   };
 
+  // --- NEW: Download Excel Function ---
+  const downloadExcel = () => {
+    const excelData = [];
+    
+    filteredStudents.forEach(s => {
+      s.filteredCourses.forEach(([cId, cData]) => {
+        excelData.push({
+          "Student ID": s.student_id,
+          "Name": s.name,
+          "Account Status": s.status?.toUpperCase(),
+          "Course Name": cData.course_name,
+          "Course Status": cData.course_status,
+          "Start Date": formatDate(cData.enrolledAt) || "N/A",
+          "Status Date": cData.course_status === 'active' ? 'In Progress' : formatDate(cData.course_status_date),
+          "Contact": s.contact || "N/A"
+        });
+      });
+    });
+
+    const worksheet = XLSX.utils.json_to_sheet(excelData);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Student Records");
+    XLSX.writeFile(workbook, `Student_Status_Report_${new Date().toLocaleDateString()}.xlsx`);
+  };
+
   const handleStatusUpdate = async (studentId, courseId) => {
     const newCourseStatus = selectedCourseStatus[`${studentId}_${courseId}`];
     const customStatusDate = selectedCustomDates[`${studentId}_${courseId}`];
     const customStartDate = selectedStartDates[`${studentId}_${courseId}`];
 
-    // We only force a status selection if they are trying to change lifecycle
-    // If they only change start date, we let it pass
     if (!newCourseStatus && !customStartDate) {
       setStatus({ type: 'error', msg: "Please select a new status or change start date first." });
       return;
@@ -60,19 +83,16 @@ const StudentStatus = () => {
     try {
       const student = students.find(s => s.id === studentId);
       const updateDate = customStatusDate ? new Date(customStatusDate).toISOString() : new Date().toISOString();
-
       const currentCourseData = student.enrolled_courses[courseId];
 
       const masterUpdate = {
         [`students/${studentId}/statusUpdatedAt`]: new Date().toISOString()
       };
 
-      // If status changed
       if (newCourseStatus) {
         masterUpdate[`students/${studentId}/enrolled_courses/${courseId}/course_status`] = newCourseStatus;
         masterUpdate[`students/${studentId}/enrolled_courses/${courseId}/course_status_date`] = updateDate;
 
-        // Recalculate global student status
         const updatedEnrolledCourses = {
           ...student.enrolled_courses,
           [courseId]: { ...currentCourseData, course_status: newCourseStatus }
@@ -83,15 +103,12 @@ const StudentStatus = () => {
         masterUpdate[`students/${studentId}/status`] = allFinished ? 'inactive' : 'active';
       }
 
-      // If Start Date changed
       if (customStartDate) {
         masterUpdate[`students/${studentId}/enrolled_courses/${courseId}/enrolledAt`] = new Date(customStartDate).toISOString();
       }
 
       await update(ref(db), masterUpdate);
       setStatus({ type: 'success', msg: `Records updated successfully!` });
-
-      // Clear specific temp states
       setSelectedStartDates(prev => { delete prev[`${studentId}_${courseId}`]; return { ...prev }; });
     } catch (err) {
       setStatus({ type: 'error', msg: "Update failed: " + err.message });
@@ -125,6 +142,14 @@ const StudentStatus = () => {
           <h2 style={styles.title}>Student Status Sync 🔄</h2>
           <p style={styles.subtitle}>Manage start dates and lifecycles.</p>
         </div>
+        
+        {/* NEW: Download Button */}
+        <div style={{ marginBottom: '10px' }}>
+          <button onClick={downloadExcel} style={styles.btnExcel}>
+            📥 Download Records (Excel)
+          </button>
+        </div>
+
         <div style={styles.filterGroup}>
           <div style={styles.searchWrapper}>
             <select value={selectedMonthFilter} onChange={(e) => setSelectedMonthFilter(e.target.value)} style={{ ...styles.searchInput, paddingLeft: '10px', width: '130px' }}>
@@ -201,7 +226,6 @@ const StudentStatus = () => {
                         </div>
 
                         <div style={styles.actionGroup}>
-                          {/* START DATE CONTROL */}
                           <div style={styles.inputContainer}>
                             <label style={styles.tinyLabel}>Change Start Date</label>
                             <input
@@ -211,7 +235,6 @@ const StudentStatus = () => {
                             />
                           </div>
 
-                          {/* END/STATUS DATE CONTROL */}
                           <div style={styles.inputContainer}>
                             <label style={styles.tinyLabel}>Change Status Date</label>
                             <input
@@ -287,6 +310,7 @@ const styles = {
   dateInput: { padding: '6px', borderRadius: '8px', border: '1px solid #E2E8F0', fontSize: '11px', backgroundColor: '#F8FAFC' },
   select: { padding: '7px 12px', borderRadius: '8px', border: '1px solid #E2E8F0', fontSize: '12px', backgroundColor: '#F8FAFC' },
   btnSync: { background: '#3B82F6', color: '#fff', border: 'none', padding: '9px 16px', borderRadius: '8px', cursor: 'pointer', fontWeight: '700', fontSize: '12px' },
+  btnExcel: { background: '#10B981', color: '#fff', border: 'none', padding: '10px 20px', borderRadius: '10px', cursor: 'pointer', fontWeight: '700', fontSize: '14px' },
   emptyState: { padding: '60px', textAlign: 'center', color: '#94A3B8' }
 };
 
