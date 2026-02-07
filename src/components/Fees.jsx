@@ -16,6 +16,7 @@ const Fees = () => {
   const [selectedCourseId, setSelectedCourseId] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(false);
+  const [editingTransaction, setEditingTransaction] = useState(null); // NEW: Track editing state
 
   // Form State Defaults
   const initialFormState = {
@@ -53,6 +54,7 @@ const Fees = () => {
     setSelectedCourseId('');
     setSearchTerm('');
     setFormData(initialFormState);
+    setEditingTransaction(null); // Reset edit state
   };
 
   const handleStudentSelect = (student) => {
@@ -60,6 +62,7 @@ const Fees = () => {
     setSelectedCourseId('');
     setFormData(prev => ({ ...prev, payable: 0, paid: 0, waived: 0 }));
     setSearchTerm("");
+    setEditingTransaction(null);
   };
 
   const handleCourseSelect = (courseId) => {
@@ -73,18 +76,31 @@ const Fees = () => {
         waived: 0
       }));
     }
+    setEditingTransaction(null);
   };
 
-  const handleDeleteFee = async (monthKey) => {
+  // NEW: Handle Edit Click
+  const handleEdit = (transaction) => {
+    setEditingTransaction(transaction);
+    setFormData({
+      month: transaction.month || transaction.month_key.split('_')[0],
+      year: transaction.year || transaction.month_key.split('_')[1],
+      payable: transaction.payable,
+      paid: transaction.paid,
+      waived: transaction.waived
+    });
+    // Scroll to form
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleDeleteFee = async (id) => {
     if (!selectedStudent || !selectedCourseId) return;
 
-    const confirmDelete = window.confirm(
-      `Are you sure you want to delete the record for ${monthKey.replace('_', ' ')}?`
-    );
+    const confirmDelete = window.confirm("Are you sure you want to delete this record?");
 
     if (confirmDelete) {
       try {
-        await remove(ref(db, `fee_transactions/${selectedStudent.id}/${selectedCourseId}/${monthKey}`));
+        await remove(ref(db, `fee_transactions/${selectedStudent.id}/${selectedCourseId}/${id}`));
         alert("Record deleted successfully.");
       } catch (err) {
         alert("Error deleting record: " + err.message);
@@ -107,8 +123,8 @@ const Fees = () => {
       course_id: selectedCourseId,
       course_name: selectedStudent.enrolled_courses[selectedCourseId].course_name,
       month_key: monthKey,
-      month: formData.month, // Added explicit month
-      year: formData.year,   // Added explicit year
+      month: formData.month,
+      year: formData.year,
       payable: Number(formData.payable),
       paid: Number(formData.paid),
       waived: Number(formData.waived),
@@ -118,20 +134,49 @@ const Fees = () => {
     };
 
     try {
-      if (transaction.waived > 0 && !isAdmin) {
+      // 1. NON-ADMIN: ALWAYS SEND TO PENDING
+      if (!isAdmin) {
         await push(ref(db, 'pending_fee_approvals'), transaction);
-        alert("Waiver request sent to Admin.");
-      } else {
+        alert("Transaction sent to Admin for approval.");
+
+        // Reset form after submission
+        setFormData(prev => ({
+          ...prev,
+          paid: prev.payable,
+          waived: 0
+        }));
+      }
+      // 2. ADMIN: EDIT EXISTING RECORD
+      else if (editingTransaction) {
+        // If changing month/year (key changes), remove old record first
+        if (editingTransaction.month_key !== monthKey) {
+          await remove(ref(db, `fee_transactions/${selectedStudent.id}/${selectedCourseId}/${editingTransaction.id}`));
+        }
+
+        // Update/Set new record
+        await update(ref(db, `fee_transactions/${selectedStudent.id}/${selectedCourseId}/${monthKey}`), transaction);
+        alert("Transaction updated successfully.");
+        setEditingTransaction(null);
+
+        // Reset form
+        setFormData(prev => ({
+          ...prev,
+          paid: prev.payable,
+          waived: 0
+        }));
+      }
+      // 3. ADMIN: NEW RECORD
+      else {
         await update(ref(db, `fee_transactions/${selectedStudent.id}/${selectedCourseId}/${monthKey}`), transaction);
         alert("Payment recorded.");
-      }
 
-      // RESET LOGIC: Set Paid back to the full Payable amount, and Waiver to 0
-      setFormData(prev => ({
-        ...prev,
-        paid: prev.payable, // Set paid field equal to the monthly fee
-        waived: 0           // Clear the waiver
-      }));
+        // Reset form
+        setFormData(prev => ({
+          ...prev,
+          paid: prev.payable,
+          waived: 0
+        }));
+      }
 
     } catch (err) {
       alert(err.message);
@@ -142,9 +187,7 @@ const Fees = () => {
 
   const approveFee = async (reqId, data) => {
     try {
-      // Remove the pending request ID from the data to be saved
       const { id, ...cleanData } = data;
-
       await update(ref(db, `fee_transactions/${data.student_id}/${data.course_id}/${data.month_key}`), {
         ...cleanData,
         approvedBy: currentUser.displayName || "Admin",
@@ -186,7 +229,7 @@ const Fees = () => {
         {/* LEFT COLUMN */}
         <div style={styles.sideCol}>
           <div style={styles.card}>
-            <h3>Collect Fee</h3>
+            <h3>{editingTransaction ? `Edit Fee (${editingTransaction.month_key.replace('_', ' ')})` : 'Collect Fee'}</h3>
 
             <div style={{ position: 'relative', marginBottom: '15px' }}>
               <label style={styles.label}>Search Student</label>
@@ -196,8 +239,9 @@ const Fees = () => {
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 style={styles.input}
+                disabled={!!editingTransaction} // Disable search while editing
               />
-              {searchTerm && searchResults.length > 0 && (
+              {searchTerm && searchResults.length > 0 && !editingTransaction && (
                 <div style={styles.dropdown}>
                   {searchResults.map(s => (
                     <div key={s.id} onClick={() => handleStudentSelect(s)} style={styles.dropdownItem}>
@@ -218,6 +262,7 @@ const Fees = () => {
                   onChange={(e) => handleCourseSelect(e.target.value)}
                   style={styles.input}
                   required
+                  disabled={!!editingTransaction} // Disable course selection while editing
                 >
                   <option value="">-- Choose Course --</option>
                   {Object.entries(selectedStudent.enrolled_courses || {}).map(([id, data]) => (
@@ -252,10 +297,17 @@ const Fees = () => {
                     <div style={styles.balanceSummary}>Balance: PKR {formData.payable - formData.paid - formData.waived}</div>
 
                     <div style={{ display: 'flex', gap: '10px' }}>
-                      <button type="submit" disabled={loading} style={{ ...styles.btnPrimary, flex: 2 }}>
-                        {loading ? "Saving..." : (formData.waived > 0 && !isAdmin ? "Submit Waiver" : "Update Ledger")}
+                      <button type="submit" disabled={loading} style={{ ...styles.btnPrimary, flex: 2, background: editingTransaction ? '#f59e0b' : '#4318ff' }}>
+                        {loading ? "Saving..." : (editingTransaction ? "Update Transaction" : (!isAdmin ? "Submit for Approval" : "Update Ledger"))}
                       </button>
-                      <button type="button" onClick={handleReset} style={{ ...styles.btnReset, flex: 1 }}>Reset</button>
+
+                      {editingTransaction ? (
+                        <button type="button" onClick={() => { setEditingTransaction(null); setFormData(initialFormState); }} style={{ ...styles.btnReset, flex: 1 }}>
+                          Cancel
+                        </button>
+                      ) : (
+                        <button type="button" onClick={handleReset} style={{ ...styles.btnReset, flex: 1 }}>Reset</button>
+                      )}
                     </div>
                   </>
                 )}
@@ -268,14 +320,14 @@ const Fees = () => {
         <div style={styles.mainCol}>
           {isAdmin && pendingFees.length > 0 && (
             <div style={styles.pendingCard}>
-              <h4 style={{ marginTop: 0, color: '#b45309' }}>⏳ Pending Waiver Approvals</h4>
+              <h4 style={{ marginTop: 0, color: '#b45309' }}>⏳ Pending Fee Approvals</h4>
               <table style={styles.table}>
                 <thead>
                   <tr style={styles.thRow}>
                     <th>Student Name</th>
                     <th>Course</th>
                     <th>Month</th>
-                    <th>Waiver</th>
+                    <th>Paid/Waiver</th>
                     <th>Actions</th>
                   </tr>
                 </thead>
@@ -285,7 +337,10 @@ const Fees = () => {
                       <td>{f.student_name}</td>
                       <td><small>{f.course_name}</small></td>
                       <td>{f.month_key}</td>
-                      <td style={{ color: 'red', fontWeight: 'bold' }}>{f.waived}</td>
+                      <td>
+                        Paid: <strong>{f.paid}</strong><br />
+                        <span style={{ color: 'red', fontSize: '11px' }}>Waived: {f.waived}</span>
+                      </td>
                       <td>
                         <button onClick={() => approveFee(f.id, f)} style={styles.btnApprove}>Approve</button>
                         <button onClick={() => rejectFee(f.id)} style={styles.btnReject}>Reject</button>
@@ -321,12 +376,8 @@ const Fees = () => {
                       <td style={{ color: h.balance > 0 ? 'red' : 'inherit' }}>{h.balance}</td>
                       {isAdmin && (
                         <td>
-                          <button
-                            onClick={() => handleDeleteFee(h.id)}
-                            style={styles.btnDeleteSmall}
-                          >
-                            🗑️
-                          </button>
+                          <button onClick={() => handleEdit(h)} style={{ ...styles.btnDeleteSmall, marginRight: '5px' }}>✏️</button>
+                          <button onClick={() => handleDeleteFee(h.id)} style={styles.btnDeleteSmall}>🗑️</button>
                         </td>
                       )}
                     </tr>
