@@ -93,56 +93,61 @@ const Fees = () => {
   };
 
   const handlePaymentSubmit = async (e) => {
-  e.preventDefault();
-  if (!selectedStudent || !selectedCourseId) return alert("Select student and course");
+    e.preventDefault();
+    if (!selectedStudent || !selectedCourseId) return alert("Select student and course");
 
-  setLoading(true);
-  const monthKey = `${formData.month}_${formData.year}`;
-  const balance = Number(formData.payable) - Number(formData.paid) - Number(formData.waived);
+    setLoading(true);
+    const monthKey = `${formData.month}_${formData.year}`;
+    const balance = Number(formData.payable) - Number(formData.paid) - Number(formData.waived);
 
-  const transaction = {
-    student_id: selectedStudent.id,
-    student_name: selectedStudent.name,
-    student_custom_id: selectedStudent.student_id,
-    course_id: selectedCourseId,
-    course_name: selectedStudent.enrolled_courses[selectedCourseId].course_name,
-    month_key: monthKey,
-    payable: Number(formData.payable),
-    paid: Number(formData.paid),
-    waived: Number(formData.waived),
-    balance: balance,
-    addedBy: currentUser.displayName || 'Staff',
-    timestamp: Date.now()
-  };
+    const transaction = {
+      student_id: selectedStudent.id,
+      student_name: selectedStudent.name,
+      student_custom_id: selectedStudent.student_id,
+      course_id: selectedCourseId,
+      course_name: selectedStudent.enrolled_courses[selectedCourseId].course_name,
+      month_key: monthKey,
+      month: formData.month, // Added explicit month
+      year: formData.year,   // Added explicit year
+      payable: Number(formData.payable),
+      paid: Number(formData.paid),
+      waived: Number(formData.waived),
+      balance: balance,
+      addedBy: currentUser.displayName || 'Staff',
+      timestamp: Date.now()
+    };
 
-  try {
-    if (transaction.waived > 0 && !isAdmin) {
-      await push(ref(db, 'pending_fee_approvals'), transaction);
-      alert("Waiver request sent to Admin.");
-    } else {
-      await update(ref(db, `fee_transactions/${selectedStudent.id}/${selectedCourseId}/${monthKey}`), transaction);
-      alert("Payment recorded.");
+    try {
+      if (transaction.waived > 0 && !isAdmin) {
+        await push(ref(db, 'pending_fee_approvals'), transaction);
+        alert("Waiver request sent to Admin.");
+      } else {
+        await update(ref(db, `fee_transactions/${selectedStudent.id}/${selectedCourseId}/${monthKey}`), transaction);
+        alert("Payment recorded.");
+      }
+
+      // RESET LOGIC: Set Paid back to the full Payable amount, and Waiver to 0
+      setFormData(prev => ({
+        ...prev,
+        paid: prev.payable, // Set paid field equal to the monthly fee
+        waived: 0           // Clear the waiver
+      }));
+
+    } catch (err) {
+      alert(err.message);
+    } finally {
+      setLoading(false);
     }
-
-    // RESET LOGIC: Set Paid back to the full Payable amount, and Waiver to 0
-    setFormData(prev => ({
-      ...prev,
-      paid: prev.payable, // Set paid field equal to the monthly fee
-      waived: 0           // Clear the waiver
-    }));
-
-  } catch (err) {
-    alert(err.message);
-  } finally {
-    setLoading(false);
-  }
-};
+  };
 
   const approveFee = async (reqId, data) => {
     try {
+      // Remove the pending request ID from the data to be saved
+      const { id, ...cleanData } = data;
+
       await update(ref(db, `fee_transactions/${data.student_id}/${data.course_id}/${data.month_key}`), {
-        ...data,
-        approvedBy: currentUser.name,
+        ...cleanData,
+        approvedBy: currentUser.displayName || "Admin",
         approvedAt: Date.now()
       });
       await remove(ref(db, `pending_fee_approvals/${reqId}`));
@@ -309,7 +314,7 @@ const Fees = () => {
                 <tbody>
                   {getHistory().map(h => (
                     <tr key={h.id} style={styles.tr}>
-                      <td>{h.id.replace('_', ' ')}</td>
+                      <td>{h.month_key ? h.month_key.replace('_', ' ') : h.id.replace('_', ' ')}</td>
                       <td>{h.payable}</td>
                       <td style={{ color: '#059669', fontWeight: 'bold' }}>{h.paid}</td>
                       <td>{h.waived}</td>
@@ -339,7 +344,7 @@ const Fees = () => {
 };
 
 const styles = {
-   title: { fontSize: '24px', fontWeight: '800', color: '#0f172a' },
+  title: { fontSize: '24px', fontWeight: '800', color: '#0f172a' },
   subtitle: { color: '#64748b', fontSize: '13px' },
   container: { padding: '30px', background: '#f8fafc', minHeight: '100vh', fontFamily: 'system-ui' },
   header: { marginBottom: '25px', borderBottom: '2px solid #e2e8f0', paddingBottom: '15px' },
