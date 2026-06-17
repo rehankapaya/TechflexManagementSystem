@@ -5,10 +5,10 @@ import * as XLSX from 'xlsx';
 
 const GlobalExport = () => {
   const [loading, setLoading] = useState(false);
-  const [filter, setFilter] = useState({ status: 'all', year: 'all', month: 'all' });
+  const [filter, setFilter] = useState({ status: 'all', year: new Date().getFullYear().toString() });
 
-  const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-  const years = ["2024", "2025", "2026"];
+  const currentYear = new Date().getFullYear();
+  const years = Array.from({length: 6}, (_, i) => (currentYear - 2 + i).toString()); // e.g., 2024 to 2029
 
   const handleExport = async () => {
     setLoading(true);
@@ -34,16 +34,22 @@ const GlobalExport = () => {
             const courseName = courses[courseId]?.name || "Unknown Course";
             const feeHistory = fees[studentId]?.[courseId] || {};
 
-            if (filter.month === 'all' && filter.year === 'all') {
-              Object.keys(feeHistory).forEach(monthKey => {
-                exportData.push(createRow(student, courseName, courseInfo, monthKey, feeHistory[monthKey]));
-              });
-              if (Object.keys(feeHistory).length === 0) {
-                exportData.push(createRow(student, courseName, courseInfo, "N/A_N/A", {}));
-              }
+            const feesByYear = {};
+            Object.keys(feeHistory).forEach(monthKey => {
+              const [month, year] = monthKey.split('_');
+              if (!feesByYear[year]) feesByYear[year] = {};
+              feesByYear[year][month] = feeHistory[monthKey];
+            });
+
+            if (Object.keys(feesByYear).length === 0) {
+              const yr = filter.year === 'all' ? currentYear.toString() : filter.year;
+              exportData.push(createRow(student, courseName, courseInfo, yr, {}));
             } else {
-              const specificKey = `${filter.month}_${filter.year}`;
-              exportData.push(createRow(student, courseName, courseInfo, specificKey, feeHistory[specificKey] || {}));
+              Object.keys(feesByYear).forEach(year => {
+                if (filter.year === 'all' || filter.year === year) {
+                  exportData.push(createRow(student, courseName, courseInfo, year, feesByYear[year]));
+                }
+              });
             }
           });
         }
@@ -61,21 +67,65 @@ const GlobalExport = () => {
     }
   };
 
-  const createRow = (student, courseName, courseInfo, dateKey, record) => {
-    const parts = dateKey.split('_');
-    return {
-      "Student Name": student.name,
-      "Phone": student.phone || "N/A",
-      "Status": student.status.toUpperCase(),
-      "Course": courseName,
-      "Agreed Monthly Fee": courseInfo.agreed_fee || 0,
-      "Month": parts[0] || "N/A",
-      "Year": parts[1] || "N/A",
-      "Amount Paid": record.paid || 0,
-      "Balance Remaining": record.balance || 0,
-      "Waived Amount": record.waived || 0,
-      "Payment Date": record.date || "N/A"
+  const createRow = (student, courseName, courseInfo, year, yearFees) => {
+    let totalPaid = 0;
+    let totalBalance = 0;
+    let totalWaived = 0;
+    let lastPaymentDate = 0;
+
+    const monthData = {};
+    const monthsFull = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    const monthLabels = {
+      "Jan": "Jan", "Feb": "Feb", "Mar": "Mar", "Apr": "Apr", "May": "May", "Jun": "June", 
+      "Jul": "July", "Aug": "Aug", "Sep": "Sep", "Oct": "Oct", "Nov": "Nov", "Dec": "Dec"
     };
+    
+    monthsFull.forEach(m => {
+      const record = yearFees[m];
+      if (record) {
+        monthData[m] = record.paid || 0;
+        totalPaid += Number(record.paid || 0);
+        totalBalance += Number(record.balance || 0);
+        totalWaived += Number(record.waived || 0);
+        if (record.timestamp && record.timestamp > lastPaymentDate) {
+          lastPaymentDate = record.timestamp;
+        }
+      } else {
+        monthData[m] = 0; // or leave empty string if preferred
+      }
+    });
+
+    const formatDate = (dateStr) => {
+      if (!dateStr) return "N/A";
+      try {
+        return new Date(dateStr).toISOString().split('T')[0];
+      } catch (e) {
+        return "N/A";
+      }
+    };
+
+    const row = {
+      "Student ID": student.student_id || "N/A",
+      "Student Name": student.name,
+      "Phone": student.contact || student.phone || "N/A",
+      "Status": student.status?.toUpperCase() || "N/A",
+      "Course": courseName,
+      "Year": year,
+      "Agreed Monthly Fee": courseInfo.agreed_monthly_fee || courseInfo.agreed_fee || 0,
+    };
+
+    monthsFull.forEach(m => {
+      row[monthLabels[m]] = monthData[m];
+    });
+
+    row["Start Date"] = formatDate(courseInfo.enrolledAt);
+    row["Status Date"] = formatDate(courseInfo.course_status_date);
+    row["Amount Paid"] = totalPaid;
+    row["Balance Remaining"] = totalBalance;
+    row["Waived Amount"] = totalWaived;
+    row["Payment Date"] = lastPaymentDate ? new Date(lastPaymentDate).toISOString().split('T')[0] : "N/A";
+
+    return row;
   };
 
   return (
@@ -87,11 +137,7 @@ const GlobalExport = () => {
           <option value="active">Active Only</option>
           <option value="pending">Pending Only</option>
         </select>
-        <select onChange={(e) => setFilter({...filter, month: e.target.value})} style={selectStyle}>
-          <option value="all">All Months</option>
-          {months.map(m => <option key={m} value={m}>{m}</option>)}
-        </select>
-        <select onChange={(e) => setFilter({...filter, year: e.target.value})} style={selectStyle}>
+        <select value={filter.year} onChange={(e) => setFilter({...filter, year: e.target.value})} style={selectStyle}>
           <option value="all">All Years</option>
           {years.map(y => <option key={y} value={y}>{y}</option>)}
         </select>
