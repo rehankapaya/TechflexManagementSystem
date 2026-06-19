@@ -15,6 +15,7 @@ import CourseEnrollment from './components/CourseEnrollment';
 import MonthlyAnalytics from './components/MonthlyAnalytics';
 import GlobalExport from './components/GlobalExport';
 import CertificateGenerator from './components/CertificateGenerator';
+import Expenses from './components/Expenses';
 
 function App() {
   return (
@@ -101,6 +102,14 @@ function App() {
               element={
                 <ProtectedRoute>
                   <FeeStatus />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="expenses"
+              element={
+                <ProtectedRoute>
+                  <Expenses />
                 </ProtectedRoute>
               }
             />
