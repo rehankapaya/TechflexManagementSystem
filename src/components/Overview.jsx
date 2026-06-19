@@ -12,9 +12,24 @@ const Overview = () => {
     teachers: 0,
     cashiers: 0,
     students: 0,
-    activeStudents: 0, // New Stat
+    activeStudents: 0,
   });
+
+  const [advancedStats, setAdvancedStats] = useState({
+    monthYear: {},
+    genderYear: {},
+    laptopYear: {},
+    statusYear: {},
+    totalsByStatus: { active: 0, coursecomplete: 0, dropout: 0 },
+    courseYear: {}
+  });
+
   const [loading, setLoading] = useState(true);
+
+  const currentYear = new Date().getFullYear();
+  // Generate an array of years from 2023 up to the current year
+  const yearsList = Array.from({ length: currentYear - 2023 + 1 }, (_, i) => 2023 + i);
+  const monthsFull = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 
   useEffect(() => {
     const fetchStats = async () => {
@@ -35,13 +50,73 @@ const Overview = () => {
         let totalStudentCount = 0;
         let activeStudentCount = 0;
 
+        // Create a template object for initializing stats dynamically
+        const initialYearObj = {};
+        yearsList.forEach(y => initialYearObj[y] = 0);
+
+        const monthYear = {};
+        monthsFull.forEach(m => { monthYear[m] = { ...initialYearObj }; });
+        
+        const genderYear = { "Male": { ...initialYearObj }, "Female": { ...initialYearObj } };
+        const laptopYear = { "Has Laptop": { ...initialYearObj }, "No Laptop": { ...initialYearObj }, "Provided By Ins.": { ...initialYearObj } };
+        const statusYear = { "dropout": { ...initialYearObj }, "coursecomplete": { ...initialYearObj }, "active": { ...initialYearObj } };
+        const totalsByStatus = { active: 0, coursecomplete: 0, dropout: 0 };
+        const courseYear = {};
+
         if (studentSnap.exists()) {
           const studentsData = studentSnap.val();
           const studentList = Object.values(studentsData);
           
           totalStudentCount = studentList.length;
-          // Filter students whose status is exactly 'active'
           activeStudentCount = studentList.filter(s => s.status === 'active').length;
+
+          studentList.forEach(s => {
+             const dateStr = s.createdAt || "";
+             let sYear = null;
+             let sMonthName = null;
+             if (dateStr) {
+                const d = new Date(dateStr);
+                sYear = d.getFullYear();
+                if (yearsList.includes(sYear)) {
+                   sMonthName = monthsFull[d.getMonth()];
+                   if (monthYear[sMonthName]) {
+                      monthYear[sMonthName][sYear] += 1;
+                   }
+                   if (s.gender && genderYear[s.gender]) {
+                      genderYear[s.gender][sYear] += 1;
+                   }
+                   if (s.laptop_status && laptopYear[s.laptop_status]) {
+                      laptopYear[s.laptop_status][sYear] += 1;
+                   }
+                }
+             }
+
+             if (s.enrolled_courses) {
+                Object.values(s.enrolled_courses).forEach(c => {
+                   const cDateStr = c.enrolledAt || s.createdAt;
+                   let cYear = null;
+                   if (cDateStr) {
+                      cYear = new Date(cDateStr).getFullYear();
+                   }
+                   
+                   const st = c.course_status || "active";
+                   if (totalsByStatus[st] !== undefined) {
+                      totalsByStatus[st] += 1;
+                   }
+
+                   if (cYear && yearsList.includes(cYear)) {
+                      if (statusYear[st] !== undefined) {
+                         statusYear[st][cYear] += 1;
+                      }
+                      const cName = c.course_name || "Unknown";
+                      if (!courseYear[cName]) {
+                         courseYear[cName] = { ...initialYearObj };
+                      }
+                      courseYear[cName][cYear] += 1;
+                   }
+                });
+             }
+          });
         }
         
         setStats({
@@ -49,8 +124,13 @@ const Overview = () => {
           teachers: userList.filter(u => u.role === 'teacher').length,
           cashiers: userList.filter(u => u.role === 'feescashier').length,
           students: totalStudentCount,
-          activeStudents: activeStudentCount, // Update State
+          activeStudents: activeStudentCount,
         });
+
+        setAdvancedStats({
+          monthYear, genderYear, laptopYear, statusYear, totalsByStatus, courseYear
+        });
+
       } catch (error) {
         console.error("Error fetching stats:", error);
       } finally {
@@ -74,6 +154,32 @@ const Overview = () => {
     </div>
   );
 
+  const AnalyticsTable = ({ title, columns, data, rowLabelKey, rowKeys }) => {
+    return (
+      <div style={styles.tableCard}>
+        <h3 style={styles.tableTitle}>{title}</h3>
+        <table style={styles.dataTable}>
+          <thead>
+            <tr>
+              <th style={styles.thMain}>{rowLabelKey}</th>
+              {columns.map(c => <th key={c} style={styles.th}>{c}</th>)}
+            </tr>
+          </thead>
+          <tbody>
+            {rowKeys.map(rk => (
+              <tr key={rk} style={styles.tr}>
+                <td style={styles.tdMain}>{rk}</td>
+                {columns.map(c => (
+                  <td key={c} style={styles.td}>{data[rk] ? data[rk][c] : 0}</td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    );
+  };
+
   return (
     <div style={styles.container}>
       <header style={styles.header}>
@@ -86,14 +192,10 @@ const Overview = () => {
         </div>
       </header>
 
-      {/* Grid updated to hold 5 cards now */}
       <div style={styles.statsGrid}>
         <StatCard title="Total Staff" value={stats.totalUsers} icon="👥" color="#4318ff" description="Registered team members" />
         <StatCard title="Total Students" value={stats.students} icon="🎓" color="#3b82f6" description="All registrations" />
-        
-        {/* NEW CARD: Active Students */}
         <StatCard title="Active Students" value={stats.activeStudents} icon="✅" color="#10b981" description="Approved & Active" />
-        
         <StatCard title="Teachers" value={stats.teachers} icon="📚" color="#8b5cf6" description="Faculty members" />
         <StatCard title="Cashiers" value={stats.cashiers} icon="💰" color="#ff9900" description="Financial nodes" />
       </div>
@@ -141,6 +243,33 @@ const Overview = () => {
           </div>
         </div>
       </div>
+
+      {/* Advanced Analytics Grid */}
+      <div style={styles.advancedGrid}>
+        <AnalyticsTable title="Student Count By Month and Year" columns={yearsList} data={advancedStats.monthYear} rowLabelKey="Month" rowKeys={monthsFull} />
+        <AnalyticsTable title="Student Count By Gender and Year" columns={yearsList} data={advancedStats.genderYear} rowLabelKey="Gender" rowKeys={["Male", "Female"]} />
+        <AnalyticsTable title="Student Count By Laptop Status and Year" columns={yearsList} data={advancedStats.laptopYear} rowLabelKey="Laptop" rowKeys={["Has Laptop", "No Laptop", "Provided By Ins."]} />
+        <AnalyticsTable title="Student Count By Student Status" columns={yearsList} data={advancedStats.statusYear} rowLabelKey="Student Status" rowKeys={["dropout", "coursecomplete", "active"]} />
+        
+        <div style={styles.tableCard}>
+           <h3 style={styles.tableTitle}>Status Totals</h3>
+           <table style={styles.dataTable}>
+              <thead><tr>
+                 <th style={styles.thMain}>Active Enrollments</th>
+                 <th style={styles.thMain}>Completed Enrollments</th>
+                 <th style={styles.thMain}>Dropped Enrollments</th>
+              </tr></thead>
+              <tbody><tr>
+                 <td style={styles.tdCenter}>{advancedStats.totalsByStatus.active}</td>
+                 <td style={styles.tdCenter}>{advancedStats.totalsByStatus.coursecomplete}</td>
+                 <td style={styles.tdCenter}>{advancedStats.totalsByStatus.dropout}</td>
+              </tr></tbody>
+           </table>
+        </div>
+
+        <AnalyticsTable title="Student Count By Course" columns={yearsList} data={advancedStats.courseYear} rowLabelKey="Course" rowKeys={Object.keys(advancedStats.courseYear)} />
+      </div>
+
     </div>
   );
 };
@@ -181,7 +310,17 @@ const styles = {
   secondaryBtn: { padding: '14px', borderRadius: '14px', border: 'none', background: '#f4f7fe', color: '#4318ff', fontWeight: '700', cursor: 'pointer' },
   outlineBtn: { padding: '14px', borderRadius: '14px', border: '1px solid #e0e5f2', background: 'transparent', color: '#1b2559', fontWeight: '700', cursor: 'pointer' },
 
-  // Responsive logic for small monitors
+  advancedGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))', gap: '25px', marginTop: '30px' },
+  tableCard: { background: '#fff', padding: '20px', borderRadius: '16px', border: '1px solid #f0f3f9', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)', overflowX: 'auto' },
+  tableTitle: { margin: '0 0 15px 0', fontSize: '15px', fontWeight: '700', color: '#1b2559' },
+  dataTable: { width: '100%', borderCollapse: 'collapse', fontSize: '13px' },
+  thMain: { background: '#115e59', color: '#fff', padding: '10px 15px', textAlign: 'left', fontWeight: '600', border: '1px solid #0f766e' },
+  th: { background: '#115e59', color: '#fff', padding: '10px 15px', textAlign: 'right', fontWeight: '600', border: '1px solid #0f766e' },
+  tdMain: { padding: '10px 15px', borderBottom: '1px solid #e2e8f0', color: '#1e293b', fontWeight: '600', borderRight: '1px solid #e2e8f0' },
+  td: { padding: '10px 15px', borderBottom: '1px solid #e2e8f0', textAlign: 'right', color: '#475569', borderRight: '1px solid #e2e8f0' },
+  tdCenter: { padding: '10px 15px', borderBottom: '1px solid #e2e8f0', textAlign: 'center', color: '#475569', borderRight: '1px solid #e2e8f0', fontSize: '18px', fontWeight: 'bold' },
+  tr: { ':hover': { backgroundColor: '#f8fafc' } },
+
   '@media (max-width: 1024px)': {
     contentRow: { gridTemplateColumns: '1fr' }
   }

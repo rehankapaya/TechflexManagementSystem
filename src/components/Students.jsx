@@ -15,11 +15,12 @@ const Students = () => {
   const [filterCourse, setFilterCourse] = useState('');
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState({ type: '', msg: '' });
+  const [sortOrder, setSortOrder] = useState('asc');
 
   const today = new Date().toISOString().split('T')[0];
 
   const [formData, setFormData] = useState({
-    name: '', contact: '', gender: '', courseId: '',
+    name: '', contact: '', gender: '', courseId: '', laptop_status: '',
     agreed_monthly_fee: '', admission_fee: '', createdAt: today 
   });
 
@@ -105,6 +106,7 @@ const Students = () => {
           name: formData.name,
           contact: formData.contact,
           gender: formData.gender,
+          laptop_status: formData.laptop_status,
           createdAt: admissionDateTime,
           enrolled_courses: {
             ...currentStudent.enrolled_courses,
@@ -139,6 +141,7 @@ const Students = () => {
           name: formData.name,
           contact: formData.contact,
           gender: formData.gender,
+          laptop_status: formData.laptop_status,
           admission_fee: Number(formData.admission_fee),
           addedBy: currentUser.name || currentUser.email,
           createdAt: admissionDateTime,
@@ -162,7 +165,7 @@ const Students = () => {
           setStatus({ type: 'success', msg: `Request Sent: ${customId}` });
         }
       }
-      setFormData({ name: '', contact: '', gender: '', courseId: '', agreed_monthly_fee: '', admission_fee: '', createdAt: today });
+      setFormData({ name: '', contact: '', gender: '', courseId: '', laptop_status: '', agreed_monthly_fee: '', admission_fee: '', createdAt: today });
     } catch (err) {
       setStatus({ type: 'error', msg: err.message });
     } finally {
@@ -178,6 +181,7 @@ const Students = () => {
       name: student.name,
       contact: student.contact || '', 
       gender: student.gender || '',
+      laptop_status: student.laptop_status || '',
       courseId: courseKey,
       agreed_monthly_fee: courseData.agreed_monthly_fee,
       admission_fee: student.admission_fee || '',
@@ -196,18 +200,14 @@ const Students = () => {
                           (s.contact && s.contact.includes(searchTerm)); 
     const matchesCourse = filterCourse === '' || Object.keys(s.enrolled_courses || {}).includes(filterCourse);
     return matchesSearch && matchesCourse;
+  }).sort((a, b) => {
+    const idA = a.student_id || "";
+    const idB = b.student_id || "";
+    return sortOrder === 'asc' ? idA.localeCompare(idB) : idB.localeCompare(idA);
   });
 
-  return (
-    <div style={styles.container}>
-      <header style={styles.header}>
-        <div style={styles.titleArea}>
-          <h2 style={styles.title}>{isEditing ? "Edit Student Profile 👤" : "Student Directory 👨‍🎓"}</h2>
-          <p style={styles.subtitle}>Registration and Course Enrollment Management</p>
-        </div>
-
+  const formContent = (
         <form onSubmit={handleSubmit} style={{ ...styles.quickForm, borderColor: isEditing ? '#3B82F6' : '#E2E8F0' }}>
-            {/* ... keep existing form inputs ... */}
           <input type="text" name="name" placeholder="Full Name" value={formData.name} onChange={handleChange} required style={styles.input} />
           <input type="text" name="contact" placeholder="Phone" value={formData.contact} onChange={handleChange} required style={styles.inputSmall} />
           
@@ -216,6 +216,13 @@ const Students = () => {
             <option value="Male">Male</option>
             <option value="Female">Female</option>
             <option value="Other">Other</option>
+          </select>
+
+          <select name="laptop_status" value={formData.laptop_status} onChange={handleChange} required style={styles.select}>
+            <option value="">Laptop</option>
+            <option value="Has Laptop">Has Laptop</option>
+            <option value="No Laptop">No Laptop</option>
+            <option value="Provided By Ins.">Provided By Ins.</option>
           </select>
 
           {!isEditing && (
@@ -238,12 +245,32 @@ const Students = () => {
           </button>
           
           {isEditing && (
-            <button type="button" onClick={() => {setIsEditing(null); setFormData({name:'', contact: '', gender: '', courseId:'', agreed_monthly_fee:'', admission_fee: '', createdAt: today})}} style={styles.btnCancel}>
+            <button type="button" onClick={() => {setIsEditing(null); setFormData({name:'', contact: '', gender: '', laptop_status: '', courseId:'', agreed_monthly_fee:'', admission_fee: '', createdAt: today})}} style={styles.btnCancel}>
               ✕
             </button>
           )}
         </form>
+  );
+
+  return (
+    <div style={styles.container}>
+      <header style={styles.header}>
+        <div style={styles.titleArea}>
+          <h2 style={styles.title}>Student Directory 👨‍🎓</h2>
+          <p style={styles.subtitle}>Registration and Course Enrollment Management</p>
+        </div>
+
+        {!isEditing && formContent}
       </header>
+
+      {isEditing && (
+        <div style={styles.modalOverlay}>
+          <div style={styles.modalContent}>
+            <h3 style={{marginTop: 0, color: '#1E293B', marginBottom: '20px'}}>Edit Student Profile 👤</h3>
+            {formContent}
+          </div>
+        </div>
+      )}
 
       <div style={styles.mainCard}>
         <div style={styles.filterBar}>
@@ -251,6 +278,11 @@ const Students = () => {
                 <span style={styles.searchIcon}>🔍</span>
                 <input type="text" placeholder="Search students..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} style={styles.filterInput} />
             </div>
+
+            <select value={sortOrder} onChange={(e) => setSortOrder(e.target.value)} style={styles.filterSelect}>
+              <option value="asc">Sort: ID (Asc)</option>
+              <option value="desc">Sort: ID (Desc)</option>
+            </select>
 
             {/* ADDED EXCEL BUTTON HERE */}
             <button onClick={downloadExcel} style={styles.btnExport}>
@@ -323,6 +355,8 @@ const styles = {
     alignItems: 'center',
     gap: '8px'
   },
+  modalOverlay: { position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(15, 23, 42, 0.6)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 },
+  modalContent: { background: '#fff', padding: '30px', borderRadius: '20px', width: '90%', maxWidth: '900px', boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)' },
   container: { maxWidth: '1200px', margin: '0 auto' },
   header: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px', flexWrap: 'wrap', gap: '20px' },
   titleArea: { flex: 1 },

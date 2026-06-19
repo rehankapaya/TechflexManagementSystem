@@ -14,6 +14,7 @@ const StudentStatus = () => {
   const [selectedCourseFilter, setSelectedCourseFilter] = useState('');
   const [selectedStatusFilter, setSelectedStatusFilter] = useState('');
   const [selectedMonthFilter, setSelectedMonthFilter] = useState('');
+  const [sortOrder, setSortOrder] = useState('asc');
 
   const months = [
     { val: '01', label: 'January' }, { val: '02', label: 'February' },
@@ -133,7 +134,12 @@ const StudentStatus = () => {
     });
 
     return { ...s, filteredCourses: filteredEnrolledCourses, matchesSearch };
-  }).filter(s => s.matchesSearch && s.filteredCourses.length > 0);
+  }).filter(s => s.matchesSearch && s.filteredCourses.length > 0)
+    .sort((a, b) => {
+      const idA = a.student_id || "";
+      const idB = b.student_id || "";
+      return sortOrder === 'asc' ? idA.localeCompare(idB) : idB.localeCompare(idA);
+    });
 
   return (
     <div style={styles.container}>
@@ -174,6 +180,12 @@ const StudentStatus = () => {
           <div style={styles.searchWrapper}>
             <span style={styles.searchIcon}>🔍</span>
             <input type="text" placeholder="Search student..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} style={{ ...styles.searchInput, width: '180px' }} />
+          </div>
+          <div style={styles.searchWrapper}>
+            <select value={sortOrder} onChange={(e) => setSortOrder(e.target.value)} style={{ ...styles.searchInput, paddingLeft: '10px', width: '130px' }}>
+              <option value="asc">Sort: ID (Asc)</option>
+              <option value="desc">Sort: ID (Desc)</option>
+            </select>
           </div>
         </div>
       </header>
