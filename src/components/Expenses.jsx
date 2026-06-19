@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { db } from '../firebase';
 import { useAuth } from '../contexts/AuthContext';
 import { ref, push, set, onValue, remove } from 'firebase/database';
+import { downloadExpenseSample, parseExcelUpload } from '../utils/bulkUpload';
 
 const Expenses = () => {
   const { currentUser, isAdmin } = useAuth();
@@ -61,6 +62,42 @@ const Expenses = () => {
     }
   };
 
+  const handleBulkUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    setLoading(true);
+    try {
+      const rows = await parseExcelUpload(file);
+      let successCount = 0;
+      
+      for (const row of rows) {
+        const date = row['Date (YYYY-MM-DD)'];
+        const course = row['Course Name'] || row['Course Name (or General)'];
+        const desc = row['Description'];
+        const amt = row['Amount'];
+
+        if (date && desc && amt) {
+          const payload = {
+            date: date,
+            amount: Number(amt),
+            description: desc,
+            courseName: course || 'General',
+            addedBy: currentUser.name || currentUser.email || 'Admin',
+            timestamp: new Date().toISOString()
+          };
+          await set(push(ref(db, 'expenses')), payload);
+          successCount++;
+        }
+      }
+      alert(`Successfully imported ${successCount} expenses!`);
+    } catch (error) {
+      alert("Failed to import expenses: " + error.message);
+    } finally {
+      setLoading(false);
+      e.target.value = null; 
+    }
+  };
+
   const filteredExpenses = expenses.filter(e => {
     const d = new Date(e.date);
     return d.getMonth() + 1 === parseInt(filterMonth) && d.getFullYear() === parseInt(filterYear);
@@ -86,8 +123,10 @@ const Expenses = () => {
       </header>
 
       <div style={styles.mainGrid}>
-        {/* ADD EXPENSE FORM */}
-        <div style={styles.card}>
+        {/* LEFT COLUMN */}
+        <div style={styles.leftCol}>
+          {/* ADD EXPENSE FORM */}
+          <div style={styles.card}>
           <h3 style={styles.cardTitle}>Add New Expense</h3>
           <form onSubmit={handleSubmit} style={styles.form}>
             <div style={styles.formGroup}>
@@ -119,8 +158,23 @@ const Expenses = () => {
           </form>
         </div>
 
-        {/* EXPENSE LIST */}
         <div style={styles.card}>
+          <h3 style={styles.cardTitle}>Bulk Upload Expenses</h3>
+          <p style={{ fontSize: '12px', color: '#64748b', marginBottom: '15px' }}>Upload an Excel file to mass-add expense records.</p>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            <button onClick={downloadExpenseSample} type="button" style={{ ...styles.btnReset, fontSize: '13px', padding: '10px' }}>
+              📄 Download Sample Format
+            </button>
+            <input type="file" accept=".xlsx, .xls" onChange={handleBulkUpload} id="expense-upload" style={{ display: 'none' }} />
+            <button onClick={() => document.getElementById('expense-upload').click()} type="button" style={{ ...styles.btnPrimary, background: '#10B981', fontSize: '13px', padding: '10px' }}>
+              {loading ? "Processing..." : "📤 Upload Excel File"}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* EXPENSE LIST */}
+      <div style={styles.card}>
           <div style={styles.listHeader}>
             <h3 style={styles.cardTitle}>Expense Records</h3>
             <div style={styles.filters}>
@@ -187,6 +241,7 @@ const styles = {
   totalAmount: { fontSize: '24px', fontWeight: '800', marginTop: '4px' },
 
   mainGrid: { display: 'grid', gridTemplateColumns: '320px 1fr', gap: '25px', alignItems: 'start' },
+  leftCol: { display: 'flex', flexDirection: 'column', gap: '25px' },
   
   card: { background: '#fff', padding: '24px', borderRadius: '20px', border: '1px solid #E2E8F0', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)' },
   cardTitle: { margin: '0 0 20px 0', fontSize: '16px', fontWeight: '700', color: '#1E293B' },

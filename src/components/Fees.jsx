@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { db } from '../firebase.js';
 import { useAuth } from '../contexts/AuthContext';
 import { ref, set, push, onValue, remove, update } from 'firebase/database';
+import { downloadFeeSample, parseExcelUpload } from '../utils/bulkUpload';
 
 const Fees = () => {
   const { currentUser, isAdmin } = useAuth();
@@ -185,6 +186,75 @@ const Fees = () => {
     }
   };
 
+  const handleBulkUploadFees = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    setLoading(true);
+    try {
+      const rows = await parseExcelUpload(file);
+      let successCount = 0;
+      
+      const updates = {};
+
+      for (const row of rows) {
+        const sId = row['Student ID'];
+        const cName = row['Course Name'];
+        const m = row['Month'];
+        const y = row['Year'];
+        const payable = row['Payable'];
+        const paid = row['Paid'];
+        const waived = row['Waived'];
+
+        if (sId && cName && m && y && payable !== undefined && paid !== undefined) {
+          const monthKey = `${m}_${y}`;
+          const balance = Number(payable) - Number(paid) - Number(waived || 0);
+
+          const student = students.find(s => s.student_id === sId || s.id === sId);
+          if (student && student.enrolled_courses) {
+            const cId = Object.keys(student.enrolled_courses).find(id => 
+              student.enrolled_courses[id].course_name?.toLowerCase() === cName.toString().trim().toLowerCase()
+            );
+
+            if (cId) {
+              const courseName = student.enrolled_courses[cId].course_name;
+              const transaction = {
+              student_id: student.id,
+              student_name: student.name,
+              student_custom_id: student.student_id || sId,
+              course_id: cId,
+              course_name: courseName,
+              month_key: monthKey,
+              month: m,
+              year: y.toString(),
+              payable: Number(payable),
+              paid: Number(paid),
+              waived: Number(waived || 0),
+              balance: balance,
+              addedBy: currentUser.displayName || 'Admin Upload',
+              timestamp: Date.now()
+            };
+            
+            updates[`fee_transactions/${student.id}/${cId}/${monthKey}`] = transaction;
+            successCount++;
+            }
+          }
+        }
+      }
+      
+      if (Object.keys(updates).length > 0) {
+        await update(ref(db), updates);
+        alert(`Successfully imported ${successCount} fee records!`);
+      } else {
+        alert("No valid rows found to import. Ensure Student ID and Course Name are exact matches.");
+      }
+    } catch (error) {
+      alert("Failed to import fees: " + error.message);
+    } finally {
+      setLoading(false);
+      e.target.value = null;
+    }
+  };
+
   const approveFee = async (reqId, data) => {
     try {
       const { id, ...cleanData } = data;
@@ -314,6 +384,22 @@ const Fees = () => {
               </form>
             )}
           </div>
+
+          {isAdmin && (
+            <div style={styles.card}>
+              <h3 style={{ margin: '0 0 15px 0' }}>Bulk Upload Fees</h3>
+              <p style={{ fontSize: '12px', color: '#64748b', marginBottom: '15px' }}>Upload an Excel file to mass-add fee records. Existing records for the same month will be overwritten.</p>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                <button type="button" onClick={downloadFeeSample} style={{ ...styles.btnReset, fontSize: '13px', padding: '10px' }}>
+                  📄 Download Sample Format
+                </button>
+                <input type="file" accept=".xlsx, .xls" onChange={handleBulkUploadFees} id="fee-upload" style={{ display: 'none' }} />
+                <button type="button" onClick={() => document.getElementById('fee-upload').click()} style={{ ...styles.btnPrimary, background: '#10B981', fontSize: '13px', padding: '10px' }}>
+                  {loading ? "Processing..." : "📤 Upload Excel File"}
+                </button>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* RIGHT COLUMN */}
