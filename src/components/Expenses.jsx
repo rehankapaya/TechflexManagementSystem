@@ -4,6 +4,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { ref, push, set, onValue, remove } from 'firebase/database';
 import { downloadExpenseSample, parseExcelUpload } from '../utils/bulkUpload';
 import toast from 'react-hot-toast';
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Cell } from 'recharts';
 
 const Expenses = () => {
   const { currentUser, isAdmin } = useAuth();
@@ -29,7 +30,16 @@ const Expenses = () => {
 
     onValue(ref(db, 'expenses'), (snap) => {
       const data = snap.val();
-      setExpenses(data ? Object.keys(data).map(id => ({ id, ...data[id] })) : []);
+      setExpenses(data ? Object.keys(data).map(id => {
+        const exp = { id, ...data[id] };
+        if (exp.courseName && typeof exp.courseName === 'object') {
+          exp.courseName = exp.courseName.richText ? exp.courseName.richText.map(r => r.text).join('') : (exp.courseName.text || String(exp.courseName));
+        }
+        if (exp.description && typeof exp.description === 'object') {
+          exp.description = exp.description.richText ? exp.description.richText.map(r => r.text).join('') : (exp.description.text || String(exp.description));
+        }
+        return exp;
+      }) : []);
     });
   }, []);
 
@@ -108,6 +118,20 @@ const Expenses = () => {
 
   const totalExpense = filteredExpenses.reduce((acc, curr) => acc + (curr.amount || 0), 0);
 
+  const monthsShort = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  const yearlyExpenses = expenses.filter(e => new Date(e.date).getFullYear() === parseInt(filterYear));
+  
+  const expenseByMonth = yearlyExpenses.reduce((acc, curr) => {
+    const monthName = monthsShort[new Date(curr.date).getMonth()];
+    acc[monthName] = (acc[monthName] || 0) + (curr.amount || 0);
+    return acc;
+  }, {});
+
+  const chartData = monthsShort.map(m => ({
+    name: m,
+    amount: expenseByMonth[m] || 0
+  }));
+
   const monthsFull = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
   const currentYear = new Date().getFullYear();
   const years = [currentYear - 2, currentYear - 1, currentYear, currentYear + 1, currentYear + 2];
@@ -176,8 +200,37 @@ const Expenses = () => {
         </div>
       </div>
 
-      {/* EXPENSE LIST */}
-      <div style={styles.card}>
+      {/* RIGHT COLUMN */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '25px', overflow: 'hidden' }}>
+        
+        {/* EXPENSE GRAPH */}
+        <div style={styles.card}>
+          <h3 style={styles.cardTitle}>Yearly Expense Trend ({filterYear})</h3>
+          {chartData.some(d => d.amount > 0) ? (
+            <div style={{ height: 300, width: '100%' }}>
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={chartData} margin={{ top: 10, right: 10, left: 0, bottom: 20 }}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E2E8F0" />
+                  <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#64748B' }} angle={-45} textAnchor="end" />
+                  <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#64748B' }} tickFormatter={(val) => `PKR ${val/1000}k`} />
+                  <Tooltip 
+                    cursor={{fill: '#F1F5F9'}}
+                    contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)' }}
+                    formatter={(value) => [`PKR ${value.toLocaleString()}`, 'Amount']}
+                  />
+                  <Bar dataKey="amount" radius={[6, 6, 0, 0]} fill="#3B82F6" />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          ) : (
+            <div style={{ height: 300, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#94A3B8', fontSize: '14px' }}>
+              No expenses to chart for this year.
+            </div>
+          )}
+        </div>
+
+        {/* EXPENSE LIST */}
+        <div style={styles.card}>
           <div style={styles.listHeader}>
             <h3 style={styles.cardTitle}>Expense Records</h3>
             <div style={styles.filters}>
@@ -227,6 +280,7 @@ const Expenses = () => {
             </table>
           </div>
         </div>
+      </div>
       </div>
     </div>
   );

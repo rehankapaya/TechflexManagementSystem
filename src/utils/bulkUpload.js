@@ -78,6 +78,12 @@ export const parseExcelUpload = async (file) => {
                 else if (val && typeof val === 'object' && val.result !== undefined) {
                     rowData[header] = val.result;
                 }
+                else if (val && typeof val === 'object' && val.richText) {
+                    rowData[header] = val.richText.map(rt => rt.text).join('');
+                }
+                else if (val && typeof val === 'object' && val.text) {
+                    rowData[header] = val.text;
+                }
                 else {
                     rowData[header] = val;
                 }
