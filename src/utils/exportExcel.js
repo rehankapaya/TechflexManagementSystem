@@ -14,7 +14,12 @@ export const generateTechflexRecord = async (studentsData, coursesData, feesData
     const monthLabels = { "January":"Jan", "February":"Feb", "March":"Mar", "April":"Apr", "May":"May", "June":"June", "July":"July", "August":"Aug", "September":"Sep", "October":"Oct", "November":"Nov", "December":"Dec" };
 
     const currentYear = new Date().getFullYear();
-    const yearsList = Array.from({ length: currentYear - 2023 + 1 }, (_, i) => 2023 + i);
+    let yearsList = Array.from({ length: currentYear - 2023 + 1 }, (_, i) => 2023 + i);
+    if (currentYearFilter !== 'all') {
+        yearsList = [Number(currentYearFilter)];
+    }
+
+    const dbMonthLabels = { "January":"Jan", "February":"Feb", "March":"Mar", "April":"Apr", "May":"May", "June":"Jun", "July":"Jul", "August":"Aug", "September":"Sep", "October":"Oct", "November":"Nov", "December":"Dec" };
 
     // Dashboard Data
     const dashboardWs = wb.addWorksheet('Dashboard');
@@ -106,18 +111,20 @@ export const generateTechflexRecord = async (studentsData, coursesData, feesData
         const admYear = admissionDate.getFullYear();
 
         // Populate Admission Record
-        admissionWs.addRow({
-            studentId: student.student_id,
-            name: student.name,
-            gender: student.gender,
-            contact: student.contact,
-            admissionFee: student.admission_fee || 0,
-            doj: doj,
-            addedBy: student.addedBy || 'Admin',
-            month: admMonth,
-            year: admYear,
-            laptop: student.laptop_status
-        });
+        if (currentYearFilter === 'all' || admYear.toString() === currentYearFilter) {
+            admissionWs.addRow({
+                studentId: student.student_id,
+                name: student.name,
+                gender: student.gender,
+                contact: student.contact,
+                admissionFee: student.admission_fee || 0,
+                doj: doj,
+                addedBy: student.addedBy || 'Admin',
+                month: admMonth,
+                year: admYear,
+                laptop: student.laptop_status
+            });
+        }
 
         if (yearsList.includes(admYear)) {
             if (student.gender && genderYear[student.gender] !== undefined) genderYear[student.gender][admYear] += 1;
@@ -133,17 +140,19 @@ export const generateTechflexRecord = async (studentsData, coursesData, feesData
                 const cYear = new Date(cInfo.enrolledAt || new Date()).getFullYear();
 
                 // Populate Students Record
-                studentsRecordWs.addRow({
-                    studentId: student.student_id,
-                    name: student.name,
-                    accStatus: student.status === 'active' ? 'ACTIVE' : 'INACTIVE',
-                    courseName: cName,
-                    courseStatus: cStatus,
-                    startDate: cStartDate,
-                    statusDate: cStartDate,
-                    contact: student.contact,
-                    year: cYear
-                });
+                if (currentYearFilter === 'all' || cYear.toString() === currentYearFilter) {
+                    studentsRecordWs.addRow({
+                        studentId: student.student_id,
+                        name: student.name,
+                        accStatus: student.status === 'active' ? 'ACTIVE' : 'INACTIVE',
+                        courseName: cName,
+                        courseStatus: cStatus,
+                        startDate: cStartDate,
+                        statusDate: cStartDate,
+                        contact: student.contact,
+                        year: cYear
+                    });
+                }
 
                 if (totalsByStatus[cStatus] !== undefined) totalsByStatus[cStatus] += 1;
                 if (yearsList.includes(cYear)) {
@@ -166,8 +175,13 @@ export const generateTechflexRecord = async (studentsData, coursesData, feesData
                 let yearsPresent = new Set();
                 Object.keys(feeHistory).forEach(mk => yearsPresent.add(mk.split('_')[1]));
                 if (yearsPresent.size === 0) yearsPresent.add(cYear.toString());
+                if (currentYearFilter !== 'all') {
+                    yearsPresent.add(currentYearFilter);
+                }
 
                 yearsPresent.forEach(yr => {
+                    if (currentYearFilter !== 'all' && yr.toString() !== currentYearFilter) return;
+
                     const rowData = {
                         studentId: student.student_id,
                         name: student.name,
@@ -190,7 +204,7 @@ export const generateTechflexRecord = async (studentsData, coursesData, feesData
                     let lastPayment = 0;
                     
                     monthsFull.forEach(m => {
-                        const rec = feeHistory[`${m}_${yr}`];
+                        const rec = feeHistory[`${dbMonthLabels[m]}_${yr}`];
                         if (rec) {
                             rowData[monthLabels[m]] = Number(rec.paid || 0);
                             totalPaid += Number(rec.paid || 0);
