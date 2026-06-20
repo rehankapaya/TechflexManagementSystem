@@ -16,10 +16,12 @@ import MonthlyAnalytics from './components/MonthlyAnalytics';
 import GlobalExport from './components/GlobalExport';
 import CertificateGenerator from './components/CertificateGenerator';
 import Expenses from './components/Expenses';
+import { Toaster } from 'react-hot-toast';
 
 function App() {
   return (
     <AuthProvider>
+      <Toaster position="top-right" />
       <Router>
         <Routes>
           <Route path="/login" element={<Login />} />

@@ -3,6 +3,7 @@ import { db } from '../firebase.js';
 import { useAuth } from '../contexts/AuthContext';
 import { ref, set, push, onValue, remove, update } from 'firebase/database';
 import { downloadFeeSample, parseExcelUpload } from '../utils/bulkUpload';
+import toast from 'react-hot-toast';
 
 const Fees = () => {
   const { currentUser, isAdmin } = useAuth();
@@ -102,16 +103,16 @@ const Fees = () => {
     if (confirmDelete) {
       try {
         await remove(ref(db, `fee_transactions/${selectedStudent.id}/${selectedCourseId}/${id}`));
-        alert("Record deleted successfully.");
+        toast.success("Record deleted successfully.");
       } catch (err) {
-        alert("Error deleting record: " + err.message);
+        toast.error("Error deleting record: " + err.message);
       }
     }
   };
 
   const handlePaymentSubmit = async (e) => {
     e.preventDefault();
-    if (!selectedStudent || !selectedCourseId) return alert("Select student and course");
+    if (!selectedStudent || !selectedCourseId) return toast.error("Select student and course");
 
     setLoading(true);
     const monthKey = `${formData.month}_${formData.year}`;
@@ -138,7 +139,7 @@ const Fees = () => {
       // 1. NON-ADMIN: ALWAYS SEND TO PENDING
       if (!isAdmin) {
         await push(ref(db, 'pending_fee_approvals'), transaction);
-        alert("Transaction sent to Admin for approval.");
+        toast.success("Transaction sent to Admin for approval.");
 
         // Reset form after submission
         setFormData(prev => ({
@@ -156,7 +157,7 @@ const Fees = () => {
 
         // Update/Set new record
         await update(ref(db, `fee_transactions/${selectedStudent.id}/${selectedCourseId}/${monthKey}`), transaction);
-        alert("Transaction updated successfully.");
+        toast.success("Transaction updated successfully.");
         setEditingTransaction(null);
 
         // Reset form
@@ -169,7 +170,7 @@ const Fees = () => {
       // 3. ADMIN: NEW RECORD
       else {
         await update(ref(db, `fee_transactions/${selectedStudent.id}/${selectedCourseId}/${monthKey}`), transaction);
-        alert("Payment recorded.");
+        toast.success("Payment recorded.");
 
         // Reset form
         setFormData(prev => ({
@@ -180,7 +181,7 @@ const Fees = () => {
       }
 
     } catch (err) {
-      alert(err.message);
+      toast.error(err.message);
     } finally {
       setLoading(false);
     }
@@ -243,12 +244,12 @@ const Fees = () => {
       
       if (Object.keys(updates).length > 0) {
         await update(ref(db), updates);
-        alert(`Successfully imported ${successCount} fee records!`);
+        toast.success(`Successfully imported ${successCount} fee records!`);
       } else {
-        alert("No valid rows found to import. Ensure Student ID and Course Name are exact matches.");
+        toast.error("No valid rows found to import. Ensure Student ID and Course Name are exact matches.");
       }
     } catch (error) {
-      alert("Failed to import fees: " + error.message);
+      toast.error("Failed to import fees: " + error.message);
     } finally {
       setLoading(false);
       e.target.value = null;
@@ -264,8 +265,8 @@ const Fees = () => {
         approvedAt: Date.now()
       });
       await remove(ref(db, `pending_fee_approvals/${reqId}`));
-      alert("Fee Approved.");
-    } catch (err) { alert(err.message); }
+      toast.success("Fee Approved.");
+    } catch (err) { toast.error(err.message); }
   };
 
   const rejectFee = async (reqId) => {

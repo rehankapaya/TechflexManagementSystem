@@ -3,6 +3,7 @@ import { db } from '../firebase';
 import { useAuth } from '../contexts/AuthContext';
 import { ref, push, set, onValue, remove } from 'firebase/database';
 import { downloadExpenseSample, parseExcelUpload } from '../utils/bulkUpload';
+import toast from 'react-hot-toast';
 
 const Expenses = () => {
   const { currentUser, isAdmin } = useAuth();
@@ -48,9 +49,10 @@ const Expenses = () => {
         timestamp: new Date().toISOString()
       };
       await set(push(ref(db, 'expenses')), payload);
+      toast.success("Expense added successfully");
       setFormData({ ...formData, amount: '', description: '' });
     } catch (err) {
-      alert("Error adding expense");
+      toast.error("Error adding expense");
     } finally {
       setLoading(false);
     }
@@ -59,6 +61,7 @@ const Expenses = () => {
   const handleDelete = async (id) => {
     if (window.confirm("Delete this expense?")) {
       await remove(ref(db, `expenses/${id}`));
+      toast.success("Expense deleted");
     }
   };
 
@@ -89,9 +92,9 @@ const Expenses = () => {
           successCount++;
         }
       }
-      alert(`Successfully imported ${successCount} expenses!`);
+      toast.success(`Successfully imported ${successCount} expenses!`);
     } catch (error) {
-      alert("Failed to import expenses: " + error.message);
+      toast.error("Failed to import expenses: " + error.message);
     } finally {
       setLoading(false);
       e.target.value = null; 

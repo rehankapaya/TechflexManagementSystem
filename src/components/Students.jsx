@@ -3,6 +3,7 @@ import { db } from '../firebase.js';
 import { useAuth } from '../contexts/AuthContext';
 import { ref, set, push, onValue, remove, update } from 'firebase/database';
 import * as XLSX from 'xlsx'; // Import the library
+import toast from 'react-hot-toast';
 
 const Students = () => {
   // ... existing states ...
@@ -27,7 +28,7 @@ const Students = () => {
   // --- NEW: Export to Excel Function ---
   const downloadExcel = () => {
     if (filteredStudents.length === 0) {
-      alert("No data available to export");
+      toast.error("No data available to export");
       return;
     }
 
@@ -118,7 +119,7 @@ const Students = () => {
         };
         
         await set(ref(db, `students/${isEditing}`), updatedStudent);
-        setStatus({ type: 'success', msg: 'Student profile updated!' });
+        toast.success('Student profile updated!');
         setIsEditing(null);
       } else {
         const selectedCourse = courses.find(c => c.id === formData.courseId);
@@ -159,15 +160,15 @@ const Students = () => {
 
         if (isAdmin) {
           await set(push(ref(db, 'students')), payloadWithMeta);
-          setStatus({ type: 'success', msg: `Enrolled: ${customId}` });
+          toast.success(`Enrolled: ${customId}`);
         } else {
           await set(push(ref(db, 'pending_approvals')), { ...payloadWithMeta, status: 'pending' });
-          setStatus({ type: 'success', msg: `Request Sent: ${customId}` });
+          toast.success(`Request Sent: ${customId}`);
         }
       }
       setFormData({ name: '', contact: '', gender: '', courseId: '', laptop_status: '', agreed_monthly_fee: '', admission_fee: '', createdAt: today });
     } catch (err) {
-      setStatus({ type: 'error', msg: err.message });
+      toast.error(err.message);
     } finally {
       setLoading(false);
     }

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { db } from '../firebase';
 import { ref, get } from 'firebase/database';
 import { generateTechflexRecord } from '../utils/exportExcel';
+import toast from 'react-hot-toast';
 
 const GlobalExport = () => {
   const [loading, setLoading] = useState(false);
@@ -29,7 +30,7 @@ const GlobalExport = () => {
 
     } catch (error) {
       console.error(error);
-      alert("Export failed: " + error.message);
+      toast.error("Export failed: " + error.message);
     } finally {
       setLoading(false);
     }

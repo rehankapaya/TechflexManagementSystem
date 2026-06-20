@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { db } from '../firebase.js';
 import { ref, onValue, update } from 'firebase/database';
 import * as XLSX from 'xlsx'; // Import library
+import toast from 'react-hot-toast';
 
 const StudentStatus = () => {
   const [students, setStudents] = useState([]);
@@ -76,7 +77,7 @@ const StudentStatus = () => {
     const customStartDate = selectedStartDates[`${studentId}_${courseId}`];
 
     if (!newCourseStatus && !customStartDate) {
-      setStatus({ type: 'error', msg: "Please select a new status or change start date first." });
+      toast.error("Please select a new status or change start date first.");
       return;
     }
 
@@ -109,10 +110,10 @@ const StudentStatus = () => {
       }
 
       await update(ref(db), masterUpdate);
-      setStatus({ type: 'success', msg: `Records updated successfully!` });
+      toast.success(`Records updated successfully!`);
       setSelectedStartDates(prev => { delete prev[`${studentId}_${courseId}`]; return { ...prev }; });
     } catch (err) {
-      setStatus({ type: 'error', msg: "Update failed: " + err.message });
+      toast.error("Update failed: " + err.message);
     } finally {
       setLoading(false);
     }

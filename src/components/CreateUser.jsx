@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { auth, db } from '../firebase.js'; 
 import { createUserWithEmailAndPassword } from 'firebase/auth';
 import { ref, set, onValue } from 'firebase/database';
+import toast from 'react-hot-toast';
 
 const CreateUser = () => {
   const [formData, setFormData] = useState({
@@ -68,12 +69,12 @@ const CreateUser = () => {
         uid: user.uid
       });
 
-      setStatus({ type: 'success', msg: `User ${formData.name} created successfully!` });
+      toast.success(`User ${formData.name} created successfully!`);
       setFormData({ name: '', email: '', password: '', role: 'teacher' });
 
     } catch (err) {
-      if (err.code === 'auth/email-already-in-use') setStatus({ type: 'error', msg: "Email already exists." });
-      else setStatus({ type: 'error', msg: "Failed to create user. Check permissions." });
+      if (err.code === 'auth/email-already-in-use') toast.error("Email already exists.");
+      else toast.error("Failed to create user. Check permissions.");
     } finally {
       setIsSubmitting(false);
     }

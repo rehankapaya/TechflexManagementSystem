@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
 import { db } from '../firebase.js';
 import { ref, push, set, onValue, remove, update } from 'firebase/database';
+import toast from 'react-hot-toast';
 
 const CertificateGenerator = () => {
   const [view, setView] = useState('list');
@@ -135,9 +136,11 @@ const CertificateGenerator = () => {
 
       if (isEditing) {
         await update(ref(db, `generated_certificates/${isEditing}`), payload);
+        toast.success("Certificate updated successfully");
       } else {
         const certRef = ref(db, 'generated_certificates');
         await set(push(certRef), payload);
+        toast.success("Certificate created successfully");
       }
 
       const blob = new Blob([bytes], { type: 'application/pdf' });
@@ -150,7 +153,7 @@ const CertificateGenerator = () => {
       setIsEditing(null);
       setView('list');
     } catch (error) {
-      alert("Error: " + error.message);
+      toast.error("Error: " + error.message);
     } finally {
       setIsSaving(false);
     }
@@ -186,8 +189,9 @@ const CertificateGenerator = () => {
     if (window.confirm("Delete this record permanently?")) {
       try {
         await remove(ref(db, `generated_certificates/${id}`));
+        toast.success("Certificate deleted");
       } catch (error) {
-        alert("Failed to delete: " + error.message);
+        toast.error("Failed to delete: " + error.message);
       }
     }
   };

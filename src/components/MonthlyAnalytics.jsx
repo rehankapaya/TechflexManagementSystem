@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { db } from '../firebase'; // Ensure your firebase config path is correct
 import { ref, onValue, get } from 'firebase/database';
 import * as XLSX from 'xlsx';
+import toast from 'react-hot-toast';
 
 const MonthlyAnalytics = () => {
   // --- States ---
@@ -84,7 +85,10 @@ const MonthlyAnalytics = () => {
 
   // --- Export Functions ---
   const exportMonthly = () => {
-    if (feeData.length === 0) return alert("No data to export");
+    if (feeData.length === 0) {
+      toast.error("No data to export");
+      return;
+    }
     const worksheet = XLSX.utils.json_to_sheet(feeData.map(f => ({
         "Course Name": f.courseName,
         "Paid (RS)": f.paid,
@@ -96,7 +100,10 @@ const MonthlyAnalytics = () => {
   };
 
   const exportYearly = () => {
-    if (!rawFeeData) return alert("No data found");
+    if (!rawFeeData) {
+      toast.error("No data found");
+      return;
+    }
     const yearlyReport = Object.keys(courseNames).map(courseId => {
       const row = { "Course Name": courseNames[courseId] };
       months.forEach(m => {

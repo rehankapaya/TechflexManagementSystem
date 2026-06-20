@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { db } from '../firebase.js';
 import { ref, set, push, onValue, remove, update } from 'firebase/database';
+import toast from 'react-hot-toast';
 
 const Courses = () => {
   const [courses, setCourses] = useState([]);
@@ -47,16 +48,16 @@ const Courses = () => {
     try {
       if (isEditing) {
         await update(ref(db, `courses/${isEditing}`), formData);
-        setStatus({ type: 'success', msg: 'Course updated successfully!' });
+        toast.success('Course updated successfully!');
         setIsEditing(null);
       } else {
         const newCourseRef = push(ref(db, 'courses'));
         await set(newCourseRef, formData);
-        setStatus({ type: 'success', msg: 'New course created!' });
+        toast.success('New course created!');
       }
       setFormData({ name: '', base_fee: '', duration: '' });
     } catch (err) {
-      setStatus({ type: 'error', msg: "Error saving course: " + err.message });
+      toast.error("Error saving course: " + err.message);
     } finally {
       setLoading(false);
     }
@@ -66,9 +67,9 @@ const Courses = () => {
     if (window.confirm("Are you sure you want to delete this course?")) {
       try {
         await remove(ref(db, `courses/${id}`));
-        setStatus({ type: 'success', msg: 'Course deleted.' });
+        toast.success('Course deleted.');
       } catch (err) {
-        setStatus({ type: 'error', msg: 'Delete failed: ' + err.message });
+        toast.error('Delete failed: ' + err.message);
       }
     }
   };

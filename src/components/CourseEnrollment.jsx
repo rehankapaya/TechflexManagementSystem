@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { db } from '../firebase.js';
 import { ref, onValue, update, remove } from 'firebase/database';
+import toast from 'react-hot-toast';
 
 const CourseEnrollment = () => {
   const [students, setStudents] = useState([]);
@@ -54,12 +55,12 @@ const CourseEnrollment = () => {
   const handleEnroll = async (e) => {
     e.preventDefault();
     if (!selectedStudent || !formData.courseId) {
-      setStatus({ type: 'error', msg: "Please select student and course" });
+      toast.error("Please select student and course");
       return;
     }
 
     if (selectedStudent.enrolled_courses?.[formData.courseId]) {
-      setStatus({ type: 'error', msg: "Student is already enrolled in this course!" });
+      toast.error("Student is already enrolled in this course!");
       return;
     }
 
@@ -76,10 +77,10 @@ const CourseEnrollment = () => {
 
     try {
       await update(ref(db, `students/${selectedStudent.id}/enrolled_courses/${formData.courseId}`), newCourseEntry);
-      setStatus({ type: 'success', msg: `Enrolled ${selectedStudent.name} in ${selectedCourseData.name}` });
+      toast.success(`Enrolled ${selectedStudent.name} in ${selectedCourseData.name}`);
       setFormData({ courseId: '', agreed_monthly_fee: '' });
     } catch (err) {
-      setStatus({ type: 'error', msg: "Enrollment failed: " + err.message });
+      toast.error("Enrollment failed: " + err.message);
     } finally {
       setLoading(false);
     }
@@ -89,9 +90,9 @@ const CourseEnrollment = () => {
     if (window.confirm(`Are you sure you want to remove "${courseName}" for this student?`)) {
       try {
         await remove(ref(db, `students/${selectedStudent.id}/enrolled_courses/${courseId}`));
-        setStatus({ type: 'success', msg: `Removed ${courseName} successfully.` });
+        toast.success(`Removed ${courseName} successfully.`);
       } catch (err) {
-        setStatus({ type: 'error', msg: "Failed to delete: " + err.message });
+        toast.error("Failed to delete: " + err.message);
       }
     }
   };
