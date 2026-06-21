@@ -3,6 +3,7 @@ import { db } from '../firebase'; // Ensure your firebase config path is correct
 import { ref, onValue, get } from 'firebase/database';
 import * as XLSX from 'xlsx';
 import toast from 'react-hot-toast';
+import BalanceSheet from './BalanceSheet';
 
 const MonthlyAnalytics = () => {
   // --- States ---
@@ -325,6 +326,8 @@ const MonthlyAnalytics = () => {
           </tbody>
         </table>
       </div>
+
+      <BalanceSheet />
     </div>
   );
 };
