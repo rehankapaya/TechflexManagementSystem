@@ -16,6 +16,13 @@ const MonthlyAnalytics = () => {
   const [totalExpenses, setTotalExpenses] = useState(0);
   const [totalSalaries, setTotalSalaries] = useState(0);
 
+  const [allTimeIncome, setAllTimeIncome] = useState(0);
+  const [allTimeExpenses, setAllTimeExpenses] = useState(0);
+  const [allTimeSalaries, setAllTimeSalaries] = useState(0);
+
+  const [totalAdmissionFees, setTotalAdmissionFees] = useState(0);
+  const [allTimeAdmissionFees, setAllTimeAdmissionFees] = useState(0);
+
   const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
   const currentYear = new Date().getFullYear();
   const years = Array.from({length: Math.max(5, currentYear - 2024 + 5)}, (_, i) => (2024 + i).toString());
@@ -44,11 +51,16 @@ const MonthlyAnalytics = () => {
       const report = {};
       const monthlyTotals = months.map(m => ({ month: m, total: 0 }));
       let paidSum = 0, pendingSum = 0;
+      let totalAllTimePaid = 0;
 
       if (data) {
         for (let studentId in data) {
           for (let courseId in data[studentId]) {
             const coursesInFees = data[studentId][courseId];
+            
+            for (let tKey in coursesInFees) {
+              totalAllTimePaid += Number(coursesInFees[tKey].paid || 0);
+            }
 
             // Calculate Yearly Trend (for Chart)
             months.forEach((m, index) => {
@@ -80,6 +92,7 @@ const MonthlyAnalytics = () => {
       setFeeData(Object.values(report));
       setStats({ totalPaid: paidSum, totalPending: pendingSum });
       setYearlyComparison(monthlyTotals);
+      setAllTimeIncome(totalAllTimePaid);
     });
 
     return () => unsubscribe();
@@ -93,9 +106,11 @@ const MonthlyAnalytics = () => {
     const unsubExpenses = onValue(expensesRef, (snapshot) => {
       const data = snapshot.val();
       let currentMonthExpenses = 0;
+      let totalAllTime = 0;
 
       if (data) {
         Object.values(data).forEach(exp => {
+          totalAllTime += Number(exp.amount || 0);
           if (exp.date) {
             const expDate = new Date(exp.date);
             const expMonth = months[expDate.getMonth()];
@@ -108,14 +123,17 @@ const MonthlyAnalytics = () => {
         });
       }
       setTotalExpenses(currentMonthExpenses);
+      setAllTimeExpenses(totalAllTime);
     });
 
     const unsubSalary = onValue(salaryRef, (snapshot) => {
       const data = snapshot.val();
       let currentMonthSalaries = 0;
+      let totalAllTime = 0;
 
       if (data) {
         Object.values(data).forEach(salary => {
+          totalAllTime += Number(salary.amount || 0);
           if (salary.salaryYear && salary.salaryMonth) {
             if (salary.salaryYear.toString() === year && months[salary.salaryMonth - 1] === month) {
               currentMonthSalaries += Number(salary.amount || 0);
@@ -124,12 +142,44 @@ const MonthlyAnalytics = () => {
         });
       }
       setTotalSalaries(currentMonthSalaries);
+      setAllTimeSalaries(totalAllTime);
     });
 
     return () => {
       unsubExpenses();
       unsubSalary();
     };
+  }, [month, year]);
+
+  // --- Admissions Fetching Logic ---
+  useEffect(() => {
+    const studentsRef = ref(db, 'students');
+    const unsubStudents = onValue(studentsRef, (snapshot) => {
+      const data = snapshot.val();
+      let currentMonthAdm = 0;
+      let totalAllTimeAdm = 0;
+
+      if (data) {
+        Object.values(data).forEach(student => {
+          const admFee = Number(student.admission_fee || 0);
+          totalAllTimeAdm += admFee;
+
+          if (student.createdAt) {
+            const admDate = new Date(student.createdAt);
+            const admMonth = months[admDate.getMonth()];
+            const admYear = admDate.getFullYear().toString();
+
+            if (admYear === year && admMonth === month) {
+              currentMonthAdm += admFee;
+            }
+          }
+        });
+      }
+      setTotalAdmissionFees(currentMonthAdm);
+      setAllTimeAdmissionFees(totalAllTimeAdm);
+    });
+
+    return () => unsubStudents();
   }, [month, year]);
 
   // --- Export Functions ---
@@ -185,6 +235,19 @@ const MonthlyAnalytics = () => {
         </div>
       </header>
 
+      {/* ALL TIME LIFETIME BALANCE */}
+      <div style={{...styles.card, background: (allTimeIncome + allTimeAdmissionFees - allTimeExpenses - allTimeSalaries) >= 0 ? 'linear-gradient(135deg, #d4fc79 0%, #96e6a1 100%)' : 'linear-gradient(135deg, #ff9a9e 0%, #fecfef 100%)', marginBottom: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
+        <div>
+          <h3 style={{ margin: 0, color: '#1E293B', fontSize: '18px' }}>Lifetime Balance (Profit/Loss)</h3>
+          <p style={{ margin: '5px 0 0 0', color: '#475569', fontSize: '14px' }}>All-time Gross Income - All-time Expenses - All-time Salaries</p>
+        </div>
+        <div style={{ textAlign: 'right' }}>
+          <h1 style={{ margin: 0, fontSize: '32px', color: '#1E293B' }}>
+            RS. {(allTimeIncome + allTimeAdmissionFees - allTimeExpenses - allTimeSalaries).toLocaleString()}
+          </h1>
+        </div>
+      </div>
+
       <div style={styles.filterRow}>
         <select value={month} onChange={(e) => setMonth(e.target.value)} style={styles.select}>
           {months.map(m => <option key={m} value={m}>{m}</option>)}
@@ -195,7 +258,7 @@ const MonthlyAnalytics = () => {
       </div>
 
       {/* Chart Section */}
-      <div style={styles.card}>
+      <div style={{ ...styles.card, marginBottom: '30px' }}>
         <h4 style={{ marginBottom: '20px' }}>{year} Revenue Trend</h4>
         <div style={styles.chartContainer}>
           {yearlyComparison.map((item, idx) => (
@@ -218,7 +281,10 @@ const MonthlyAnalytics = () => {
       <div style={styles.statsRow}>
         <div style={{ ...styles.statCard, borderLeft: '5px solid #48BB78' }}>
           <small>Gross Income ({month})</small>
-          <h3>RS. {stats.totalPaid.toLocaleString()}</h3>
+          <h3>RS. {(stats.totalPaid + totalAdmissionFees).toLocaleString()}</h3>
+          <p style={{ fontSize: '12px', margin: '5px 0 0 0', color: '#718096' }}>
+            Adm: RS.{totalAdmissionFees.toLocaleString()} | Course: RS.{stats.totalPaid.toLocaleString()}
+          </p>
         </div>
         <div style={{ ...styles.statCard, borderLeft: '5px solid #E53E3E' }}>
           <small>Expenses ({month})</small>
@@ -230,7 +296,7 @@ const MonthlyAnalytics = () => {
         </div>
         <div style={{ ...styles.statCard, borderLeft: '5px solid #3182CE' }}>
           <small>Net Profit ({month})</small>
-          <h3>RS. {(stats.totalPaid - totalExpenses - totalSalaries).toLocaleString()}</h3>
+          <h3>RS. {(stats.totalPaid + totalAdmissionFees - totalExpenses - totalSalaries).toLocaleString()}</h3>
         </div>
         <div style={{ ...styles.statCard, borderLeft: '5px solid #DD6B20' }}>
           <small>Total Pending ({month})</small>
