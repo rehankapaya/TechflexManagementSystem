@@ -9,7 +9,7 @@ const GlobalExport = () => {
   const [filter, setFilter] = useState({ year: new Date().getFullYear().toString() });
 
   const currentYear = new Date().getFullYear();
-  const years = Array.from({length: 6}, (_, i) => (currentYear - 2 + i).toString());
+  const years = Array.from({length: Math.max(5, currentYear - 2024 + 5)}, (_, i) => (2024 + i).toString());
 
   const handleExport = async () => {
     setLoading(true);

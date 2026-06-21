@@ -18,7 +18,7 @@ const MonthlyAnalytics = () => {
 
   const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
   const currentYear = new Date().getFullYear();
-  const years = Array.from({ length: 7 }, (_, i) => (currentYear - 3 + i).toString());
+  const years = Array.from({length: Math.max(5, currentYear - 2024 + 5)}, (_, i) => (2024 + i).toString());
 
   // --- Fetch Course Names Mapping ---
   useEffect(() => {

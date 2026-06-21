@@ -32,7 +32,10 @@ const StaffSalary = () => {
 
   const monthsFull = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
   const currentYear = new Date().getFullYear();
-  const years = [currentYear - 2, currentYear - 1, currentYear, currentYear + 1, currentYear + 2];
+  const years = Array.from(new Set([
+    currentYear,
+    ...salaries.map(s => new Date(s.date).getFullYear())
+  ])).filter(y => !isNaN(y)).sort((a, b) => a - b);
 
   useEffect(() => {
     onValue(ref(db, 'staff_salary'), (snap) => {

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { auth, db } from '../firebase.js'; 
-import { createUserWithEmailAndPassword } from 'firebase/auth';
-import { ref, set, onValue } from 'firebase/database';
+import { createUserWithEmailAndPassword, sendPasswordResetEmail } from 'firebase/auth';
+import { ref, set, onValue, remove, update } from 'firebase/database';
 import toast from 'react-hot-toast';
 
 const CreateUser = () => {
@@ -14,6 +14,9 @@ const CreateUser = () => {
   const [users, setUsers] = useState([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [status, setStatus] = useState({ type: '', msg: '' });
+  
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editFormData, setEditFormData] = useState(null);
 
   const roles = [
     { value: 'admin', label: 'Admin', icon: '👑', color: '#8B5CF6' },
@@ -80,9 +83,57 @@ const CreateUser = () => {
     }
   };
 
+  const handleDeleteUser = async (uid, name) => {
+    if (window.confirm(`Are you sure you want to delete ${name}? Existing records associated with this user will not be affected.`)) {
+      try {
+        await remove(ref(db, `users/${uid}`));
+        toast.success(`${name} has been deleted from the directory.`);
+      } catch (err) {
+        toast.error("Failed to delete user.");
+      }
+    }
+  };
+
+  const handleResetPassword = async (email) => {
+    if (window.confirm(`Send a password reset email to ${email}?`)) {
+      try {
+        await sendPasswordResetEmail(auth, email);
+        toast.success(`Password reset email sent to ${email}`);
+      } catch (err) {
+        toast.error("Failed to send reset email.");
+      }
+    }
+  };
+
+  const handleEditUser = (user) => {
+    setEditFormData({
+      uid: user.uid,
+      name: user.name,
+      role: user.role,
+      email: user.email // Readonly in edit
+    });
+    setShowEditModal(true);
+  };
+
+  const handleUpdateUser = async (e) => {
+    e.preventDefault();
+    try {
+      await update(ref(db, `users/${editFormData.uid}`), {
+        name: editFormData.name,
+        role: editFormData.role
+      });
+      toast.success("User profile updated successfully");
+      setShowEditModal(false);
+      setEditFormData(null);
+    } catch (err) {
+      toast.error("Failed to update user profile");
+    }
+  };
+
   return (
-    <div style={styles.pageLayout}>
-      {/* LEFT: FORM SECTION */}
+    <>
+      <div style={styles.pageLayout}>
+        {/* LEFT: FORM SECTION */}
       <div style={styles.formCard}>
         <div style={styles.header}>
           <h2 style={styles.title}>Register Staff 👤</h2>
@@ -172,12 +223,59 @@ const CreateUser = () => {
                   </div>
                   <p style={styles.userEmail}>{user.email}</p>
                 </div>
+                <div style={styles.actionRow}>
+                  <button onClick={() => handleEditUser(user)} style={{...styles.btnAction, color: '#3B82F6', background: '#DBEAFE'}} title="Edit Profile">✏️</button>
+                  <button onClick={() => handleResetPassword(user.email)} style={{...styles.btnAction, color: '#F59E0B', background: '#FEF3C7'}} title="Reset Password">🔑</button>
+                  <button onClick={() => handleDeleteUser(user.uid, user.name)} style={{...styles.btnAction, color: '#EF4444', background: '#FEE2E2'}} title="Delete User">🗑️</button>
+                </div>
               </div>
             );
           })}
         </div>
       </div>
     </div>
+
+    {showEditModal && editFormData && (
+        <div style={styles.modalOverlay}>
+          <div style={styles.modalContent}>
+            <div style={styles.modalHeader}>
+              <h3 style={styles.title}>Edit User Profile</h3>
+              <button onClick={() => setShowEditModal(false)} style={styles.btnClose}>✕</button>
+            </div>
+            <form onSubmit={handleUpdateUser} style={styles.form}>
+              <div style={styles.inputGroup}>
+                <label style={styles.label}>Full Name</label>
+                <input 
+                  type="text" value={editFormData.name} 
+                  onChange={e => setEditFormData({...editFormData, name: e.target.value})} 
+                  required style={styles.input} 
+                />
+              </div>
+              <div style={styles.inputGroup}>
+                <label style={styles.label}>Email Address (Cannot be changed)</label>
+                <input 
+                  type="email" value={editFormData.email} 
+                  disabled style={{...styles.input, backgroundColor: '#E2E8F0', color: '#64748B'}} 
+                />
+              </div>
+              <div style={styles.inputGroup}>
+                <label style={styles.label}>System Role</label>
+                <select value={editFormData.role} onChange={e => setEditFormData({...editFormData, role: e.target.value})} style={styles.input}>
+                  {roles.map(r => (
+                    <option key={r.value} value={r.value}>
+                      {r.icon} {r.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <button type="submit" style={styles.button}>
+                Update User
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+    </>
   );
 };
 
@@ -281,7 +379,13 @@ const styles = {
     padding: '2px 8px', 
     borderRadius: '6px', 
     border: '1px solid' 
-  }
+  },
+  actionRow: { display: 'flex', gap: '8px', alignItems: 'center' },
+  btnAction: { border: 'none', padding: '6px', borderRadius: '6px', cursor: 'pointer', fontSize: '14px', transition: '0.2s' },
+  modalOverlay: { position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 },
+  modalContent: { background: '#fff', padding: '25px', borderRadius: '16px', width: '90%', maxWidth: '400px', boxShadow: '0 10px 25px rgba(0,0,0,0.2)' },
+  modalHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' },
+  btnClose: { background: 'none', border: 'none', fontSize: '20px', cursor: 'pointer', color: '#64748B' }
 };
 
 export default CreateUser;
