@@ -24,7 +24,8 @@ import {
   Award,
   FileText,
   BarChart3,
-  Receipt
+  Receipt,
+  Banknote
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -116,6 +117,9 @@ const Dashboard = () => {
             <SidebarLink to="/dashboard/fees" icon={<CreditCard size={20} />} label="Fee Entry" collapsed={sidebarCollapsed} active={isActive('/dashboard/fees')} />
             <SidebarLink to="/dashboard/feestatus" icon={<BadgeDollarSign size={20} />} label="Fee Status" collapsed={sidebarCollapsed} active={isActive('/dashboard/feestatus')} />
             <SidebarLink to="/dashboard/expenses" icon={<Receipt size={20} />} label="Expenses" collapsed={sidebarCollapsed} active={isActive('/dashboard/expenses')} />
+            {isAdmin && (
+              <SidebarLink to="/dashboard/salary" icon={<Banknote size={20} />} label="Staff Salary" collapsed={sidebarCollapsed} active={isActive('/dashboard/salary')} />
+            )}
           </div>
 
           {isAdmin && (

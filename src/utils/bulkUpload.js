@@ -8,14 +8,16 @@ export const downloadExpenseSample = async () => {
   const ws = wb.addWorksheet('Expense Sample');
   
   ws.columns = [
-    { header: 'Date (YYYY-MM-DD)', key: 'date', width: 20 },
+    { header: 'Date (DD-MMM-YYYY)', key: 'date', width: 20 },
     { header: 'Course Name', key: 'course', width: 25 },
     { header: 'Description', key: 'desc', width: 30 },
     { header: 'Amount', key: 'amount', width: 15 }
   ];
 
-  ws.addRow({ date: '2024-06-15', course: 'Graphic Designing', desc: 'Marketing Materials', amount: 5000 });
-  ws.addRow({ date: '2024-06-16', course: 'General', desc: 'Office Stationery', amount: 1500 });
+  ws.addRow({ date: new Date(2024, 5, 15), course: 'Graphic Designing', desc: 'Marketing Materials', amount: 5000 });
+  ws.addRow({ date: new Date(2024, 5, 16), course: 'General', desc: 'Office Stationery', amount: 1500 });
+
+  ws.getColumn('date').numFmt = 'dd-mmm-yyyy';
 
   // Format header
   ws.getRow(1).font = { bold: true };
@@ -72,17 +74,44 @@ export const parseExcelUpload = async (file) => {
             if (header) {
                 // If it's a Date object (ExcelJS parses dates automatically), format it
                 if (val instanceof Date) {
-                    rowData[header] = val.toISOString().split('T')[0];
+                    const year = val.getFullYear();
+                    const month = String(val.getMonth() + 1).padStart(2, '0');
+                    const day = String(val.getDate()).padStart(2, '0');
+                    rowData[header] = `${year}-${month}-${day}`;
                 } 
                 // If it's a formula result object { formula, result }
                 else if (val && typeof val === 'object' && val.result !== undefined) {
-                    rowData[header] = val.result;
+                    if (val.result instanceof Date) {
+                        const d = val.result;
+                        const year = d.getFullYear();
+                        const month = String(d.getMonth() + 1).padStart(2, '0');
+                        const day = String(d.getDate()).padStart(2, '0');
+                        rowData[header] = `${year}-${month}-${day}`;
+                    } else {
+                        rowData[header] = val.result;
+                    }
                 }
                 else if (val && typeof val === 'object' && val.richText) {
                     rowData[header] = val.richText.map(rt => rt.text).join('');
                 }
                 else if (val && typeof val === 'object' && val.text) {
                     rowData[header] = val.text;
+                }
+                else if (typeof val === 'string' && header.toLowerCase().includes('date') && val.includes('/')) {
+                    const parts = val.split('/');
+                    if (parts.length === 3) {
+                       let year = parts[2];
+                       let month = parts[1];
+                       let day = parts[0];
+                       if (year.length === 2) year = '20' + year;
+                       if (year.length === 4) {
+                           rowData[header] = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+                       } else {
+                           rowData[header] = val;
+                       }
+                    } else {
+                        rowData[header] = val;
+                    }
                 }
                 else {
                     rowData[header] = val;
@@ -99,3 +128,34 @@ export const parseExcelUpload = async (file) => {
     }
   });
 };
+
+export const exportExpenses = async (expensesData, filename = 'Expenses.xlsx') => {
+  const wb = new ExcelJS.Workbook();
+  const ws = wb.addWorksheet('Expenses');
+
+  ws.columns = [
+    { header: 'Date', key: 'date', width: 15 },
+    { header: 'Course Category', key: 'courseName', width: 25 },
+    { header: 'Description', key: 'description', width: 35 },
+    { header: 'Amount (PKR)', key: 'amount', width: 15 },
+    { header: 'Added By', key: 'addedBy', width: 20 }
+  ];
+
+  expensesData.forEach(exp => {
+    ws.addRow({
+      date: new Date(exp.date).toLocaleDateString('en-GB'),
+      courseName: exp.courseName,
+      description: exp.description,
+      amount: exp.amount,
+      addedBy: exp.addedBy || ''
+    });
+  });
+
+  // Format header
+  ws.getRow(1).font = { bold: true };
+  ws.getRow(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD3D3D3' } };
+
+  const buffer = await wb.xlsx.writeBuffer();
+  saveAs(new Blob([buffer]), filename);
+};
+

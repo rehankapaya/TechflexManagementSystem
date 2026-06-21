@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { db } from '../firebase';
 import { useAuth } from '../contexts/AuthContext';
 import { ref, push, set, onValue, remove } from 'firebase/database';
-import { downloadExpenseSample, parseExcelUpload } from '../utils/bulkUpload';
+import { downloadExpenseSample, parseExcelUpload, exportExpenses } from '../utils/bulkUpload';
 import toast from 'react-hot-toast';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Cell } from 'recharts';
 
@@ -13,6 +13,8 @@ const Expenses = () => {
   const [loading, setLoading] = useState(false);
   const [filterMonth, setFilterMonth] = useState(new Date().getMonth() + 1); // 1-12
   const [filterYear, setFilterYear] = useState(new Date().getFullYear());
+  const [showEditExpenseModal, setShowEditExpenseModal] = useState(false);
+  const [editFormData, setEditFormData] = useState(null);
 
   const today = new Date().toISOString().split('T')[0];
   const [formData, setFormData] = useState({
@@ -68,6 +70,41 @@ const Expenses = () => {
     }
   };
 
+  const handleEditExpense = (expense) => {
+    setEditFormData({
+      id: expense.id,
+      date: expense.date,
+      amount: expense.amount,
+      description: expense.description,
+      courseName: expense.courseName
+    });
+    setShowEditExpenseModal(true);
+  };
+
+  const handleUpdateExpense = async (e) => {
+    e.preventDefault();
+    if (!editFormData.amount || !editFormData.description) return;
+    setLoading(true);
+    try {
+      const payload = {
+        date: editFormData.date,
+        amount: Number(editFormData.amount),
+        description: editFormData.description,
+        courseName: editFormData.courseName,
+        addedBy: currentUser.name || currentUser.email,
+        timestamp: new Date().toISOString()
+      };
+      await set(ref(db, `expenses/${editFormData.id}`), payload);
+      toast.success("Expense updated successfully");
+      setShowEditExpenseModal(false);
+      setEditFormData(null);
+    } catch (err) {
+      toast.error("Error updating expense");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleDelete = async (id) => {
     if (window.confirm("Delete this expense?")) {
       await remove(ref(db, `expenses/${id}`));
@@ -84,8 +121,8 @@ const Expenses = () => {
       let successCount = 0;
       
       for (const row of rows) {
-        const date = row['Date (YYYY-MM-DD)'];
-        const course = row['Course Name'] || row['Course Name (or General)'];
+        const date = row['Date (DD-MMM-YYYY)'] || row['Date (YYYY-MM-DD)'] || row['Date'];
+        const course = row['Course Name'] || row['Course Name (or General)'] || row['Course Category'];
         const desc = row['Description'];
         const amt = row['Amount'];
 
@@ -109,6 +146,17 @@ const Expenses = () => {
       setLoading(false);
       e.target.value = null; 
     }
+  };
+
+  const handleExportAll = () => {
+    if (expenses.length === 0) return toast.error("No records to export.");
+    exportExpenses(expenses, 'All_Expenses.xlsx');
+  };
+
+  const handleExportYearly = () => {
+    const yearly = expenses.filter(e => new Date(e.date).getFullYear() === parseInt(filterYear));
+    if (yearly.length === 0) return toast.error(`No records for ${filterYear}.`);
+    exportExpenses(yearly, `Expenses_${filterYear}.xlsx`);
   };
 
   const filteredExpenses = expenses.filter(e => {
@@ -189,11 +237,11 @@ const Expenses = () => {
           <h3 style={styles.cardTitle}>Bulk Upload Expenses</h3>
           <p style={{ fontSize: '12px', color: '#64748b', marginBottom: '15px' }}>Upload an Excel file to mass-add expense records.</p>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-            <button onClick={downloadExpenseSample} type="button" style={{ ...styles.btnReset, fontSize: '13px', padding: '10px' }}>
+            <button onClick={downloadExpenseSample} type="button" style={{ background: '#F1F5F9', color: '#475569', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '600', fontSize: '13px', padding: '10px' }}>
               📄 Download Sample Format
             </button>
             <input type="file" accept=".xlsx, .xls" onChange={handleBulkUpload} id="expense-upload" style={{ display: 'none' }} />
-            <button onClick={() => document.getElementById('expense-upload').click()} type="button" style={{ ...styles.btnPrimary, background: '#10B981', fontSize: '13px', padding: '10px' }}>
+            <button onClick={() => document.getElementById('expense-upload').click()} type="button" style={{ ...styles.btnPrimary, background: '#10B981', fontSize: '13px', padding: '10px', margin: 0 }}>
               {loading ? "Processing..." : "📤 Upload Excel File"}
             </button>
           </div>
@@ -233,13 +281,22 @@ const Expenses = () => {
         <div style={styles.card}>
           <div style={styles.listHeader}>
             <h3 style={styles.cardTitle}>Expense Records</h3>
-            <div style={styles.filters}>
-              <select value={filterMonth} onChange={e => setFilterMonth(e.target.value)} style={styles.selectSmall}>
-                {monthsFull.map((m, i) => <option key={m} value={i + 1}>{m}</option>)}
-              </select>
-              <select value={filterYear} onChange={e => setFilterYear(e.target.value)} style={styles.selectSmall}>
-                {years.map(y => <option key={y} value={y}>{y}</option>)}
-              </select>
+            <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
+              <button onClick={handleExportAll} type="button" style={{ ...styles.btnPrimary, background: '#F59E0B', fontSize: '12px', padding: '8px 12px', margin: 0 }}>
+                📥 Export All
+              </button>
+              <button onClick={handleExportYearly} type="button" style={{ ...styles.btnPrimary, background: '#F59E0B', fontSize: '12px', padding: '8px 12px', margin: 0 }}>
+                📥 Export {filterYear}
+              </button>
+              <div style={{ width: '1px', height: '24px', background: '#E2E8F0', margin: '0 5px' }} />
+              <div style={styles.filters}>
+                <select value={filterMonth} onChange={e => setFilterMonth(e.target.value)} style={styles.selectSmall}>
+                  {monthsFull.map((m, i) => <option key={m} value={i + 1}>{m}</option>)}
+                </select>
+                <select value={filterYear} onChange={e => setFilterYear(e.target.value)} style={styles.selectSmall}>
+                  {years.map(y => <option key={y} value={y}>{y}</option>)}
+                </select>
+              </div>
             </div>
           </div>
 
@@ -271,7 +328,12 @@ const Expenses = () => {
                       <td style={styles.tdAmount}>PKR {e.amount.toLocaleString()}</td>
                       <td style={styles.tdUser}>{e.addedBy}</td>
                       <td style={styles.td}>
-                        {isAdmin && <button onClick={() => handleDelete(e.id)} style={styles.btnDelete}>🗑️</button>}
+                        {isAdmin && (
+                          <>
+                            <button onClick={() => handleEditExpense(e)} style={{...styles.btnDelete, color: '#3B82F6', marginRight: '10px'}}>✏️</button>
+                            <button onClick={() => handleDelete(e.id)} style={styles.btnDelete}>🗑️</button>
+                          </>
+                        )}
                       </td>
                     </tr>
                   ))
@@ -282,6 +344,41 @@ const Expenses = () => {
         </div>
       </div>
       </div>
+
+      {showEditExpenseModal && editFormData && (
+        <div style={styles.modalOverlay}>
+          <div style={styles.modalContent}>
+            <div style={styles.modalHeader}>
+              <h3 style={styles.cardTitle}>Edit Expense</h3>
+              <button onClick={() => setShowEditExpenseModal(false)} style={styles.btnClose}>✕</button>
+            </div>
+            <form onSubmit={handleUpdateExpense} style={styles.form}>
+              <div style={styles.formGroup}>
+                <label style={styles.label}>Date</label>
+                <input type="date" value={editFormData.date} onChange={e => setEditFormData({...editFormData, date: e.target.value})} required style={styles.input} />
+              </div>
+              <div style={styles.formGroup}>
+                <label style={styles.label}>Course Category</label>
+                <select value={editFormData.courseName} onChange={e => setEditFormData({...editFormData, courseName: e.target.value})} required style={styles.select}>
+                  <option value="General">General / Administrative</option>
+                  {courses.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
+                </select>
+              </div>
+              <div style={styles.formGroup}>
+                <label style={styles.label}>Description</label>
+                <input type="text" value={editFormData.description} onChange={e => setEditFormData({...editFormData, description: e.target.value})} required style={styles.input} />
+              </div>
+              <div style={styles.formGroup}>
+                <label style={styles.label}>Amount (PKR)</label>
+                <input type="number" value={editFormData.amount} onChange={e => setEditFormData({...editFormData, amount: e.target.value})} required style={styles.input} />
+              </div>
+              <button type="submit" disabled={loading} style={styles.btnPrimary}>
+                {loading ? "Updating..." : "Update Expense"}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
@@ -327,6 +424,11 @@ const styles = {
   tdUser: { padding: '14px 15px', fontSize: '12px', color: '#94A3B8' },
   btnDelete: { background: 'transparent', border: 'none', cursor: 'pointer', opacity: 0.6, transition: 'opacity 0.2s' },
   emptyCell: { padding: '30px', textAlign: 'center', color: '#94A3B8', fontSize: '14px' },
+  
+  modalOverlay: { position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 },
+  modalContent: { background: '#fff', padding: '25px', borderRadius: '16px', width: '90%', maxWidth: '500px', boxShadow: '0 10px 25px rgba(0,0,0,0.2)' },
+  modalHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' },
+  btnClose: { background: 'none', border: 'none', fontSize: '20px', cursor: 'pointer', color: '#64748B' },
 
   '@media (max-width: 1024px)': {
     mainGrid: { gridTemplateColumns: '1fr' }

@@ -16,6 +16,7 @@ import MonthlyAnalytics from './components/MonthlyAnalytics';
 import GlobalExport from './components/GlobalExport';
 import CertificateGenerator from './components/CertificateGenerator';
 import Expenses from './components/Expenses';
+import StaffSalary from './components/StaffSalary';
 import { Toaster } from 'react-hot-toast';
 
 function App() {
@@ -76,6 +77,14 @@ function App() {
               element={
                 <ProtectedRoute requiredRole="admin">
                   <CertificateGenerator />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="salary"
+              element={
+                <ProtectedRoute requiredRole="admin">
+                  <StaffSalary />
                 </ProtectedRoute>
               }
             />

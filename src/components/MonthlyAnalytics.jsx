@@ -13,6 +13,8 @@ const MonthlyAnalytics = () => {
   const [rawFeeData, setRawFeeData] = useState(null);
   const [stats, setStats] = useState({ totalPaid: 0, totalPending: 0 });
   const [yearlyComparison, setYearlyComparison] = useState([]);
+  const [totalExpenses, setTotalExpenses] = useState(0);
+  const [totalSalaries, setTotalSalaries] = useState(0);
 
   const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
   const currentYear = new Date().getFullYear();
@@ -82,6 +84,53 @@ const MonthlyAnalytics = () => {
 
     return () => unsubscribe();
   }, [month, year, courseNames]);
+
+  // --- Expenses & Salaries Data Fetching Logic ---
+  useEffect(() => {
+    const expensesRef = ref(db, 'expenses');
+    const salaryRef = ref(db, 'staff_salary');
+
+    const unsubExpenses = onValue(expensesRef, (snapshot) => {
+      const data = snapshot.val();
+      let currentMonthExpenses = 0;
+
+      if (data) {
+        Object.values(data).forEach(exp => {
+          if (exp.date) {
+            const expDate = new Date(exp.date);
+            const expMonth = months[expDate.getMonth()];
+            const expYear = expDate.getFullYear().toString();
+
+            if (expYear === year && expMonth === month) {
+              currentMonthExpenses += Number(exp.amount || 0);
+            }
+          }
+        });
+      }
+      setTotalExpenses(currentMonthExpenses);
+    });
+
+    const unsubSalary = onValue(salaryRef, (snapshot) => {
+      const data = snapshot.val();
+      let currentMonthSalaries = 0;
+
+      if (data) {
+        Object.values(data).forEach(salary => {
+          if (salary.salaryYear && salary.salaryMonth) {
+            if (salary.salaryYear.toString() === year && months[salary.salaryMonth - 1] === month) {
+              currentMonthSalaries += Number(salary.amount || 0);
+            }
+          }
+        });
+      }
+      setTotalSalaries(currentMonthSalaries);
+    });
+
+    return () => {
+      unsubExpenses();
+      unsubSalary();
+    };
+  }, [month, year]);
 
   // --- Export Functions ---
   const exportMonthly = () => {
@@ -168,10 +217,22 @@ const MonthlyAnalytics = () => {
       {/* Stats Cards */}
       <div style={styles.statsRow}>
         <div style={{ ...styles.statCard, borderLeft: '5px solid #48BB78' }}>
-          <small>Total Collected ({month})</small>
+          <small>Gross Income ({month})</small>
           <h3>RS. {stats.totalPaid.toLocaleString()}</h3>
         </div>
-        <div style={{ ...styles.statCard, borderLeft: '5px solid #F56565' }}>
+        <div style={{ ...styles.statCard, borderLeft: '5px solid #E53E3E' }}>
+          <small>Expenses ({month})</small>
+          <h3>RS. {totalExpenses.toLocaleString()}</h3>
+        </div>
+        <div style={{ ...styles.statCard, borderLeft: '5px solid #8B5CF6' }}>
+          <small>Staff Salary ({month})</small>
+          <h3>RS. {totalSalaries.toLocaleString()}</h3>
+        </div>
+        <div style={{ ...styles.statCard, borderLeft: '5px solid #3182CE' }}>
+          <small>Net Profit ({month})</small>
+          <h3>RS. {(stats.totalPaid - totalExpenses - totalSalaries).toLocaleString()}</h3>
+        </div>
+        <div style={{ ...styles.statCard, borderLeft: '5px solid #DD6B20' }}>
           <small>Total Pending ({month})</small>
           <h3>RS. {stats.totalPending.toLocaleString()}</h3>
         </div>
