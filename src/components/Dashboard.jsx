@@ -26,7 +26,8 @@ import {
   BarChart3,
   Receipt,
   Banknote,
-  BrainCircuit
+  BrainCircuit,
+  Megaphone
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -163,13 +164,20 @@ const Dashboard = () => {
 
           {isAdmin && (
             <div className="px-4 mb-6">
-              {!sidebarCollapsed && <p className="text-[10px] font-bold text-purple-400 tracking-widest mb-4 px-2">INTELLIGENCE</p>}
+              {!sidebarCollapsed && <p className="text-[10px] font-bold text-slate-500 tracking-widest mb-4 px-2">INTELLIGENCE</p>}
               <SidebarLink
                 to="/dashboard/iic"
-                icon={<BrainCircuit size={20} className="text-purple-400" />}
+                icon={<BrainCircuit size={20} />}
                 label="IIC AI Hub"
                 collapsed={sidebarCollapsed}
-                active={isActive('/dashboard/iic')}
+                active={location.pathname === '/dashboard/iic'}
+              />
+              <SidebarLink
+                to="/dashboard/iic/marketing"
+                icon={<Megaphone size={20} />}
+                label="Marketing AI"
+                collapsed={sidebarCollapsed}
+                active={isActive('/dashboard/iic/marketing')}
               />
             </div>
           )}
@@ -177,7 +185,7 @@ const Dashboard = () => {
 
         <button
           onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-          className="absolute bottom-6 -right-3 w-6 h-6 rounded-full bg-[#3B82F6] text-white flex items-center justify-center hover:bg-blue-600 transition-colors shadow-lg"
+          className="absolute bottom-6 -right-3 w-6 h-6 rounded-full bg-[#3B82F6] text-white flex items-center justify-center hover:bg-blue-600 transition-colors shadow-lg z-50"
         >
           {sidebarCollapsed ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
         </button>
@@ -247,7 +255,7 @@ const Dashboard = () => {
           </div>
         </header>
 
-        <main className="flex-1 overflow-y-auto p-8">
+        <main className="flex-1 overflow-y-auto p-6">
           {error && (
             <div className="mb-6 flex items-center justify-between p-4 bg-red-50 border border-red-100 text-red-700 rounded-xl animate-bounce-short">
               <div className="flex items-center gap-3">
@@ -260,9 +268,7 @@ const Dashboard = () => {
             </div>
           )}
 
-          <div className="bg-white rounded-2xl shadow-sm border border-slate-200 min-h-full p-6">
-            <Outlet context={{ searchTerm }} />
-          </div>
+          <Outlet context={{ searchTerm }} />
         </main>
 
         <footer className="px-8 py-4 bg-white border-t border-slate-200 flex justify-between items-center text-xs text-slate-400 font-medium">
@@ -281,8 +287,8 @@ const SidebarLink = ({ to, icon, label, collapsed, active }) => (
   <Link
     to={to}
     className={`flex items-center gap-4 px-4 py-3 rounded-xl transition-all duration-200 group mb-1 ${active
-        ? 'bg-[#3B82F6] text-white shadow-lg shadow-blue-500/30'
-        : 'hover:bg-slate-800/50 text-slate-400 hover:text-white'
+      ? 'bg-[#3B82F6] text-white shadow-lg shadow-blue-500/30'
+      : 'hover:bg-slate-800/50 text-slate-400 hover:text-white'
       }`}
   >
     <div className={`transition-transform duration-200 ${active ? 'scale-110' : 'group-hover:scale-110'}`}>

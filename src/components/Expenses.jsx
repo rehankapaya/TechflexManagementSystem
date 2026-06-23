@@ -119,7 +119,7 @@ const Expenses = () => {
     try {
       const rows = await parseExcelUpload(file);
       let successCount = 0;
-      
+
       for (const row of rows) {
         const date = row['Date (DD-MMM-YYYY)'] || row['Date (YYYY-MM-DD)'] || row['Date'];
         const course = row['Course Name'] || row['Course Name (or General)'] || row['Course Category'];
@@ -144,7 +144,7 @@ const Expenses = () => {
       toast.error("Failed to import expenses: " + error.message);
     } finally {
       setLoading(false);
-      e.target.value = null; 
+      e.target.value = null;
     }
   };
 
@@ -168,7 +168,7 @@ const Expenses = () => {
 
   const monthsShort = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
   const yearlyExpenses = expenses.filter(e => new Date(e.date).getFullYear() === parseInt(filterYear));
-  
+
   const expenseByMonth = yearlyExpenses.reduce((acc, curr) => {
     const monthName = monthsShort[new Date(curr.date).getMonth()];
     acc[monthName] = (acc[monthName] || 0) + (curr.amount || 0);
@@ -205,147 +205,147 @@ const Expenses = () => {
         <div style={styles.leftCol}>
           {/* ADD EXPENSE FORM */}
           <div style={styles.card}>
-          <h3 style={styles.cardTitle}>Add New Expense</h3>
-          <form onSubmit={handleSubmit} style={styles.form}>
-            <div style={styles.formGroup}>
-              <label style={styles.label}>Date</label>
-              <input type="date" name="date" value={formData.date} onChange={handleChange} required style={styles.input} />
-            </div>
-            
-            <div style={styles.formGroup}>
-              <label style={styles.label}>Course Category</label>
-              <select name="courseName" value={formData.courseName} onChange={handleChange} required style={styles.select}>
-                <option value="General">General / Administrative</option>
-                {courses.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
-              </select>
-            </div>
+            <h3 style={styles.cardTitle}>Add New Expense</h3>
+            <form onSubmit={handleSubmit} style={styles.form}>
+              <div style={styles.formGroup}>
+                <label style={styles.label}>Date</label>
+                <input type="date" name="date" value={formData.date} onChange={handleChange} required style={styles.input} />
+              </div>
 
-            <div style={styles.formGroup}>
-              <label style={styles.label}>Description</label>
-              <input type="text" name="description" placeholder="e.g. Marketing, Stationery, Rent" value={formData.description} onChange={handleChange} required style={styles.input} />
-            </div>
-
-            <div style={styles.formGroup}>
-              <label style={styles.label}>Amount (PKR)</label>
-              <input type="number" name="amount" placeholder="0" value={formData.amount} onChange={handleChange} required style={styles.input} />
-            </div>
-
-            <button type="submit" disabled={loading} style={styles.btnPrimary}>
-              {loading ? "Saving..." : "Add Expense"}
-            </button>
-          </form>
-        </div>
-
-        <div style={styles.card}>
-          <h3 style={styles.cardTitle}>Bulk Upload Expenses</h3>
-          <p style={{ fontSize: '12px', color: '#64748b', marginBottom: '15px' }}>Upload an Excel file to mass-add expense records.</p>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-            <button onClick={downloadExpenseSample} type="button" style={{ background: '#F1F5F9', color: '#475569', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '600', fontSize: '13px', padding: '10px' }}>
-              📄 Download Sample Format
-            </button>
-            <input type="file" accept=".xlsx, .xls" onChange={handleBulkUpload} id="expense-upload" style={{ display: 'none' }} />
-            <button onClick={() => document.getElementById('expense-upload').click()} type="button" style={{ ...styles.btnPrimary, background: '#10B981', fontSize: '13px', padding: '10px', margin: 0 }}>
-              {loading ? "Processing..." : "📤 Upload Excel File"}
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* RIGHT COLUMN */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '25px', overflow: 'hidden' }}>
-        
-        {/* EXPENSE GRAPH */}
-        <div style={styles.card}>
-          <h3 style={styles.cardTitle}>Yearly Expense Trend ({filterYear})</h3>
-          {chartData.some(d => d.amount > 0) ? (
-            <div style={{ height: 300, width: '100%' }}>
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={chartData} margin={{ top: 10, right: 10, left: 0, bottom: 20 }}>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E2E8F0" />
-                  <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#64748B' }} angle={-45} textAnchor="end" />
-                  <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#64748B' }} tickFormatter={(val) => `PKR ${val/1000}k`} />
-                  <Tooltip 
-                    cursor={{fill: '#F1F5F9'}}
-                    contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)' }}
-                    formatter={(value) => [`PKR ${value.toLocaleString()}`, 'Amount']}
-                  />
-                  <Bar dataKey="amount" radius={[6, 6, 0, 0]} fill="#3B82F6" />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          ) : (
-            <div style={{ height: 300, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#94A3B8', fontSize: '14px' }}>
-              No expenses to chart for this year.
-            </div>
-          )}
-        </div>
-
-        {/* EXPENSE LIST */}
-        <div style={styles.card}>
-          <div style={styles.listHeader}>
-            <h3 style={styles.cardTitle}>Expense Records</h3>
-            <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
-              <button onClick={handleExportAll} type="button" style={{ ...styles.btnPrimary, background: '#F59E0B', fontSize: '12px', padding: '8px 12px', margin: 0 }}>
-                📥 Export All
-              </button>
-              <button onClick={handleExportYearly} type="button" style={{ ...styles.btnPrimary, background: '#F59E0B', fontSize: '12px', padding: '8px 12px', margin: 0 }}>
-                📥 Export {filterYear}
-              </button>
-              <div style={{ width: '1px', height: '24px', background: '#E2E8F0', margin: '0 5px' }} />
-              <div style={styles.filters}>
-                <select value={filterMonth} onChange={e => setFilterMonth(e.target.value)} style={styles.selectSmall}>
-                  {monthsFull.map((m, i) => <option key={m} value={i + 1}>{m}</option>)}
-                </select>
-                <select value={filterYear} onChange={e => setFilterYear(e.target.value)} style={styles.selectSmall}>
-                  {years.map(y => <option key={y} value={y}>{y}</option>)}
+              <div style={styles.formGroup}>
+                <label style={styles.label}>Course Category</label>
+                <select name="courseName" value={formData.courseName} onChange={handleChange} required style={styles.select}>
+                  <option value="General">General / Administrative</option>
+                  {courses.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
                 </select>
               </div>
-            </div>
+
+              <div style={styles.formGroup}>
+                <label style={styles.label}>Description</label>
+                <input type="text" name="description" placeholder="e.g. Marketing, Stationery, Rent" value={formData.description} onChange={handleChange} required style={styles.input} />
+              </div>
+
+              <div style={styles.formGroup}>
+                <label style={styles.label}>Amount (PKR)</label>
+                <input type="number" name="amount" placeholder="0" value={formData.amount} onChange={handleChange} required style={styles.input} />
+              </div>
+
+              <button type="submit" disabled={loading} style={styles.btnPrimary}>
+                {loading ? "Saving..." : "Add Expense"}
+              </button>
+            </form>
           </div>
 
-          <div style={styles.tableWrapper}>
-            <table style={styles.table}>
-              <thead>
-                <tr style={styles.thRow}>
-                  <th style={styles.th}>Date</th>
-                  <th style={styles.th}>Course / Category</th>
-                  <th style={styles.th}>Description</th>
-                  <th style={styles.th}>Amount</th>
-                  <th style={styles.th}>Added By</th>
-                  <th style={styles.th}>Action</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredExpenses.length === 0 ? (
-                  <tr><td colSpan="6" style={styles.emptyCell}>No expenses recorded for this month.</td></tr>
-                ) : (
-                  filteredExpenses.map(e => (
-                    <tr key={e.id} style={styles.tr}>
-                      <td style={styles.tdDate}>{new Date(e.date).toLocaleDateString('en-GB')}</td>
-                      <td style={styles.tdCategory}>
-                        <span style={{...styles.badge, background: e.courseName === 'General' ? '#F1F5F9' : '#FEF3C7', color: e.courseName === 'General' ? '#475569' : '#92400E'}}>
-                          {e.courseName}
-                        </span>
-                      </td>
-                      <td style={styles.td}>{e.description}</td>
-                      <td style={styles.tdAmount}>PKR {e.amount.toLocaleString()}</td>
-                      <td style={styles.tdUser}>{e.addedBy}</td>
-                      <td style={styles.td}>
-                        {isAdmin && (
-                          <>
-                            <button onClick={() => handleEditExpense(e)} style={{...styles.btnDelete, color: '#3B82F6', marginRight: '10px'}}>✏️</button>
-                            <button onClick={() => handleDelete(e.id)} style={styles.btnDelete}>🗑️</button>
-                          </>
-                        )}
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
+          <div style={styles.card}>
+            <h3 style={styles.cardTitle}>Bulk Upload Expenses</h3>
+            <p style={{ fontSize: '12px', color: '#64748b', marginBottom: '15px' }}>Upload an Excel file to mass-add expense records.</p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              <button onClick={downloadExpenseSample} type="button" style={{ background: '#F1F5F9', color: '#475569', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '600', fontSize: '13px', padding: '10px' }}>
+                📄 Download Sample Format
+              </button>
+              <input type="file" accept=".xlsx, .xls" onChange={handleBulkUpload} id="expense-upload" style={{ display: 'none' }} />
+              <button onClick={() => document.getElementById('expense-upload').click()} type="button" style={{ ...styles.btnPrimary, background: '#10B981', fontSize: '13px', padding: '10px', margin: 0 }}>
+                {loading ? "Processing..." : "📤 Upload Excel File"}
+              </button>
+            </div>
           </div>
         </div>
-      </div>
+
+        {/* RIGHT COLUMN */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '25px', overflow: 'hidden' }}>
+
+          {/* EXPENSE GRAPH */}
+          <div style={styles.card}>
+            <h3 style={styles.cardTitle}>Yearly Expense Trend ({filterYear})</h3>
+            {chartData.some(d => d.amount > 0) ? (
+              <div style={{ height: 300, width: '100%' }}>
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={chartData} margin={{ top: 10, right: 10, left: 0, bottom: 20 }}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E2E8F0" />
+                    <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#64748B' }} angle={-45} textAnchor="end" />
+                    <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#64748B' }} tickFormatter={(val) => `PKR ${val / 1000}k`} />
+                    <Tooltip
+                      cursor={{ fill: '#F1F5F9' }}
+                      contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)' }}
+                      formatter={(value) => [`PKR ${value.toLocaleString()}`, 'Amount']}
+                    />
+                    <Bar dataKey="amount" radius={[6, 6, 0, 0]} fill="#3B82F6" />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            ) : (
+              <div style={{ height: 300, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#94A3B8', fontSize: '14px' }}>
+                No expenses to chart for this year.
+              </div>
+            )}
+          </div>
+
+          {/* EXPENSE LIST */}
+          <div style={styles.card}>
+            <div style={styles.listHeader}>
+              <h3 style={styles.cardTitle}>Expense Records</h3>
+              <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
+                <button onClick={handleExportAll} type="button" style={{ ...styles.btnPrimary, background: '#F59E0B', fontSize: '12px', padding: '8px 12px', margin: 0 }}>
+                  📥 Export All
+                </button>
+                <button onClick={handleExportYearly} type="button" style={{ ...styles.btnPrimary, background: '#F59E0B', fontSize: '12px', padding: '8px 12px', margin: 0 }}>
+                  📥 Export {filterYear}
+                </button>
+                <div style={{ width: '1px', height: '24px', background: '#E2E8F0', margin: '0 5px' }} />
+                <div style={styles.filters}>
+                  <select value={filterMonth} onChange={e => setFilterMonth(e.target.value)} style={styles.selectSmall}>
+                    {monthsFull.map((m, i) => <option key={m} value={i + 1}>{m}</option>)}
+                  </select>
+                  <select value={filterYear} onChange={e => setFilterYear(e.target.value)} style={styles.selectSmall}>
+                    {years.map(y => <option key={y} value={y}>{y}</option>)}
+                  </select>
+                </div>
+              </div>
+            </div>
+
+            <div style={styles.tableWrapper}>
+              <table style={styles.table}>
+                <thead>
+                  <tr style={styles.thRow}>
+                    <th style={styles.th}>Date</th>
+                    <th style={styles.th}>Course / Category</th>
+                    <th style={styles.th}>Description</th>
+                    <th style={styles.th}>Amount</th>
+                    <th style={styles.th}>Added By</th>
+                    <th style={styles.th}>Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredExpenses.length === 0 ? (
+                    <tr><td colSpan="6" style={styles.emptyCell}>No expenses recorded for this month.</td></tr>
+                  ) : (
+                    filteredExpenses.map(e => (
+                      <tr key={e.id} style={styles.tr}>
+                        <td style={styles.tdDate}>{new Date(e.date).toLocaleDateString('en-GB')}</td>
+                        <td style={styles.tdCategory}>
+                          <span style={{ ...styles.badge, background: e.courseName === 'General' ? '#F1F5F9' : '#FEF3C7', color: e.courseName === 'General' ? '#475569' : '#92400E' }}>
+                            {e.courseName}
+                          </span>
+                        </td>
+                        <td style={styles.td}>{e.description}</td>
+                        <td style={styles.tdAmount}>PKR {e.amount.toLocaleString()}</td>
+                        <td style={styles.tdUser}>{e.addedBy}</td>
+                        <td style={styles.td}>
+                          {isAdmin && (
+                            <>
+                              <button onClick={() => handleEditExpense(e)} style={{ ...styles.btnDelete, color: '#3B82F6', marginRight: '10px' }}>✏️</button>
+                              <button onClick={() => handleDelete(e.id)} style={styles.btnDelete}>🗑️</button>
+                            </>
+                          )}
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
       </div>
 
       {showEditExpenseModal && editFormData && (
@@ -358,22 +358,22 @@ const Expenses = () => {
             <form onSubmit={handleUpdateExpense} style={styles.form}>
               <div style={styles.formGroup}>
                 <label style={styles.label}>Date</label>
-                <input type="date" value={editFormData.date} onChange={e => setEditFormData({...editFormData, date: e.target.value})} required style={styles.input} />
+                <input type="date" value={editFormData.date} onChange={e => setEditFormData({ ...editFormData, date: e.target.value })} required style={styles.input} />
               </div>
               <div style={styles.formGroup}>
                 <label style={styles.label}>Course Category</label>
-                <select value={editFormData.courseName} onChange={e => setEditFormData({...editFormData, courseName: e.target.value})} required style={styles.select}>
+                <select value={editFormData.courseName} onChange={e => setEditFormData({ ...editFormData, courseName: e.target.value })} required style={styles.select}>
                   <option value="General">General / Administrative</option>
                   {courses.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
                 </select>
               </div>
               <div style={styles.formGroup}>
                 <label style={styles.label}>Description</label>
-                <input type="text" value={editFormData.description} onChange={e => setEditFormData({...editFormData, description: e.target.value})} required style={styles.input} />
+                <input type="text" value={editFormData.description} onChange={e => setEditFormData({ ...editFormData, description: e.target.value })} required style={styles.input} />
               </div>
               <div style={styles.formGroup}>
                 <label style={styles.label}>Amount (PKR)</label>
-                <input type="number" value={editFormData.amount} onChange={e => setEditFormData({...editFormData, amount: e.target.value})} required style={styles.input} />
+                <input type="number" value={editFormData.amount} onChange={e => setEditFormData({ ...editFormData, amount: e.target.value })} required style={styles.input} />
               </div>
               <button type="submit" disabled={loading} style={styles.btnPrimary}>
                 {loading ? "Updating..." : "Update Expense"}
@@ -387,22 +387,22 @@ const Expenses = () => {
 };
 
 const styles = {
-  container: { maxWidth: '1200px', margin: '0 auto', animation: 'fadeIn 0.5s ease-out' },
+  container: { width: '100%', animation: 'fadeIn 0.5s ease-out' },
   header: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px', flexWrap: 'wrap', gap: '20px' },
   titleArea: { flex: 1 },
   title: { fontSize: '24px', fontWeight: '800', color: '#1E293B', margin: 0 },
   subtitle: { color: '#64748B', fontSize: '14px', marginTop: '4px' },
-  
+
   totalCard: { background: '#10B981', padding: '15px 25px', borderRadius: '16px', color: '#fff', boxShadow: '0 10px 15px -3px rgba(16, 185, 129, 0.3)' },
   totalLabel: { fontSize: '12px', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '1px', opacity: 0.9 },
   totalAmount: { fontSize: '24px', fontWeight: '800', marginTop: '4px' },
 
   mainGrid: { display: 'grid', gridTemplateColumns: '320px 1fr', gap: '25px', alignItems: 'start' },
   leftCol: { display: 'flex', flexDirection: 'column', gap: '25px' },
-  
+
   card: { background: '#fff', padding: '24px', borderRadius: '20px', border: '1px solid #E2E8F0', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)' },
   cardTitle: { margin: '0 0 20px 0', fontSize: '16px', fontWeight: '700', color: '#1E293B' },
-  
+
   form: { display: 'flex', flexDirection: 'column', gap: '15px' },
   formGroup: { display: 'flex', flexDirection: 'column', gap: '6px' },
   label: { fontSize: '12px', fontWeight: '600', color: '#64748B' },
@@ -427,7 +427,7 @@ const styles = {
   tdUser: { padding: '14px 15px', fontSize: '12px', color: '#94A3B8' },
   btnDelete: { background: 'transparent', border: 'none', cursor: 'pointer', opacity: 0.6, transition: 'opacity 0.2s' },
   emptyCell: { padding: '30px', textAlign: 'center', color: '#94A3B8', fontSize: '14px' },
-  
+
   modalOverlay: { position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 },
   modalContent: { background: '#fff', padding: '25px', borderRadius: '16px', width: '90%', maxWidth: '500px', boxShadow: '0 10px 25px rgba(0,0,0,0.2)' },
   modalHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' },

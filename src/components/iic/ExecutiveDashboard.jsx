@@ -1,31 +1,36 @@
 import React, { useState, useEffect } from 'react';
 import { useOutletContext } from 'react-router-dom';
-import { generateAIRecommendations } from '../../services/geminiService';
-import { Users, UserCheck, UserMinus, DollarSign, Brain, Activity, Lightbulb } from 'lucide-react';
+import { generateAIRecommendations } from '../../services/aiService';
+import { formatMarkdown } from '../../utils/formatMarkdown';
+import { Users, UserCheck, UserMinus, DollarSign, Brain, Activity, Lightbulb, RefreshCw } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
 const ExecutiveDashboard = () => {
   const { iicData, hasApiKey } = useOutletContext();
   const [recommendations, setRecommendations] = useState('');
   const [loadingAI, setLoadingAI] = useState(false);
+  const [hasFetched, setHasFetched] = useState(false);
+
+  const getRecs = async () => {
+    if (!hasApiKey || !iicData) return;
+    setLoadingAI(true);
+    try {
+      const result = await generateAIRecommendations(iicData.aiContext);
+      setRecommendations(result);
+      setHasFetched(true);
+    } catch (error) {
+      console.error(error);
+      setRecommendations(`Failed to generate AI insights.\n\nError: ${error.message || 'Please check your API key.'}`);
+    } finally {
+      setLoadingAI(false);
+    }
+  };
 
   useEffect(() => {
-    if (hasApiKey && iicData) {
-      const getRecs = async () => {
-        setLoadingAI(true);
-        try {
-          const result = await generateAIRecommendations(iicData.aiContext);
-          setRecommendations(result);
-        } catch (error) {
-          console.error(error);
-          setRecommendations(`Failed to generate AI insights.\n\nError: ${error.message || 'Please check your API key.'}`);
-        } finally {
-          setLoadingAI(false);
-        }
-      };
+    if (hasApiKey && iicData && !hasFetched && !loadingAI) {
       getRecs();
     }
-  }, [hasApiKey, iicData]);
+  }, [hasApiKey, iicData, hasFetched]);
 
   if (!iicData) return null;
 
@@ -39,7 +44,7 @@ const ExecutiveDashboard = () => {
   ];
 
   return (
-    <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+    <div className="flex flex-col gap-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
       {/* KPIs */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {kpiCards.map((kpi, index) => (
@@ -93,9 +98,21 @@ const ExecutiveDashboard = () => {
           <div className="absolute -right-6 -top-6 text-purple-200/50">
             <Brain size={120} />
           </div>
-          <h3 className="text-lg font-bold text-purple-900 mb-4 flex items-center gap-2 relative z-10">
-            <Lightbulb className="text-yellow-500" size={20} />
-            AI Executive Insights
+          <h3 className="text-lg font-bold text-purple-900 mb-4 flex items-center justify-between relative z-10">
+            <div className="flex items-center gap-2">
+              <Lightbulb className="text-yellow-500" size={20} />
+              AI Executive Insights
+            </div>
+            {hasApiKey && (
+              <button 
+                onClick={getRecs} 
+                disabled={loadingAI}
+                className="p-1.5 bg-purple-100 hover:bg-purple-200 text-purple-600 rounded-lg transition-colors"
+                title="Refresh Insights"
+              >
+                <RefreshCw size={16} className={loadingAI ? "animate-spin" : ""} />
+              </button>
+            )}
           </h3>
           
           <div className="flex-1 overflow-y-auto custom-scrollbar relative z-10 text-sm text-slate-700 leading-relaxed pr-2">
@@ -104,7 +121,7 @@ const ExecutiveDashboard = () => {
                 <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center shadow-sm">
                   <Brain className="text-slate-400" size={24} />
                 </div>
-                <p className="text-slate-500 font-medium">Connect Gemini API in the header to unlock real-time AI insights.</p>
+                <p className="text-slate-500 font-medium">Connect Groq API in the header to unlock real-time AI insights.</p>
               </div>
             ) : loadingAI ? (
               <div className="flex flex-col items-center justify-center h-full space-y-3 animate-pulse">
@@ -112,9 +129,10 @@ const ExecutiveDashboard = () => {
                 <p className="text-purple-600 font-semibold text-xs tracking-wider uppercase">Analyzing Data...</p>
               </div>
             ) : (
-              <div className="prose prose-sm prose-purple max-w-none whitespace-pre-wrap">
-                {recommendations}
-              </div>
+              <div 
+                className="prose prose-sm prose-purple max-w-none whitespace-pre-wrap leading-relaxed"
+                dangerouslySetInnerHTML={formatMarkdown(recommendations)}
+              />
             )}
           </div>
         </div>

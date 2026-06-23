@@ -194,7 +194,7 @@ const Fees = () => {
     try {
       const rows = await parseExcelUpload(file);
       let successCount = 0;
-      
+
       const updates = {};
 
       for (const row of rows) {
@@ -212,36 +212,36 @@ const Fees = () => {
 
           const student = students.find(s => s.student_id === sId || s.id === sId);
           if (student && student.enrolled_courses) {
-            const cId = Object.keys(student.enrolled_courses).find(id => 
+            const cId = Object.keys(student.enrolled_courses).find(id =>
               student.enrolled_courses[id].course_name?.toLowerCase() === cName.toString().trim().toLowerCase()
             );
 
             if (cId) {
               const courseName = student.enrolled_courses[cId].course_name;
               const transaction = {
-              student_id: student.id,
-              student_name: student.name,
-              student_custom_id: student.student_id || sId,
-              course_id: cId,
-              course_name: courseName,
-              month_key: monthKey,
-              month: m,
-              year: y.toString(),
-              payable: Number(payable),
-              paid: Number(paid),
-              waived: Number(waived || 0),
-              balance: balance,
-              addedBy: currentUser.displayName || 'Admin Upload',
-              timestamp: Date.now()
-            };
-            
-            updates[`fee_transactions/${student.id}/${cId}/${monthKey}`] = transaction;
-            successCount++;
+                student_id: student.id,
+                student_name: student.name,
+                student_custom_id: student.student_id || sId,
+                course_id: cId,
+                course_name: courseName,
+                month_key: monthKey,
+                month: m,
+                year: y.toString(),
+                payable: Number(payable),
+                paid: Number(paid),
+                waived: Number(waived || 0),
+                balance: balance,
+                addedBy: currentUser.displayName || 'Admin Upload',
+                timestamp: Date.now()
+              };
+
+              updates[`fee_transactions/${student.id}/${cId}/${monthKey}`] = transaction;
+              successCount++;
             }
           }
         }
       }
-      
+
       if (Object.keys(updates).length > 0) {
         await update(ref(db), updates);
         toast.success(`Successfully imported ${successCount} fee records!`);
@@ -484,7 +484,7 @@ const Fees = () => {
 const styles = {
   title: { fontSize: '24px', fontWeight: '800', color: '#0f172a' },
   subtitle: { color: '#64748b', fontSize: '13px' },
-  container: { padding: '30px', background: '#f8fafc', minHeight: '100vh', fontFamily: 'system-ui' },
+  container: { fontFamily: 'system-ui', width: '100%' },
   header: { marginBottom: '25px', borderBottom: '2px solid #e2e8f0', paddingBottom: '15px' },
   layout: { display: 'grid', gridTemplateColumns: '380px 1fr', gap: '30px' },
   card: { background: '#fff', padding: '24px', borderRadius: '16px', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)' },

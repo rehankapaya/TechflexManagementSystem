@@ -8,7 +8,7 @@ const CertificateGenerator = () => {
   const [view, setView] = useState('list');
   const [isEditing, setIsEditing] = useState(null); // Tracks ID of record being edited
   const [courses, setCourses] = useState([]); // Courses from DB
-  
+
   const [formData, setFormData] = useState({
     name: '',
     course: '',
@@ -27,7 +27,7 @@ const CertificateGenerator = () => {
     // Only generate a new ID if we are in 'create' mode and NOT 'editing'
     if (view === 'create' && !isEditing) {
       let nextNumber = 1;
-      
+
       if (history.length > 0) {
         // Extract numbers from existing certIDs (assuming they end in numbers)
         const numericIds = history.map(item => {
@@ -75,11 +75,11 @@ const CertificateGenerator = () => {
     const { name, value } = e.target;
     setFormData(prev => {
       const newData = { ...prev, [name]: value };
-      
+
       if (name === 'course' && !isEditing) {
         const selectedCourse = courses.find(c => c.name === value);
         if (selectedCourse && selectedCourse.duration !== undefined) {
-          const durStr = String(selectedCourse.duration); 
+          const durStr = String(selectedCourse.duration);
           if (durStr.includes(' ')) {
             const [num, unit] = durStr.split(' ');
             newData.durationNum = num || '';
@@ -128,10 +128,10 @@ const CertificateGenerator = () => {
     setIsSaving(true);
     try {
       const bytes = await createPdfBytes();
-      const payload = { 
-        ...formData, 
+      const payload = {
+        ...formData,
         duration: `${formData.durationNum} ${formData.durationUnit}`,
-        generatedAt: new Date().toISOString() 
+        generatedAt: new Date().toISOString()
       };
 
       if (isEditing) {
@@ -217,7 +217,7 @@ const CertificateGenerator = () => {
   );
 
   return (
-    <div className="w-full min-h-screen bg-[#0f172a] p-8 text-white font-sans">
+    <div className="w-full bg-[#0f172a] p-6 text-white font-sans rounded-2xl">
       <div className="flex justify-between items-center mb-8">
         <div>
           <h1 className="text-3xl font-black tracking-tight">Certificate Hub 🎓</h1>
@@ -226,9 +226,9 @@ const CertificateGenerator = () => {
         {view === 'list' ? (
           <button
             onClick={() => {
-                setIsEditing(null);
-                setFormData({ name: '', course: '', durationNum: '', durationUnit: 'Months', certID: '' });
-                setView('create');
+              setIsEditing(null);
+              setFormData({ name: '', course: '', durationNum: '', durationUnit: 'Months', certID: '' });
+              setView('create');
             }}
             className="bg-yellow-600 hover:bg-yellow-500 px-6 py-3 rounded-xl font-bold transition-all flex items-center gap-2"
           >
@@ -297,12 +297,12 @@ const CertificateGenerator = () => {
                 <label className="text-[10px] font-black text-slate-500 uppercase">Student Name</label>
                 <input name="name" value={formData.name} onChange={handleChange} className="bg-[#0f172a] border border-slate-700 p-4 rounded-xl text-white outline-none focus:ring-2 focus:ring-yellow-600/50" />
               </div>
-              
+
               <div className="flex flex-col gap-1">
                 <label className="text-[10px] font-black text-slate-500 uppercase">Course</label>
                 <select name="course" value={formData.course} onChange={handleChange} className="bg-[#0f172a] border border-slate-700 p-4 rounded-xl text-white outline-none focus:ring-2 focus:ring-yellow-600/50">
-                   <option value="">Select Course</option>
-                   {courses.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
+                  <option value="">Select Course</option>
+                  {courses.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
                 </select>
               </div>
 
@@ -312,9 +312,9 @@ const CertificateGenerator = () => {
                   <div className="flex gap-2">
                     <input type="number" name="durationNum" value={formData.durationNum} onChange={handleChange} placeholder="0" className="w-20 bg-[#0f172a] border border-slate-700 p-4 rounded-xl text-white outline-none focus:ring-2 focus:ring-yellow-600/50" />
                     <select name="durationUnit" value={formData.durationUnit} onChange={handleChange} className="flex-1 bg-[#0f172a] border border-slate-700 p-4 rounded-xl text-white outline-none focus:ring-2 focus:ring-yellow-600/50">
-                        <option value="Months">Months</option>
-                        <option value="Years">Years</option>
-                        <option value="Weeks">Weeks</option>
+                      <option value="Months">Months</option>
+                      <option value="Years">Years</option>
+                      <option value="Weeks">Weeks</option>
                     </select>
                   </div>
                 </div>

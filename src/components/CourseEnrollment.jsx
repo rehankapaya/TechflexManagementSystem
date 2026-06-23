@@ -24,7 +24,7 @@ const CourseEnrollment = () => {
       const data = snap.val();
       const list = data ? Object.keys(data).map(id => ({ id, ...data[id] })) : [];
       setStudents(list);
-      
+
       // Update the view if the selected student's data changes in DB
       if (selectedStudent) {
         const updated = list.find(s => s.id === selectedStudent.id);
@@ -79,7 +79,7 @@ const CourseEnrollment = () => {
       const updates = {};
       updates[`students/${selectedStudent.id}/enrolled_courses/${formData.courseId}`] = newCourseEntry;
       updates[`students/${selectedStudent.id}/status`] = 'active'; // Force global active status
-      
+
       await update(ref(db), updates);
       toast.success(`Enrolled ${selectedStudent.name} in ${selectedCourseData.name}`);
       setFormData({ courseId: '', agreed_monthly_fee: '' });
@@ -101,8 +101,8 @@ const CourseEnrollment = () => {
     }
   };
 
-  const filteredStudents = students.filter(s => 
-    s.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
+  const filteredStudents = students.filter(s =>
+    s.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     s.student_id?.toLowerCase().includes(searchTerm.toLowerCase())
   ).slice(0, 5);
 
@@ -115,13 +115,13 @@ const CourseEnrollment = () => {
 
       {status.msg && (
         <div style={{
-          ...styles.statusBanner, 
+          ...styles.statusBanner,
           backgroundColor: status.type === 'success' ? '#F0FDF4' : '#FEF2F2',
           color: status.type === 'success' ? '#166534' : '#991B1B',
           borderColor: status.type === 'success' ? '#BBF7D0' : '#FCA5A5'
         }}>
           <span>{status.type === 'success' ? '✅ ' : '⚠️ '} {status.msg}</span>
-          <button onClick={() => setStatus({type:'', msg:''})} style={styles.closeStatus}>×</button>
+          <button onClick={() => setStatus({ type: '', msg: '' })} style={styles.closeStatus}>×</button>
         </div>
       )}
 
@@ -129,10 +129,10 @@ const CourseEnrollment = () => {
         <div style={styles.section}>
           <label style={styles.label}>1. Search Student (ID or Name)</label>
           <div style={styles.searchContainer}>
-            <input 
-              type="text" 
-              placeholder="Start typing student name..." 
-              value={searchTerm} 
+            <input
+              type="text"
+              placeholder="Start typing student name..."
+              value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               style={styles.input}
             />
@@ -159,22 +159,22 @@ const CourseEnrollment = () => {
                 </div>
                 <button onClick={() => setSelectedStudent(null)} style={styles.btnChangeStudent}>Change</button>
               </div>
-              
+
               <div style={styles.courseManagementList}>
                 <div style={styles.badgeLabel}>Active Enrollments</div>
                 {selectedStudent.enrolled_courses && Object.keys(selectedStudent.enrolled_courses).length > 0 ? (
                   Object.entries(selectedStudent.enrolled_courses).map(([id, course]) => (
                     <div key={id} style={styles.courseItem}>
-                      <span>{course.course_name} <small style={{color: '#64748B'}}>(PKR {course.agreed_monthly_fee})</small></span>
-                      <button 
-                        onClick={() => handleDeleteCourse(id, course.course_name)} 
+                      <span>{course.course_name} <small style={{ color: '#64748B' }}>(PKR {course.agreed_monthly_fee})</small></span>
+                      <button
+                        onClick={() => handleDeleteCourse(id, course.course_name)}
                         style={styles.btnDeleteCourse}
                         title="Remove Course"
                       >🗑️</button>
                     </div>
                   ))
                 ) : (
-                  <div style={{fontSize: '12px', color: '#94A3B8', marginTop: '5px'}}>No courses enrolled.</div>
+                  <div style={{ fontSize: '12px', color: '#94A3B8', marginTop: '5px' }}>No courses enrolled.</div>
                 )}
               </div>
             </div>
@@ -192,10 +192,10 @@ const CourseEnrollment = () => {
 
               <div style={styles.section}>
                 <label style={styles.label}>3. Negotiated Monthly Fee</label>
-                <input 
-                  type="number" 
-                  value={formData.agreed_monthly_fee} 
-                  onChange={(e) => setFormData({...formData, agreed_monthly_fee: e.target.value})}
+                <input
+                  type="number"
+                  value={formData.agreed_monthly_fee}
+                  onChange={(e) => setFormData({ ...formData, agreed_monthly_fee: e.target.value })}
                   style={styles.input}
                   placeholder="0.00"
                   required
@@ -217,20 +217,20 @@ const CourseEnrollment = () => {
 };
 
 const styles = {
-  container: { maxWidth: '800px', margin: '40px auto', padding: '0 20px' },
+  container: { width: '100%' },
   header: { marginBottom: '30px' },
   title: { fontSize: '24px', fontWeight: '700', color: '#1E293B', margin: '0 0 8px 0' },
   subtitle: { color: '#64748B', fontSize: '14px' },
-  
+
   card: { background: '#fff', padding: '32px', borderRadius: '16px', border: '1px solid #E2E8F0', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)' },
-  
+
   statusBanner: { padding: '12px 20px', borderRadius: '10px', marginBottom: '20px', border: '1px solid', fontSize: '14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' },
   closeStatus: { background: 'none', border: 'none', fontSize: '18px', cursor: 'pointer', opacity: 0.5 },
 
   section: { marginBottom: '20px' },
   label: { display: 'block', fontSize: '13px', fontWeight: '600', color: '#475569', marginBottom: '8px' },
   input: { width: '100%', padding: '12px 16px', borderRadius: '10px', border: '1px solid #E2E8F0', backgroundColor: '#F8FAFC', fontSize: '14px', outline: 'none', boxSizing: 'border-box' },
-  
+
   searchContainer: { position: 'relative' },
   dropdown: { position: 'absolute', top: '100%', left: 0, right: 0, background: '#fff', border: '1px solid #E2E8F0', borderRadius: '12px', zIndex: 100, boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)', marginTop: '5px', overflow: 'hidden' },
   dropdownItem: { padding: '12px 16px', cursor: 'pointer', borderBottom: '1px solid #F1F5F9', display: 'flex', justifyContent: 'space-between', transition: 'background 0.2s' },
@@ -244,7 +244,7 @@ const styles = {
   badgeMain: { fontSize: '16px', fontWeight: '700', color: '#1E293B' },
   badgeId: { color: '#3B82F6', fontWeight: '500' },
   btnChangeStudent: { background: '#fff', border: '1px solid #E2E8F0', padding: '4px 8px', borderRadius: '6px', fontSize: '11px', cursor: 'pointer', color: '#64748B' },
-  
+
   courseManagementList: { background: '#fff', padding: '10px', borderRadius: '8px', border: '1px solid #E2E8F0' },
   courseItem: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 0', borderBottom: '1px solid #F1F5F9', fontSize: '13px', fontWeight: '500' },
   btnDeleteCourse: { background: '#FEF2F2', border: 'none', padding: '4px 8px', borderRadius: '6px', cursor: 'pointer', color: '#EF4444', fontSize: '12px' },

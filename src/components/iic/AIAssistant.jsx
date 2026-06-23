@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useOutletContext } from 'react-router-dom';
-import { askAIAssistant } from '../../services/geminiService';
+import { askAIAssistant } from '../../services/aiService';
+import { formatMarkdown } from '../../utils/formatMarkdown';
 import { Send, Bot, User, Sparkles, AlertCircle } from 'lucide-react';
 
 const AIAssistant = () => {
@@ -33,10 +34,10 @@ const AIAssistant = () => {
       const response = await askAIAssistant(userMsg.text, iicData.aiContext);
       setMessages(prev => [...prev, { id: Date.now(), type: 'ai', text: response }]);
     } catch (error) {
-      setMessages(prev => [...prev, { 
-        id: Date.now(), 
-        type: 'error', 
-        text: `Error: ${error.message || 'Ensure your API key is correct and you have internet access.'}` 
+      setMessages(prev => [...prev, {
+        id: Date.now(),
+        type: 'error',
+        text: `Error: ${error.message || 'Ensure your API key is correct and you have internet access.'}`
       }]);
     } finally {
       setIsLoading(false);
@@ -67,33 +68,35 @@ const AIAssistant = () => {
           </div>
           <h3 className="text-xl font-bold text-slate-700 mb-2">AI Assistant Offline</h3>
           <p className="text-slate-500 max-w-md">
-            Please enter your Gemini API Key in the top right header to activate the Natural Language Assistant.
+            Please enter your Groq API Key in the top right header to activate the Natural Language Assistant.
           </p>
         </div>
       ) : (
         <div className="flex-1 bg-white rounded-2xl shadow-sm border border-slate-100 flex flex-col overflow-hidden">
-          
+
           {/* Chat History */}
-          <div className="flex-1 overflow-y-auto p-6 space-y-6 custom-scrollbar">
+          <div className="flex-1 overflow-y-auto p-6 flex flex-col gap-8 custom-scrollbar">
             {messages.map((msg) => (
-              <div key={msg.id} className={`flex gap-4 max-w-[80%] ${msg.type === 'user' ? 'ml-auto flex-row-reverse' : ''}`}>
+              <div key={msg.id} className={`flex mb-3 gap-4 max-w-[80%] ${msg.type === 'user' ? 'self-end flex-row-reverse' : 'self-start'}`}>
                 <div className={`flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center shadow-sm
-                  ${msg.type === 'user' ? 'bg-indigo-100 text-indigo-600' : 
+                  ${msg.type === 'user' ? 'bg-indigo-100 text-indigo-600' :
                     msg.type === 'error' ? 'bg-rose-100 text-rose-600' : 'bg-purple-100 text-purple-600'}`}>
                   {msg.type === 'user' ? <User size={20} /> : msg.type === 'error' ? <AlertCircle size={20} /> : <Bot size={20} />}
                 </div>
-                <div className={`p-4 rounded-2xl ${
-                  msg.type === 'user' 
-                    ? 'bg-indigo-600 text-white rounded-tr-sm' 
-                    : msg.type === 'error'
-                      ? 'bg-rose-50 text-rose-800 border border-rose-100 rounded-tl-sm'
-                      : 'bg-slate-50 text-slate-700 border border-slate-100 rounded-tl-sm prose prose-sm prose-purple'
-                }`}>
-                  <span className="whitespace-pre-wrap leading-relaxed">{msg.text}</span>
+                <div className={`p-4 rounded-2xl ${msg.type === 'user'
+                  ? 'bg-indigo-600 text-white rounded-tr-sm'
+                  : msg.type === 'error'
+                    ? 'bg-rose-50 text-rose-800 border border-rose-100 rounded-tl-sm'
+                    : 'bg-slate-50 text-slate-700 border border-slate-100 rounded-tl-sm text-sm'
+                  }`}>
+                  <span
+                    className="block"
+                    dangerouslySetInnerHTML={formatMarkdown(msg.text, msg.type === 'user')}
+                  />
                 </div>
               </div>
             ))}
-            
+
             {isLoading && (
               <div className="flex gap-4 max-w-[80%]">
                 <div className="flex-shrink-0 w-10 h-10 bg-purple-100 text-purple-600 rounded-full flex items-center justify-center shadow-sm">
@@ -115,17 +118,17 @@ const AIAssistant = () => {
           {/* Input Area */}
           <div className="p-4 bg-white border-t border-slate-100">
             {messages.length === 1 && (
-               <div className="flex flex-wrap gap-2 mb-4">
-                 {suggestedQueries.map((q, idx) => (
-                   <button 
-                     key={idx}
-                     onClick={() => setInput(q)}
-                     className="px-3 py-1.5 bg-purple-50 text-purple-700 text-xs font-semibold rounded-lg border border-purple-100 hover:bg-purple-100 transition-colors"
-                   >
-                     {q}
-                   </button>
-                 ))}
-               </div>
+              <div className="flex flex-wrap gap-2 mb-4">
+                {suggestedQueries.map((q, idx) => (
+                  <button
+                    key={idx}
+                    onClick={() => setInput(q)}
+                    className="px-3 py-1.5 bg-purple-50 text-purple-700 text-xs font-semibold rounded-lg border border-purple-100 hover:bg-purple-100 transition-colors"
+                  >
+                    {q}
+                  </button>
+                ))}
+              </div>
             )}
 
             <form onSubmit={handleSend} className="flex gap-3">
@@ -137,7 +140,7 @@ const AIAssistant = () => {
                 className="flex-1 bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 transition-all text-sm"
                 disabled={isLoading}
               />
-              <button 
+              <button
                 type="submit"
                 disabled={!input.trim() || isLoading}
                 className="bg-purple-600 hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed text-white px-5 rounded-xl flex items-center justify-center transition-colors shadow-sm"

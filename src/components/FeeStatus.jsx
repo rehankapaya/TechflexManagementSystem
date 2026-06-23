@@ -75,10 +75,10 @@ const FeeStatus = () => {
     const courses = student.enrolled_courses || {};
     Object.keys(courses).forEach(courseId => {
       const courseInfo = courses[courseId];
-      const matchesSearch = student.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                            student.student_id?.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesSearch = student.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        student.student_id?.toLowerCase().includes(searchTerm.toLowerCase());
       const matchesCourse = selectedCourseFilter === '' || courseId === selectedCourseFilter;
-      
+
       if (matchesSearch && matchesCourse) {
         const enrollDate = new Date(courseInfo.enrolledAt);
         const endDate = courseInfo.course_status_date ? new Date(courseInfo.course_status_date) : new Date();
@@ -112,16 +112,16 @@ const FeeStatus = () => {
     // ADDED WAIVED TO HEADERS AND ROWS
     const headers = ["ID", "Student Name", "Status", "Course", "Month", "Year", "Monthly Fee", "Paid", "Waived", "Balance", "Fee Status"];
     const rows = finalDisplayList.map(item => [
-      item.studentId, 
-      `"${item.name}"`, 
-      item.studentStatus, 
-      `"${item.courseName}"`, 
-      item.month, 
-      item.year, 
-      item.agreedFee, 
-      item.paid, 
+      item.studentId,
+      `"${item.name}"`,
+      item.studentStatus,
+      `"${item.courseName}"`,
+      item.month,
+      item.year,
+      item.agreedFee,
+      item.paid,
       item.waived, // Exporting the waived amount
-      item.balance, 
+      item.balance,
       item.label
     ]);
     const csvContent = [headers, ...rows].map(e => e.join(",")).join("\n");
@@ -140,8 +140,8 @@ const FeeStatus = () => {
           <p style={styles.subtitle}>History from Enrollment to Termination</p>
         </div>
         <div style={styles.headerActions}>
-           <button onClick={handleReset} style={styles.btnReset}>🔄 Reset</button>
-           <button onClick={exportToExcel} style={styles.btnExport}>📥 Export CSV</button>
+          <button onClick={handleReset} style={styles.btnReset}>🔄 Reset</button>
+          <button onClick={exportToExcel} style={styles.btnExport}>📥 Export CSV</button>
         </div>
       </header>
 
@@ -212,12 +212,12 @@ const FeeStatus = () => {
                   <td style={styles.feeCell}>PKR {item.agreedFee.toLocaleString()}</td>
                   <td style={styles.paidCell}>{item.paid > 0 ? `PKR ${item.paid.toLocaleString()}` : '—'}</td>
                   {/* DISPLAY WAIVED AMOUNT IN TABLE */}
-                  <td style={{...styles.paidCell, color: '#64748b'}}>{item.waived > 0 ? `PKR ${item.waived.toLocaleString()}` : '—'}</td>
-                  <td style={{...styles.balanceCell, color: item.balance > 0 ? '#EF4444' : '#10B981'}}>
+                  <td style={{ ...styles.paidCell, color: '#64748b' }}>{item.waived > 0 ? `PKR ${item.waived.toLocaleString()}` : '—'}</td>
+                  <td style={{ ...styles.balanceCell, color: item.balance > 0 ? '#EF4444' : '#10B981' }}>
                     {item.balance > 0 ? `PKR ${item.balance.toLocaleString()}` : 'Cleared'}
                   </td>
                   <td>
-                    <span style={{...styles.badge, backgroundColor: item.bg, color: item.color}}>
+                    <span style={{ ...styles.badge, backgroundColor: item.bg, color: item.color }}>
                       {item.label}
                     </span>
                   </td>
@@ -234,36 +234,36 @@ const FeeStatus = () => {
 };
 
 const styles = {
-    container: { maxWidth: '1250px', margin: '0 auto', padding: '20px', fontFamily: 'Inter, sans-serif' },
-    header: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' },
-    headerActions: { display: 'flex', gap: '10px' },
-    title: { fontSize: '24px', fontWeight: '800', color: '#0f172a' },
-    subtitle: { color: '#64748b', fontSize: '13px' },
-    btnExport: { backgroundColor: '#10b981', color: '#fff', border: 'none', padding: '10px 18px', borderRadius: '10px', fontWeight: '700', cursor: 'pointer' },
-    btnReset: { backgroundColor: '#f1f5f9', color: '#475569', border: '1px solid #e2e8f0', padding: '10px 18px', borderRadius: '10px', fontWeight: '600', cursor: 'pointer' },
-    filterSection: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', backgroundColor: '#fff', padding: '16px', borderRadius: '14px', border: '1px solid #e2e8f0', marginBottom: '20px', flexWrap: 'wrap', gap: '20px' },
-    miniLabel: { display: 'block', fontSize: '11px', fontWeight: '800', color: '#94a3b8', textTransform: 'uppercase', marginBottom: '6px' },
-    searchInput: { padding: '10px 14px', borderRadius: '8px', border: '1px solid #cbd5e1', width: '180px', outline: 'none', fontSize: '14px' },
-    rangePickers: { display: 'flex', gap: '24px', flexWrap: 'wrap' },
-    pickerGroup: { display: 'flex', gap: '8px', alignItems: 'center' },
-    rangeLabel: { fontSize: '12px', fontWeight: '700', color: '#475569' },
-    select: { padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1', backgroundColor: '#f8fafc', fontSize: '14px', outline: 'none', minWidth: '120px' },
-    yearInput: { padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1', width: '80px', textAlign: 'center', fontSize: '14px', outline: 'none' },
-    card: { background: '#fff', borderRadius: '16px', border: '1px solid #e2e8f0', overflow: 'hidden', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)' },
-    tableWrapper: { overflowX: 'auto' },
-    table: { width: '100%', borderCollapse: 'collapse', textAlign: 'left' },
-    thRow: { background: '#f8fafc', borderBottom: '1px solid #e2e8f0' },
-    th: { padding: '14px 20px', color: '#64748b', fontSize: '11px', fontWeight: '800', textTransform: 'uppercase' },
-    tr: { borderBottom: '1px solid #f1f5f9' },
-    idCell: { padding: '16px 20px', color: '#3b82f6', fontWeight: '700', fontSize: '13px' },
-    nameCell: { padding: '16px 20px', fontWeight: '600', color: '#1e293b', fontSize: '14px' },
-    courseCell: { padding: '16px 20px', color: '#475569', fontSize: '13px' },
-    dateCell: { padding: '16px 20px', color: '#0f172a', fontWeight: '700', fontSize: '13px' },
-    feeCell: { padding: '16px 20px', fontSize: '14px' },
-    paidCell: { padding: '16px 20px', color: '#10b981', fontWeight: '700', fontSize: '14px' },
-    balanceCell: { padding: '16px 20px', fontWeight: '800', fontSize: '14px' },
-    badge: { padding: '5px 12px', borderRadius: '20px', fontSize: '10px', fontWeight: '800', display: 'inline-block' },
-    empty: { textAlign: 'center', padding: '50px', color: '#94a3b8' }
+  container: { fontFamily: 'Inter, sans-serif', width: '100%' },
+  header: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' },
+  headerActions: { display: 'flex', gap: '10px' },
+  title: { fontSize: '24px', fontWeight: '800', color: '#0f172a' },
+  subtitle: { color: '#64748b', fontSize: '13px' },
+  btnExport: { backgroundColor: '#10b981', color: '#fff', border: 'none', padding: '10px 18px', borderRadius: '10px', fontWeight: '700', cursor: 'pointer' },
+  btnReset: { backgroundColor: '#f1f5f9', color: '#475569', border: '1px solid #e2e8f0', padding: '10px 18px', borderRadius: '10px', fontWeight: '600', cursor: 'pointer' },
+  filterSection: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', backgroundColor: '#fff', padding: '16px', borderRadius: '14px', border: '1px solid #e2e8f0', marginBottom: '20px', flexWrap: 'wrap', gap: '20px' },
+  miniLabel: { display: 'block', fontSize: '11px', fontWeight: '800', color: '#94a3b8', textTransform: 'uppercase', marginBottom: '6px' },
+  searchInput: { padding: '10px 14px', borderRadius: '8px', border: '1px solid #cbd5e1', width: '180px', outline: 'none', fontSize: '14px' },
+  rangePickers: { display: 'flex', gap: '24px', flexWrap: 'wrap' },
+  pickerGroup: { display: 'flex', gap: '8px', alignItems: 'center' },
+  rangeLabel: { fontSize: '12px', fontWeight: '700', color: '#475569' },
+  select: { padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1', backgroundColor: '#f8fafc', fontSize: '14px', outline: 'none', minWidth: '120px' },
+  yearInput: { padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1', width: '80px', textAlign: 'center', fontSize: '14px', outline: 'none' },
+  card: { background: '#fff', borderRadius: '16px', border: '1px solid #e2e8f0', overflow: 'hidden', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)' },
+  tableWrapper: { overflowX: 'auto' },
+  table: { width: '100%', borderCollapse: 'collapse', textAlign: 'left' },
+  thRow: { background: '#f8fafc', borderBottom: '1px solid #e2e8f0' },
+  th: { padding: '14px 20px', color: '#64748b', fontSize: '11px', fontWeight: '800', textTransform: 'uppercase' },
+  tr: { borderBottom: '1px solid #f1f5f9' },
+  idCell: { padding: '16px 20px', color: '#3b82f6', fontWeight: '700', fontSize: '13px' },
+  nameCell: { padding: '16px 20px', fontWeight: '600', color: '#1e293b', fontSize: '14px' },
+  courseCell: { padding: '16px 20px', color: '#475569', fontSize: '13px' },
+  dateCell: { padding: '16px 20px', color: '#0f172a', fontWeight: '700', fontSize: '13px' },
+  feeCell: { padding: '16px 20px', fontSize: '14px' },
+  paidCell: { padding: '16px 20px', color: '#10b981', fontWeight: '700', fontSize: '14px' },
+  balanceCell: { padding: '16px 20px', fontWeight: '800', fontSize: '14px' },
+  badge: { padding: '5px 12px', borderRadius: '20px', fontSize: '10px', fontWeight: '800', display: 'inline-block' },
+  empty: { textAlign: 'center', padding: '50px', color: '#94a3b8' }
 };
 
 export default FeeStatus;

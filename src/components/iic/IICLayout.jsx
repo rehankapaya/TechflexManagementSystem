@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Outlet, NavLink, useLocation } from 'react-router-dom';
-import { BrainCircuit, TrendingUp, AlertTriangle, MessageSquare, BarChart, Settings } from 'lucide-react';
+import { BrainCircuit, TrendingUp, AlertTriangle, MessageSquare, BarChart, Settings, Megaphone } from 'lucide-react';
 import { fetchIICData } from '../../services/iicDataAggregator';
 import toast, { Toaster } from 'react-hot-toast';
 
@@ -11,7 +11,7 @@ const IICLayout = () => {
   const location = useLocation();
 
   useEffect(() => {
-    const savedKey = localStorage.getItem('IIC_GEMINI_API_KEY');
+    const savedKey = localStorage.getItem('IIC_GROQ_API_KEY');
     if (savedKey) setApiKey(savedKey);
 
     const loadData = async () => {
@@ -30,8 +30,8 @@ const IICLayout = () => {
 
   const saveApiKey = (e) => {
     e.preventDefault();
-    localStorage.setItem('IIC_GEMINI_API_KEY', apiKey);
-    toast.success("API Key saved securely to your browser.");
+    localStorage.setItem('IIC_GROQ_API_KEY', apiKey.trim());
+    toast.success("Groq API Key saved securely to your browser.");
   };
 
   const navLinks = [
@@ -40,6 +40,7 @@ const IICLayout = () => {
     { path: '/dashboard/iic/risk', label: 'Risk Center', icon: <AlertTriangle size={18} /> },
     { path: '/dashboard/iic/analytics', label: 'Analytics', icon: <BarChart size={18} /> },
     { path: '/dashboard/iic/assistant', label: 'AI Assistant', icon: <MessageSquare size={18} /> },
+    { path: '/dashboard/iic/marketing', label: 'Marketing AI', icon: <Megaphone size={18} /> },
   ];
 
   if (loading) {
@@ -51,7 +52,7 @@ const IICLayout = () => {
   }
 
   return (
-    <div className="flex flex-col h-full bg-slate-50 rounded-2xl relative font-sans text-slate-800">
+    <div className="flex flex-col h-full relative font-sans text-slate-800">
       <Toaster position="top-right" />
       {/* Settings Modal overlay if we want, or just a bar at the top */}
       <div className="bg-gradient-to-r from-indigo-900 to-purple-900 text-white rounded-t-2xl p-6 shadow-md relative overflow-hidden">
@@ -69,7 +70,7 @@ const IICLayout = () => {
               <Settings size={16} className="text-indigo-300 ml-2" />
               <input
                 type="password"
-                placeholder="Gemini API Key..."
+                placeholder="Groq API Key..."
                 value={apiKey}
                 onChange={(e) => setApiKey(e.target.value)}
                 className="bg-transparent border-none outline-none text-sm text-white placeholder-indigo-300 w-48 px-2"
@@ -91,11 +92,10 @@ const IICLayout = () => {
               <NavLink
                 key={link.path}
                 to={link.path}
-                className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all ${
-                  isActive
-                    ? 'bg-purple-100 text-purple-700 shadow-sm'
-                    : 'text-slate-500 hover:bg-slate-100 hover:text-slate-800'
-                }`}
+                className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all ${isActive
+                  ? 'bg-purple-100 text-purple-700 shadow-sm'
+                  : 'text-slate-500 hover:bg-slate-100 hover:text-slate-800'
+                  }`}
               >
                 {link.icon}
                 {link.label}
@@ -105,7 +105,7 @@ const IICLayout = () => {
         </nav>
       </div>
 
-      <div className="flex-1 p-6 overflow-y-auto">
+      <div className="flex-1 py-6">
         {/* Pass fetched data to all child routes */}
         <Outlet context={{ iicData, hasApiKey: !!apiKey }} />
       </div>

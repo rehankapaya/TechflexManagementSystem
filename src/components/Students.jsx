@@ -11,7 +11,7 @@ const Students = () => {
   const [students, setStudents] = useState([]);
   const [pendingStudents, setPendingStudents] = useState([]);
   const [courses, setCourses] = useState([]);
-  const [isEditing, setIsEditing] = useState(null); 
+  const [isEditing, setIsEditing] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterCourse, setFilterCourse] = useState('');
   const [loading, setLoading] = useState(false);
@@ -22,7 +22,7 @@ const Students = () => {
 
   const [formData, setFormData] = useState({
     name: '', contact: '', gender: '', courseId: '', laptop_status: '',
-    agreed_monthly_fee: '', admission_fee: '', createdAt: today 
+    agreed_monthly_fee: '', admission_fee: '', createdAt: today
   });
 
   // --- NEW: Export to Excel Function ---
@@ -82,10 +82,10 @@ const Students = () => {
     if (name === 'courseId' && !isEditing) {
       const selectedCourse = courses.find(c => c.id === value);
       if (selectedCourse) {
-        setFormData(prev => ({ 
-          ...prev, 
+        setFormData(prev => ({
+          ...prev,
           agreed_monthly_fee: selectedCourse.base_fee,
-          admission_fee: selectedCourse.admission_fee || '' 
+          admission_fee: selectedCourse.admission_fee || ''
         }));
       }
     }
@@ -100,10 +100,10 @@ const Students = () => {
     try {
       if (isEditing) {
         const currentStudent = students.find(s => s.id === isEditing);
-        const courseId = formData.courseId; 
-        
+        const courseId = formData.courseId;
+
         const updatedStudent = {
-          ...currentStudent, 
+          ...currentStudent,
           name: formData.name,
           contact: formData.contact,
           gender: formData.gender,
@@ -117,7 +117,7 @@ const Students = () => {
             }
           }
         };
-        
+
         await set(ref(db, `students/${isEditing}`), updatedStudent);
         toast.success('Student profile updated!');
         setIsEditing(null);
@@ -180,7 +180,7 @@ const Students = () => {
     setIsEditing(student.id);
     setFormData({
       name: student.name,
-      contact: student.contact || '', 
+      contact: student.contact || '',
       gender: student.gender || '',
       laptop_status: student.laptop_status || '',
       courseId: courseKey,
@@ -197,8 +197,8 @@ const Students = () => {
   };
 
   const filteredStudents = students.filter(s => {
-    const matchesSearch = s.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                          (s.contact && s.contact.includes(searchTerm)); 
+    const matchesSearch = s.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (s.contact && s.contact.includes(searchTerm));
     const matchesCourse = filterCourse === '' || Object.keys(s.enrolled_courses || {}).includes(filterCourse);
     return matchesSearch && matchesCourse;
   }).sort((a, b) => {
@@ -208,49 +208,49 @@ const Students = () => {
   });
 
   const formContent = (
-        <form onSubmit={handleSubmit} style={{ ...styles.quickForm, borderColor: isEditing ? '#3B82F6' : '#E2E8F0' }}>
-          <input type="text" name="name" placeholder="Full Name" value={formData.name} onChange={handleChange} required style={styles.input} />
-          <input type="text" name="contact" placeholder="Phone" value={formData.contact} onChange={handleChange} required style={styles.inputSmall} />
-          
-          <select name="gender" value={formData.gender} onChange={handleChange} required style={styles.select}>
-            <option value="">Gender</option>
-            <option value="Male">Male</option>
-            <option value="Female">Female</option>
-            <option value="Other">Other</option>
-          </select>
+    <form onSubmit={handleSubmit} style={{ ...styles.quickForm, borderColor: isEditing ? '#3B82F6' : '#E2E8F0' }}>
+      <input type="text" name="name" placeholder="Full Name" value={formData.name} onChange={handleChange} required style={styles.input} />
+      <input type="text" name="contact" placeholder="Phone" value={formData.contact} onChange={handleChange} required style={styles.inputSmall} />
 
-          <select name="laptop_status" value={formData.laptop_status} onChange={handleChange} required style={styles.select}>
-            <option value="">Laptop</option>
-            <option value="Has Laptop">Has Laptop</option>
-            <option value="No Laptop">No Laptop</option>
-            <option value="Provided By Ins.">Provided By Ins.</option>
-          </select>
+      <select name="gender" value={formData.gender} onChange={handleChange} required style={styles.select}>
+        <option value="">Gender</option>
+        <option value="Male">Male</option>
+        <option value="Female">Female</option>
+        <option value="Other">Other</option>
+      </select>
 
-          {!isEditing && (
-            <select name="courseId" value={formData.courseId} onChange={handleChange} required style={styles.select}>
-                <option value="">Select Course</option>
-                {courses.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-            </select>
-          ) }
+      <select name="laptop_status" value={formData.laptop_status} onChange={handleChange} required style={styles.select}>
+        <option value="">Laptop</option>
+        <option value="Has Laptop">Has Laptop</option>
+        <option value="No Laptop">No Laptop</option>
+        <option value="Provided By Ins.">Provided By Ins.</option>
+      </select>
 
-          <input type="date" name="createdAt" value={formData.createdAt} onChange={handleChange} required style={styles.inputSmall} title="Admission Date" />
-          
-          {!isEditing && (
-            <input type="number" name="admission_fee" placeholder="Adm. Fee" value={formData.admission_fee} onChange={handleChange} required style={styles.inputTiny} />
-          )}
+      {!isEditing && (
+        <select name="courseId" value={formData.courseId} onChange={handleChange} required style={styles.select}>
+          <option value="">Select Course</option>
+          {courses.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+        </select>
+      )}
 
-          <input type="number" name="agreed_monthly_fee" placeholder="Monthly Fee" value={formData.agreed_monthly_fee} onChange={handleChange} required style={styles.inputTiny} />
+      <input type="date" name="createdAt" value={formData.createdAt} onChange={handleChange} required style={styles.inputSmall} title="Admission Date" />
 
-          <button type="submit" disabled={loading} style={styles.btnPrimary}>
-            {loading ? "..." : isEditing ? "Update" : (isAdmin ? "Enroll" : "Request")}
-          </button>
-          
-          {isEditing && (
-            <button type="button" onClick={() => {setIsEditing(null); setFormData({name:'', contact: '', gender: '', laptop_status: '', courseId:'', agreed_monthly_fee:'', admission_fee: '', createdAt: today})}} style={styles.btnCancel}>
-              ✕
-            </button>
-          )}
-        </form>
+      {!isEditing && (
+        <input type="number" name="admission_fee" placeholder="Adm. Fee" value={formData.admission_fee} onChange={handleChange} required style={styles.inputTiny} />
+      )}
+
+      <input type="number" name="agreed_monthly_fee" placeholder="Monthly Fee" value={formData.agreed_monthly_fee} onChange={handleChange} required style={styles.inputTiny} />
+
+      <button type="submit" disabled={loading} style={styles.btnPrimary}>
+        {loading ? "..." : isEditing ? "Update" : (isAdmin ? "Enroll" : "Request")}
+      </button>
+
+      {isEditing && (
+        <button type="button" onClick={() => { setIsEditing(null); setFormData({ name: '', contact: '', gender: '', laptop_status: '', courseId: '', agreed_monthly_fee: '', admission_fee: '', createdAt: today }) }} style={styles.btnCancel}>
+          ✕
+        </button>
+      )}
+    </form>
   );
 
   return (
@@ -267,7 +267,7 @@ const Students = () => {
       {isEditing && (
         <div style={styles.modalOverlay}>
           <div style={styles.modalContent}>
-            <h3 style={{marginTop: 0, color: '#1E293B', marginBottom: '20px'}}>Edit Student Profile 👤</h3>
+            <h3 style={{ marginTop: 0, color: '#1E293B', marginBottom: '20px' }}>Edit Student Profile 👤</h3>
             {formContent}
           </div>
         </div>
@@ -275,23 +275,23 @@ const Students = () => {
 
       <div style={styles.mainCard}>
         <div style={styles.filterBar}>
-            <div style={styles.searchBox}>
-                <span style={styles.searchIcon}>🔍</span>
-                <input type="text" placeholder="Search students..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} style={styles.filterInput} />
-            </div>
+          <div style={styles.searchBox}>
+            <span style={styles.searchIcon}>🔍</span>
+            <input type="text" placeholder="Search students..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} style={styles.filterInput} />
+          </div>
 
-            <select value={sortOrder} onChange={(e) => setSortOrder(e.target.value)} style={styles.filterSelect}>
-              <option value="asc">Sort: ID (Asc)</option>
-              <option value="desc">Sort: ID (Desc)</option>
-            </select>
+          <select value={sortOrder} onChange={(e) => setSortOrder(e.target.value)} style={styles.filterSelect}>
+            <option value="asc">Sort: ID (Asc)</option>
+            <option value="desc">Sort: ID (Desc)</option>
+          </select>
 
-            {/* ADDED EXCEL BUTTON HERE */}
-            <button onClick={downloadExcel} style={styles.btnExport}>
-                📥 Download Excel
-            </button>
+          {/* ADDED EXCEL BUTTON HERE */}
+          <button onClick={downloadExcel} style={styles.btnExport}>
+            📥 Download Excel
+          </button>
         </div>
         <div style={styles.tableWrapper}>
-            {/* ... keep existing table ... */}
+          {/* ... keep existing table ... */}
           <table style={styles.table}>
             <thead>
               <tr style={styles.thRow}>
@@ -309,7 +309,7 @@ const Students = () => {
                 <tr key={s.id} style={styles.tr}>
                   <td style={styles.idCell}>{s.student_id}</td>
                   <td style={styles.nameCell}>
-                    <div>{s.name} <span style={{fontSize: '10px', color: '#94A3B8'}}>({s.gender})</span></div>
+                    <div>{s.name} <span style={{ fontSize: '10px', color: '#94A3B8' }}>({s.gender})</span></div>
                     <div style={styles.contactSub}>{s.contact}</div>
                   </td>
                   <td>
@@ -328,7 +328,7 @@ const Students = () => {
                     <td>
                       <div style={styles.actionGroup}>
                         <button onClick={() => startEdit(s)} style={styles.btnEdit}>Edit</button>
-                        <button onClick={() => { if(window.confirm("Delete record?")) remove(ref(db, `students/${s.id}`))}} style={styles.btnDelete}>🗑️</button>
+                        <button onClick={() => { if (window.confirm("Delete record?")) remove(ref(db, `students/${s.id}`)) }} style={styles.btnDelete}>🗑️</button>
                       </div>
                     </td>
                   )}
@@ -358,13 +358,13 @@ const styles = {
   },
   modalOverlay: { position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(15, 23, 42, 0.6)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 },
   modalContent: { background: '#fff', padding: '30px', borderRadius: '20px', width: '90%', maxWidth: '900px', boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)' },
-  container: { maxWidth: '1200px', margin: '0 auto' },
+  container: { width: '100%' },
   header: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px', flexWrap: 'wrap', gap: '20px' },
   titleArea: { flex: 1 },
   title: { fontSize: '24px', fontWeight: '800', color: '#1E293B', margin: 0 },
   subtitle: { color: '#64748B', fontSize: '14px', marginTop: '4px' },
-  
-  quickForm: { background: '#fff', padding: '12px', borderRadius: '14px', display: 'flex', flexWrap:"wrap", gap: '8px', border: '1px solid #E2E8F0', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)' },
+
+  quickForm: { background: '#fff', padding: '12px', borderRadius: '14px', display: 'flex', flexWrap: "wrap", gap: '8px', border: '1px solid #E2E8F0', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)' },
   input: { padding: '10px 14px', borderRadius: '10px', border: '1px solid #E2E8F0', outline: 'none', fontSize: '14px', width: '200px' },
   inputSmall: { padding: '10px 14px', borderRadius: '10px', border: '1px solid #E2E8F0', outline: 'none', fontSize: '14px', width: '120px' },
   inputTiny: { padding: '10px 14px', borderRadius: '10px', border: '1px solid #E2E8F0', outline: 'none', fontSize: '14px', width: '80px' },
@@ -374,7 +374,7 @@ const styles = {
 
   pendingCard: { background: '#FFFBEB', padding: '24px', borderRadius: '16px', border: '1px solid #FEF3C7', marginBottom: '30px' },
   pendingTitle: { margin: '0 0 15px 0', color: '#92400E', fontSize: '16px' },
-  
+
   mainCard: { background: '#fff', borderRadius: '16px', border: '1px solid #E2E8F0', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', overflow: 'hidden' },
   filterBar: { padding: '20px', borderBottom: '1px solid #F1F5F9', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '15px' },
   searchBox: { position: 'relative' },
@@ -387,7 +387,7 @@ const styles = {
   thRow: { background: '#F8FAFC', borderBottom: '1px solid #E2E8F0' },
   th: { padding: '15px 20px', color: '#64748B', fontSize: '12px', fontWeight: '700', textTransform: 'uppercase' },
   tr: { borderBottom: '1px solid #F1F5F9', transition: 'background 0.2s' },
-  
+
   idCell: { padding: '16px 20px', fontWeight: '700', color: '#3B82F6', fontSize: '13px' },
   nameCell: { padding: '16px 20px', fontSize: '14px' },
   contactSub: { fontSize: '11px', color: '#94A3B8', marginTop: '2px' },
@@ -395,7 +395,7 @@ const styles = {
   courseBadge: { fontSize: '11px', fontWeight: '700', color: '#B45309', background: '#FEF3C7', padding: '2px 8px', borderRadius: '6px', marginBottom: '4px' },
   feeCell: { padding: '16px 20px', fontSize: '13px', fontWeight: '600', color: '#1E293B' },
   dateCell: { padding: '16px 20px', color: '#64748B', fontSize: '12px' },
-  
+
   actionGroup: { display: 'flex', gap: '8px' },
   btnApprove: { background: '#10B981', color: '#fff', border: 'none', padding: '6px 12px', borderRadius: '8px', fontSize: '12px', fontWeight: '700', cursor: 'pointer' },
   btnReject: { background: '#EF4444', color: '#fff', border: 'none', padding: '6px 12px', borderRadius: '8px', fontSize: '12px', fontWeight: '700', cursor: 'pointer' },

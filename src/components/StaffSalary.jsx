@@ -15,7 +15,7 @@ const StaffSalary = () => {
   const [editingStaffId, setEditingStaffId] = useState(null);
   const [showEditSalaryModal, setShowEditSalaryModal] = useState(false);
   const [editFormData, setEditFormData] = useState(null);
-  
+
   // Filters
   const [filterMonth, setFilterMonth] = useState(new Date().getMonth() + 1); // 1-12
   const [filterYear, setFilterYear] = useState(new Date().getFullYear());
@@ -127,10 +127,10 @@ const StaffSalary = () => {
         addedBy: currentUser.name || currentUser.email,
         timestamp: new Date().toISOString()
       };
-      
+
       await set(push(ref(db, 'staff_salary')), payload);
       toast.success("Salary record added successfully");
-      
+
       setFormData({ ...formData, staffId: '', amount: '', description: '' });
     } catch (err) {
       toast.error("Error saving salary record");
@@ -156,7 +156,7 @@ const StaffSalary = () => {
         addedBy: currentUser.name || currentUser.email,
         timestamp: new Date().toISOString()
       };
-      
+
       await set(ref(db, `staff_salary/${editFormData.id}`), payload);
       toast.success("Salary record updated");
       setShowEditSalaryModal(false);
@@ -204,7 +204,7 @@ const StaffSalary = () => {
                 <label style={styles.label}>Payment Date</label>
                 <input type="date" name="date" value={formData.date} onChange={handleChange} required style={styles.input} />
               </div>
-              
+
               <div style={styles.formGroup}>
                 <label style={styles.label}>Staff Name</label>
                 <div style={{ display: 'flex', gap: '8px' }}>
@@ -295,7 +295,7 @@ const StaffSalary = () => {
                         <td style={styles.td}>{s.description || '-'}</td>
                         {isAdmin && (
                           <td style={styles.td}>
-                            <button onClick={() => handleEditSalary(s)} style={{...styles.btnDelete, color: '#3B82F6', marginRight: '10px'}}>✏️</button>
+                            <button onClick={() => handleEditSalary(s)} style={{ ...styles.btnDelete, color: '#3B82F6', marginRight: '10px' }}>✏️</button>
                             <button onClick={() => handleDelete(s.id)} style={styles.btnDelete}>🗑️</button>
                           </td>
                         )}
@@ -319,11 +319,11 @@ const StaffSalary = () => {
             <form onSubmit={handleUpdateSalary} style={styles.form}>
               <div style={styles.formGroup}>
                 <label style={styles.label}>Payment Date</label>
-                <input type="date" value={editFormData.date} onChange={e => setEditFormData({...editFormData, date: e.target.value})} required style={styles.input} />
+                <input type="date" value={editFormData.date} onChange={e => setEditFormData({ ...editFormData, date: e.target.value })} required style={styles.input} />
               </div>
               <div style={styles.formGroup}>
                 <label style={styles.label}>Staff Name</label>
-                <select value={editFormData.staffId} onChange={e => setEditFormData({...editFormData, staffId: e.target.value})} required style={styles.select}>
+                <select value={editFormData.staffId} onChange={e => setEditFormData({ ...editFormData, staffId: e.target.value })} required style={styles.select}>
                   <option value="">Select Staff...</option>
                   {staffDirectory.filter(s => s.status === 'active' || s.id === editFormData.staffId).map(s => (
                     <option key={s.id} value={s.id}>{s.name} ({s.role || 'Staff'})</option>
@@ -332,23 +332,23 @@ const StaffSalary = () => {
               </div>
               <div style={styles.formGroup}>
                 <label style={styles.label}>Salary For (Month)</label>
-                <select value={editFormData.salaryMonth} onChange={e => setEditFormData({...editFormData, salaryMonth: e.target.value})} required style={styles.select}>
+                <select value={editFormData.salaryMonth} onChange={e => setEditFormData({ ...editFormData, salaryMonth: e.target.value })} required style={styles.select}>
                   {monthsFull.map((m, i) => <option key={m} value={i + 1}>{m}</option>)}
                 </select>
               </div>
               <div style={styles.formGroup}>
                 <label style={styles.label}>Salary For (Year)</label>
-                <select value={editFormData.salaryYear} onChange={e => setEditFormData({...editFormData, salaryYear: e.target.value})} required style={styles.select}>
+                <select value={editFormData.salaryYear} onChange={e => setEditFormData({ ...editFormData, salaryYear: e.target.value })} required style={styles.select}>
                   {years.map(y => <option key={y} value={y}>{y}</option>)}
                 </select>
               </div>
               <div style={styles.formGroup}>
                 <label style={styles.label}>Amount Paid (PKR)</label>
-                <input type="number" value={editFormData.amount} onChange={e => setEditFormData({...editFormData, amount: e.target.value})} required style={styles.input} />
+                <input type="number" value={editFormData.amount} onChange={e => setEditFormData({ ...editFormData, amount: e.target.value })} required style={styles.input} />
               </div>
               <div style={styles.formGroup}>
                 <label style={styles.label}>Description / Notes (Optional)</label>
-                <input type="text" value={editFormData.description} onChange={e => setEditFormData({...editFormData, description: e.target.value})} style={styles.input} />
+                <input type="text" value={editFormData.description} onChange={e => setEditFormData({ ...editFormData, description: e.target.value })} style={styles.input} />
               </div>
               <button type="submit" disabled={loading} style={styles.btnPrimary}>
                 {loading ? "Updating..." : "Update Salary"}
@@ -365,22 +365,22 @@ const StaffSalary = () => {
               <h3 style={styles.cardTitle}>Manage Staff Directory</h3>
               <button onClick={() => setShowStaffModal(false)} style={styles.btnClose}>✕</button>
             </div>
-            
+
             <form onSubmit={handleAddStaff} style={{ display: 'flex', gap: '10px', marginBottom: '20px' }}>
-              <input 
-                type="text" 
-                placeholder="Name..." 
-                value={newStaffName} 
-                onChange={(e) => setNewStaffName(e.target.value)} 
+              <input
+                type="text"
+                placeholder="Name..."
+                value={newStaffName}
+                onChange={(e) => setNewStaffName(e.target.value)}
                 required
-                style={{ ...styles.input, flex: 1 }} 
+                style={{ ...styles.input, flex: 1 }}
               />
-              <input 
-                type="text" 
-                placeholder="Role (e.g. Teacher, Guard)" 
-                value={newStaffRole} 
-                onChange={(e) => setNewStaffRole(e.target.value)} 
-                style={{ ...styles.input, flex: 1 }} 
+              <input
+                type="text"
+                placeholder="Role (e.g. Teacher, Guard)"
+                value={newStaffRole}
+                onChange={(e) => setNewStaffRole(e.target.value)}
+                style={{ ...styles.input, flex: 1 }}
               />
               <button type="submit" style={{ ...styles.btnPrimary, margin: 0 }}>{editingStaffId ? "Update" : "Add"}</button>
               {editingStaffId && (
@@ -397,11 +397,11 @@ const StaffSalary = () => {
                     {staffDirectory.map(staff => (
                       <tr key={staff.id} style={styles.tr}>
                         <td style={styles.tdStaffName}>
-                          {staff.name} <span style={{fontSize: '11px', color: '#94A3B8', fontWeight: 'normal'}}>({staff.role || 'Staff'})</span>
+                          {staff.name} <span style={{ fontSize: '11px', color: '#94A3B8', fontWeight: 'normal' }}>({staff.role || 'Staff'})</span>
                         </td>
                         <td style={styles.td}>
                           <span style={{
-                            ...styles.badge, 
+                            ...styles.badge,
                             background: staff.status === 'active' ? '#DCFCE7' : '#F1F5F9',
                             color: staff.status === 'active' ? '#16A34A' : '#64748B'
                           }}>
@@ -409,7 +409,7 @@ const StaffSalary = () => {
                           </span>
                         </td>
                         <td style={{ ...styles.td, textAlign: 'right', display: 'flex', gap: '5px', justifyContent: 'flex-end' }}>
-                          <button 
+                          <button
                             onClick={() => handleToggleStaffStatus(staff.id, staff.status)}
                             style={{
                               ...styles.btnToggle,
@@ -419,8 +419,8 @@ const StaffSalary = () => {
                           >
                             {staff.status === 'active' ? 'Mark Inactive' : 'Mark Active'}
                           </button>
-                          <button onClick={() => handleEditStaff(staff)} style={{...styles.btnToggle, background: '#E0E7FF', color: '#4F46E5'}}>✏️</button>
-                          <button onClick={() => handleDeleteStaff(staff.id)} style={{...styles.btnToggle, background: '#FEE2E2', color: '#EF4444'}}>🗑️</button>
+                          <button onClick={() => handleEditStaff(staff)} style={{ ...styles.btnToggle, background: '#E0E7FF', color: '#4F46E5' }}>✏️</button>
+                          <button onClick={() => handleDeleteStaff(staff.id)} style={{ ...styles.btnToggle, background: '#FEE2E2', color: '#EF4444' }}>🗑️</button>
                         </td>
                       </tr>
                     ))}
@@ -436,22 +436,22 @@ const StaffSalary = () => {
 };
 
 const styles = {
-  container: { maxWidth: '1200px', margin: '0 auto', animation: 'fadeIn 0.5s ease-out' },
+  container: { width: '100%', animation: 'fadeIn 0.5s ease-out' },
   header: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px', flexWrap: 'wrap', gap: '20px' },
   titleArea: { flex: 1 },
   title: { fontSize: '24px', fontWeight: '800', color: '#1E293B', margin: 0 },
   subtitle: { color: '#64748B', fontSize: '14px', marginTop: '4px' },
-  
+
   totalCard: { background: '#8B5CF6', padding: '15px 25px', borderRadius: '16px', color: '#fff', boxShadow: '0 10px 15px -3px rgba(139, 92, 246, 0.3)' },
   totalLabel: { fontSize: '12px', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '1px', opacity: 0.9 },
   totalAmount: { fontSize: '24px', fontWeight: '800', marginTop: '4px' },
 
   mainGrid: { display: 'grid', gridTemplateColumns: '320px 1fr', gap: '25px', alignItems: 'start' },
   leftCol: { display: 'flex', flexDirection: 'column', gap: '25px' },
-  
+
   card: { background: '#fff', padding: '24px', borderRadius: '20px', border: '1px solid #E2E8F0', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)' },
   cardTitle: { margin: '0 0 20px 0', fontSize: '16px', fontWeight: '700', color: '#1E293B' },
-  
+
   form: { display: 'flex', flexDirection: 'column', gap: '15px' },
   formGroup: { display: 'flex', flexDirection: 'column', gap: '6px' },
   label: { fontSize: '12px', fontWeight: '600', color: '#64748B' },
@@ -476,7 +476,7 @@ const styles = {
   tdAmount: { padding: '14px 15px', fontSize: '14px', fontWeight: '700', color: '#8B5CF6' },
   btnDelete: { background: 'transparent', border: 'none', cursor: 'pointer', opacity: 0.6, transition: 'opacity 0.2s' },
   emptyCell: { padding: '30px', textAlign: 'center', color: '#94A3B8', fontSize: '14px' },
-  
+
   modalOverlay: { position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 },
   modalContent: { background: '#fff', padding: '25px', borderRadius: '16px', width: '90%', maxWidth: '500px', boxShadow: '0 10px 25px rgba(0,0,0,0.2)' },
   modalHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' },

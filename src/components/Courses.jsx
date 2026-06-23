@@ -35,8 +35,8 @@ const Courses = () => {
   }, [status]);
 
   const handleChange = (e) => {
-    const value = (e.target.name === 'duration' || e.target.name === 'base_fee') 
-      ? Number(e.target.value) 
+    const value = (e.target.name === 'duration' || e.target.name === 'base_fee')
+      ? Number(e.target.value)
       : e.target.value;
     setFormData({ ...formData, [e.target.name]: value });
   };
@@ -93,7 +93,7 @@ const Courses = () => {
 
       {status.msg && (
         <div style={{
-          ...styles.statusBanner, 
+          ...styles.statusBanner,
           backgroundColor: status.type === 'success' ? '#F0FDF4' : '#FEF2F2',
           color: status.type === 'success' ? '#166534' : '#991B1B',
           borderColor: status.type === 'success' ? '#BBF7D0' : '#FCA5A5'
@@ -109,28 +109,28 @@ const Courses = () => {
           <form onSubmit={handleSubmit} style={styles.form}>
             <div style={styles.inputGroup}>
               <label style={styles.label}>Course Name</label>
-              <input 
-                type="text" name="name" value={formData.name} 
-                onChange={handleChange} placeholder="e.g. Graphic Design" 
-                required style={styles.input} 
+              <input
+                type="text" name="name" value={formData.name}
+                onChange={handleChange} placeholder="e.g. Graphic Design"
+                required style={styles.input}
               />
             </div>
-            
+
             <div className="form-row" style={styles.inputRow}>
               <div style={styles.inputGroup}>
                 <label style={styles.label}>Base Fee (PKR)</label>
-                <input 
-                  type="number" name="base_fee" value={formData.base_fee} 
-                  onChange={handleChange} placeholder="5000" 
-                  required style={styles.input} 
+                <input
+                  type="number" name="base_fee" value={formData.base_fee}
+                  onChange={handleChange} placeholder="5000"
+                  required style={styles.input}
                 />
               </div>
               <div style={styles.inputGroup}>
                 <label style={styles.label}>Duration (Months)</label>
-                <input 
-                  type="number" name="duration" value={formData.duration} 
-                  onChange={handleChange} placeholder="3" 
-                  min="1" required style={styles.input} 
+                <input
+                  type="number" name="duration" value={formData.duration}
+                  onChange={handleChange} placeholder="3"
+                  min="1" required style={styles.input}
                 />
               </div>
             </div>
@@ -140,7 +140,7 @@ const Courses = () => {
                 {loading ? 'Processing...' : (isEditing ? 'Update Course' : 'Create Course')}
               </button>
               {isEditing && (
-                <button type="button" onClick={() => {setIsEditing(null); setFormData({name:'', base_fee:'', duration:''})}} style={styles.cancelBtn}>
+                <button type="button" onClick={() => { setIsEditing(null); setFormData({ name: '', base_fee: '', duration: '' }) }} style={styles.cancelBtn}>
                   Cancel
                 </button>
               )}
@@ -207,15 +207,15 @@ const Courses = () => {
 };
 
 const styles = {
-  container: { maxWidth: '1200px', margin: '0 auto', padding: '10px' },
+  container: { width: '100%' },
   header: { marginBottom: '24px' },
   title: { fontSize: '24px', fontWeight: '700', color: '#1E293B', margin: '0 0 4px 0' },
   subtitle: { color: '#64748B', fontSize: '14px' },
   statusBanner: { padding: '12px 18px', borderRadius: '10px', marginBottom: '20px', border: '1px solid', fontSize: '14px', fontWeight: '500' },
-  
+
   // Adjusted for stacked layout
   layoutStack: { display: 'flex', flexDirection: 'column', gap: '30px' },
-  
+
   // Form Card - constrained width so it doesn't look huge on desktop
   card: { background: '#fff', padding: '28px', borderRadius: '16px', border: '1px solid #E2E8F0', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)', maxWidth: '600px', width: '100%' },
   cardTitle: { fontSize: '16px', fontWeight: '700', color: '#1E293B', margin: 0 },
@@ -224,7 +224,7 @@ const styles = {
   inputRow: { display: 'flex', gap: '15px' },
   label: { fontSize: '13px', fontWeight: '600', color: '#475569' },
   input: { padding: '12px 16px', borderRadius: '10px', border: '1px solid #E2E8F0', backgroundColor: '#F8FAFC', outline: 'none', fontSize: '14px', transition: 'border-color 0.2s' },
-  
+
   buttonGroup: { display: 'flex', gap: '10px', marginTop: '5px' },
   submitBtn: { flex: 2, padding: '12px', background: '#3B82F6', color: '#fff', border: 'none', borderRadius: '10px', fontWeight: '600', cursor: 'pointer', transition: 'opacity 0.2s' },
   cancelBtn: { flex: 1, padding: '12px', background: '#F1F5F9', color: '#475569', border: 'none', borderRadius: '10px', fontWeight: '600', cursor: 'pointer' },
@@ -241,11 +241,11 @@ const styles = {
   courseNameText: { fontWeight: '600', color: '#1E293B' },
   durationBadge: { background: '#F1F5F9', color: '#475569', padding: '4px 10px', borderRadius: '6px', fontSize: '12px', fontWeight: '600' },
   feeText: { color: '#10B981', fontWeight: '700' },
-  
+
   actionContainer: { display: 'flex', gap: '10px' },
   editIconBtn: { background: '#EFF6FF', border: 'none', borderRadius: '8px', padding: '8px', cursor: 'pointer', transition: '0.2s' },
   deleteIconBtn: { background: '#FEF2F2', border: 'none', borderRadius: '8px', padding: '8px', cursor: 'pointer', transition: '0.2s' },
-  
+
   emptyTd: { padding: '60px', textAlign: 'center', color: '#94A3B8', fontSize: '15px' }
 };
 

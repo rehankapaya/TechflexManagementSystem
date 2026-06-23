@@ -24,6 +24,7 @@ import FeeIntelligence from './components/iic/FeeIntelligence';
 import StudentRisk from './components/iic/StudentRisk';
 import CourseAnalytics from './components/iic/CourseAnalytics';
 import AIAssistant from './components/iic/AIAssistant';
+import SocialMarketingAI from './components/iic/SocialMarketingAI';
 import { Toaster } from 'react-hot-toast';
 
 function App() {
@@ -110,6 +111,7 @@ function App() {
               <Route path="risk" element={<StudentRisk />} />
               <Route path="analytics" element={<CourseAnalytics />} />
               <Route path="assistant" element={<AIAssistant />} />
+              <Route path="marketing" element={<SocialMarketingAI />} />
             </Route>
             
             {/* NEW: Status Management should probably be Admin Only */}

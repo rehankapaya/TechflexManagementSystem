@@ -334,7 +334,7 @@ const MonthlyAnalytics = () => {
 
 // --- Styles Object ---
 const styles = {
-  page: { padding: '30px', backgroundColor: '#F3F4F6', minHeight: '100vh', fontFamily: 'Inter, sans-serif' },
+  page: { fontFamily: 'Inter, sans-serif', width: '100%' },
   header: { display: 'flex', justifyContent: 'space-between', marginBottom: '20px' },
   filterRow: { display: 'flex', gap: '10px', marginBottom: '25px' },
   select: { padding: '8px 12px', borderRadius: '6px', border: '1px solid #D1D5DB' },

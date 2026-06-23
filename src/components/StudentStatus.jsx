@@ -49,7 +49,7 @@ const StudentStatus = () => {
   // --- NEW: Download Excel Function ---
   const downloadExcel = () => {
     const excelData = [];
-    
+
     filteredStudents.forEach(s => {
       s.filteredCourses.forEach(([cId, cData]) => {
         excelData.push({
@@ -152,7 +152,7 @@ const StudentStatus = () => {
           <h2 style={styles.title}>Student Status Sync 🔄</h2>
           <p style={styles.subtitle}>Manage start dates and lifecycles.</p>
         </div>
-        
+
         {/* NEW: Download Button */}
         <div style={{ marginBottom: '10px' }}>
           <button onClick={downloadExcel} style={styles.btnExcel}>
@@ -293,7 +293,7 @@ const StudentStatus = () => {
 };
 
 const styles = {
-  container: { maxWidth: '1200px', margin: '0 auto', padding: '20px' },
+  container: { width: '100%' },
   header: { display: 'flex', justifyContent: 'space-between', marginBottom: '30px', alignItems: 'flex-end', flexWrap: 'wrap', gap: '20px' },
   titleArea: { flex: 1 },
   title: { fontSize: '24px', fontWeight: '800', color: '#1E293B', margin: 0 },
