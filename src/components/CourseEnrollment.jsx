@@ -76,7 +76,11 @@ const CourseEnrollment = () => {
     };
 
     try {
-      await update(ref(db, `students/${selectedStudent.id}/enrolled_courses/${formData.courseId}`), newCourseEntry);
+      const updates = {};
+      updates[`students/${selectedStudent.id}/enrolled_courses/${formData.courseId}`] = newCourseEntry;
+      updates[`students/${selectedStudent.id}/status`] = 'active'; // Force global active status
+      
+      await update(ref(db), updates);
       toast.success(`Enrolled ${selectedStudent.name} in ${selectedCourseData.name}`);
       setFormData({ courseId: '', agreed_monthly_fee: '' });
     } catch (err) {

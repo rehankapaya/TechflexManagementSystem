@@ -17,6 +17,13 @@ import GlobalExport from './components/GlobalExport';
 import CertificateGenerator from './components/CertificateGenerator';
 import Expenses from './components/Expenses';
 import StaffSalary from './components/StaffSalary';
+import IICLayout from './components/iic/IICLayout';
+import ExecutiveDashboard from './components/iic/ExecutiveDashboard';
+import AdmissionForecasting from './components/iic/AdmissionForecasting';
+import FeeIntelligence from './components/iic/FeeIntelligence';
+import StudentRisk from './components/iic/StudentRisk';
+import CourseAnalytics from './components/iic/CourseAnalytics';
+import AIAssistant from './components/iic/AIAssistant';
 import { Toaster } from 'react-hot-toast';
 
 function App() {
@@ -88,6 +95,22 @@ function App() {
                 </ProtectedRoute>
               }
             />
+
+            {/* Institution Intelligence Center (IIC) Routes */}
+            <Route
+              path="iic"
+              element={
+                <ProtectedRoute requiredRole="admin">
+                  <IICLayout />
+                </ProtectedRoute>
+              }
+            >
+              <Route index element={<ExecutiveDashboard />} />
+              <Route path="forecast" element={<AdmissionForecasting />} />
+              <Route path="risk" element={<StudentRisk />} />
+              <Route path="analytics" element={<CourseAnalytics />} />
+              <Route path="assistant" element={<AIAssistant />} />
+            </Route>
             
             {/* NEW: Status Management should probably be Admin Only */}
             <Route

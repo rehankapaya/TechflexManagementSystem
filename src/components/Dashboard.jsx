@@ -25,7 +25,8 @@ import {
   FileText,
   BarChart3,
   Receipt,
-  Banknote
+  Banknote,
+  BrainCircuit
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -157,6 +158,19 @@ const Dashboard = () => {
                 active={isActive('/dashboard/certificate')}
               />
 
+            </div>
+          )}
+
+          {isAdmin && (
+            <div className="px-4 mb-6">
+              {!sidebarCollapsed && <p className="text-[10px] font-bold text-purple-400 tracking-widest mb-4 px-2">INTELLIGENCE</p>}
+              <SidebarLink
+                to="/dashboard/iic"
+                icon={<BrainCircuit size={20} className="text-purple-400" />}
+                label="IIC AI Hub"
+                collapsed={sidebarCollapsed}
+                active={isActive('/dashboard/iic')}
+              />
             </div>
           )}
         </nav>

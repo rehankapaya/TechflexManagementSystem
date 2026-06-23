@@ -120,6 +120,9 @@ const StudentStatus = () => {
   };
 
   const filteredStudents = students.map(s => {
+    const hasActiveCourse = Object.values(s.enrolled_courses || {}).some(c => c.course_status === 'active');
+    const computedStatus = hasActiveCourse ? 'active' : s.status;
+
     const matchesSearch = s.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       s.student_id?.toLowerCase().includes(searchTerm.toLowerCase());
 
@@ -134,7 +137,7 @@ const StudentStatus = () => {
       return matchesCourseFilter && matchesStatusFilter && matchesMonthFilter;
     });
 
-    return { ...s, filteredCourses: filteredEnrolledCourses, matchesSearch };
+    return { ...s, status: computedStatus, filteredCourses: filteredEnrolledCourses, matchesSearch };
   }).filter(s => s.matchesSearch && s.filteredCourses.length > 0)
     .sort((a, b) => {
       const idA = a.student_id || "";
