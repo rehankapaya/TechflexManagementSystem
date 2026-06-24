@@ -50,11 +50,8 @@ const processData = (raw) => {
     Object.values(studentCourses).forEach(courseMonths => {
       Object.values(courseMonths).forEach(tx => {
         feeTransactions.push(tx);
-        if (tx.status === 'Paid') {
-          totalRevenue += parseFloat(tx.amount || 0);
-        } else if (tx.status === 'Unpaid' || tx.status === 'Pending') {
-          totalOutstanding += parseFloat(tx.amount || 0);
-        }
+        totalRevenue += parseFloat(tx.paid || 0);
+        totalOutstanding += parseFloat(tx.balance || 0);
       });
     });
   });
@@ -67,16 +64,43 @@ const processData = (raw) => {
   const retentionRate = totalAdmissions > 0 ? ((activeStudents / totalAdmissions) * 100).toFixed(1) : 0;
   const dropoutRate = (100 - parseFloat(retentionRate)).toFixed(1);
 
-  // 2. Monthly Trend Data (Last 6 Months logic mock)
-  // For actual production, we'd group by Date. For simplicity, we just create a mock array based on real counts.
-  const monthlyTrends = [
-    { name: 'Jan', revenue: totalRevenue * 0.1, admissions: Math.floor(totalAdmissions * 0.1) },
-    { name: 'Feb', revenue: totalRevenue * 0.15, admissions: Math.floor(totalAdmissions * 0.15) },
-    { name: 'Mar', revenue: totalRevenue * 0.2, admissions: Math.floor(totalAdmissions * 0.2) },
-    { name: 'Apr', revenue: totalRevenue * 0.25, admissions: Math.floor(totalAdmissions * 0.1) },
-    { name: 'May', revenue: totalRevenue * 0.15, admissions: Math.floor(totalAdmissions * 0.25) },
-    { name: 'Jun', revenue: totalRevenue * 0.15, admissions: Math.floor(totalAdmissions * 0.2) }
-  ];
+  // 2. Monthly Trend Data (Last 6 Months)
+  const monthlyTrendsMap = {};
+  const monthlyTrends = [];
+  const currentDate = new Date();
+  
+  for (let i = 5; i >= 0; i--) {
+    const d = new Date(currentDate.getFullYear(), currentDate.getMonth() - i, 1);
+    const monthStr = d.toLocaleString('default', { month: 'short' });
+    const yearStr = d.getFullYear();
+    const key = `${monthStr}_${yearStr}`;
+    monthlyTrendsMap[key] = { name: monthStr, revenue: 0, admissions: 0 };
+    monthlyTrends.push(monthlyTrendsMap[key]);
+  }
+
+  // Calculate actual revenue per month
+  Object.values(raw.fees).forEach(studentCourses => {
+    Object.values(studentCourses).forEach(courseMonths => {
+      Object.entries(courseMonths).forEach(([monthKey, tx]) => {
+        if (monthlyTrendsMap[monthKey]) {
+          monthlyTrendsMap[monthKey].revenue += parseFloat(tx.paid || 0);
+        }
+      });
+    });
+  });
+
+  // Calculate actual admissions per month
+  students.forEach(s => {
+    if (s.createdAt) {
+      const d = new Date(s.createdAt);
+      const monthStr = d.toLocaleString('default', { month: 'short' });
+      const yearStr = d.getFullYear();
+      const key = `${monthStr}_${yearStr}`;
+      if (monthlyTrendsMap[key]) {
+        monthlyTrendsMap[key].admissions += 1;
+      }
+    }
+  });
 
   // 3. Course Analytics
   const courseAnalytics = courses.map(c => {

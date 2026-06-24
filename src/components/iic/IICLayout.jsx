@@ -5,6 +5,7 @@ import { fetchIICData } from '../../services/iicDataAggregator';
 import toast, { Toaster } from 'react-hot-toast';
 
 const IICLayout = () => {
+  console.log(import.meta.env);
   const [apiKey, setApiKey] = useState('');
   const [iicData, setIicData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -52,10 +53,10 @@ const IICLayout = () => {
   }
 
   return (
-    <div className="flex flex-col h-full relative font-sans text-slate-800">
+    <div className="flex flex-col min-h-full relative font-sans text-slate-800">
       <Toaster position="top-right" />
       {/* Settings Modal overlay if we want, or just a bar at the top */}
-      <div className="bg-gradient-to-r from-indigo-900 to-purple-900 text-white rounded-t-2xl p-6 shadow-md relative overflow-hidden">
+      <div className="bg-gradient-to-r from-indigo-900 to-purple-900 text-white rounded-t-2xl p-6 shadow-md relative overflow-hidden shrink-0">
         <div className="absolute top-0 left-0 w-full h-full opacity-10 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')]"></div>
         <div className="relative z-10 flex justify-between items-center">
           <div>
@@ -84,7 +85,7 @@ const IICLayout = () => {
         </div>
       </div>
 
-      <div className="border-b border-slate-200 bg-white shadow-sm sticky top-0 z-10">
+      <div className="border-b border-slate-200 bg-white shadow-sm sticky top-0 z-10 shrink-0">
         <nav className="flex gap-2 p-2 px-6">
           {navLinks.map((link) => {
             const isActive = link.exact ? location.pathname === link.path : location.pathname.startsWith(link.path);
