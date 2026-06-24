@@ -5,14 +5,13 @@ import { fetchIICData } from '../../services/iicDataAggregator';
 import toast, { Toaster } from 'react-hot-toast';
 
 const IICLayout = () => {
-  console.log(import.meta.env);
   const [apiKey, setApiKey] = useState('');
   const [iicData, setIicData] = useState(null);
   const [loading, setLoading] = useState(true);
   const location = useLocation();
 
   useEffect(() => {
-    const savedKey = localStorage.getItem('IIC_GROQ_API_KEY');
+    const savedKey = localStorage.getItem('IIC_GROQ_API_KEY') || import.meta.env.VITE_GROQ_API_KEY;
     if (savedKey) setApiKey(savedKey);
 
     const loadData = async () => {
