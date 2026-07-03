@@ -174,6 +174,31 @@ const Students = () => {
     }
   };
 
+  const approveStudent = async (reqId, studentData) => {
+    try {
+      const { id, status, ...cleanData } = studentData;
+      cleanData.status = 'active';
+      cleanData.approvedBy = currentUser.name || currentUser.email || 'Admin';
+      
+      await set(push(ref(db, 'students')), cleanData);
+      await remove(ref(db, `pending_approvals/${reqId}`));
+      toast.success(`Approved: ${cleanData.student_id}`);
+    } catch (err) {
+      toast.error(err.message);
+    }
+  };
+
+  const rejectStudent = async (reqId) => {
+    if (window.confirm("Reject this student enrollment request?")) {
+      try {
+        await remove(ref(db, `pending_approvals/${reqId}`));
+        toast.success("Request Rejected.");
+      } catch (err) {
+        toast.error(err.message);
+      }
+    }
+  };
+
   const startEdit = (student) => {
     const courseKey = Object.keys(student.enrolled_courses || {})[0];
     const courseData = student.enrolled_courses[courseKey];
@@ -269,6 +294,45 @@ const Students = () => {
           <div style={styles.modalContent}>
             <h3 style={{ marginTop: 0, color: '#1E293B', marginBottom: '20px' }}>Edit Student Profile 👤</h3>
             {formContent}
+          </div>
+        </div>
+      )}
+
+      {isAdmin && pendingStudents.length > 0 && (
+        <div style={styles.pendingCard}>
+          <h3 style={styles.pendingTitle}>⏳ Pending Approvals ({pendingStudents.length})</h3>
+          <div style={styles.tableWrapper}>
+            <table style={styles.table}>
+              <thead>
+                <tr style={styles.thRow}>
+                  <th style={styles.th}>Name</th>
+                  <th style={styles.th}>Contact</th>
+                  <th style={styles.th}>Course</th>
+                  <th style={styles.th}>Added By</th>
+                  <th style={styles.th}>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {pendingStudents.map(s => (
+                  <tr key={s.id} style={styles.tr}>
+                    <td style={styles.nameCell}>{s.name}</td>
+                    <td style={styles.nameCell}>{s.contact}</td>
+                    <td>
+                      {Object.values(s.enrolled_courses || {}).map((c, i) => (
+                        <div key={i} style={styles.courseTag}>{c.course_name}</div>
+                      ))}
+                    </td>
+                    <td style={styles.nameCell}>{s.addedBy}</td>
+                    <td>
+                      <div style={styles.actionGroup}>
+                        <button onClick={() => approveStudent(s.id, s)} style={styles.btnApprove}>Approve</button>
+                        <button onClick={() => rejectStudent(s.id)} style={styles.btnReject}>Reject</button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         </div>
       )}

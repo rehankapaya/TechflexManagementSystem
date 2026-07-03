@@ -276,7 +276,23 @@ const Fees = () => {
   const getHistory = () => {
     if (!selectedStudent || !selectedCourseId || !feesData[selectedStudent.id]) return [];
     const transactions = feesData[selectedStudent.id][selectedCourseId] || {};
-    return Object.keys(transactions).map(key => ({ id: key, ...transactions[key] }));
+    
+    const monthOrder = {
+      "Jan": 1, "Feb": 2, "Mar": 3, "Apr": 4, "May": 5, "Jun": 6,
+      "Jul": 7, "Aug": 8, "Sep": 9, "Oct": 10, "Nov": 11, "Dec": 12
+    };
+
+    return Object.keys(transactions)
+      .map(key => ({ id: key, ...transactions[key] }))
+      .sort((a, b) => {
+        const yearA = parseInt(a.year || a.id.split('_')[1] || 0, 10);
+        const yearB = parseInt(b.year || b.id.split('_')[1] || 0, 10);
+        if (yearA !== yearB) return yearB - yearA;
+        
+        const monthA = monthOrder[a.month || a.id.split('_')[0]] || 0;
+        const monthB = monthOrder[b.month || b.id.split('_')[0]] || 0;
+        return monthB - monthA;
+      });
   };
 
   const searchResults = students.filter(s =>
