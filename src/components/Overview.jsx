@@ -58,7 +58,7 @@ const Overview = () => {
         monthsFull.forEach(m => { monthYear[m] = { ...initialYearObj }; });
         
         const genderYear = { "Male": { ...initialYearObj }, "Female": { ...initialYearObj } };
-        const laptopYear = { "Has Laptop": { ...initialYearObj }, "No Laptop": { ...initialYearObj }, "Provided By Ins.": { ...initialYearObj } };
+        const laptopYear = { "Has Laptop": { ...initialYearObj }, "No! Provided By ins": { ...initialYearObj } };
         const statusYear = { "dropout": { ...initialYearObj }, "coursecomplete": { ...initialYearObj }, "active": { ...initialYearObj } };
         const totalsByStatus = { active: 0, coursecomplete: 0, dropout: 0 };
         const courseYear = {};
@@ -248,7 +248,7 @@ const Overview = () => {
       <div style={styles.advancedGrid}>
         <AnalyticsTable title="Student Count By Month and Year" columns={yearsList} data={advancedStats.monthYear} rowLabelKey="Month" rowKeys={monthsFull} />
         <AnalyticsTable title="Student Count By Gender and Year" columns={yearsList} data={advancedStats.genderYear} rowLabelKey="Gender" rowKeys={["Male", "Female"]} />
-        <AnalyticsTable title="Student Count By Laptop Status and Year" columns={yearsList} data={advancedStats.laptopYear} rowLabelKey="Laptop" rowKeys={["Has Laptop", "No Laptop", "Provided By Ins."]} />
+        <AnalyticsTable title="Student Count By Laptop Status and Year" columns={yearsList} data={advancedStats.laptopYear} rowLabelKey="Laptop" rowKeys={["Has Laptop", "No! Provided By ins"]} />
         <AnalyticsTable title="Student Count By Student Status" columns={yearsList} data={advancedStats.statusYear} rowLabelKey="Student Status" rowKeys={["dropout", "coursecomplete", "active"]} />
         
         <div style={styles.tableCard}>

@@ -29,7 +29,7 @@ export const generateTechflexRecord = async (studentsData, coursesData, feesData
 
     const revenueByYearMonth = {};
     const genderYear = { "Male": {}, "Female": {} };
-    const laptopYear = { "Has Laptop": {}, "No Laptop": {}, "Provided By Ins.": {} };
+    const laptopYear = { "Has Laptop": {}, "No! Provided By ins": {} };
     const statusYear = { "dropout": {}, "coursecomplete": {}, "active": {} };
     const totalsByStatus = { active: 0, coursecomplete: 0, dropout: 0 };
     const courseYear = {};
@@ -37,7 +37,7 @@ export const generateTechflexRecord = async (studentsData, coursesData, feesData
     yearsList.forEach(y => {
        revenueByYearMonth[y] = {};
        genderYear["Male"][y] = 0; genderYear["Female"][y] = 0;
-       laptopYear["Has Laptop"][y] = 0; laptopYear["No Laptop"][y] = 0; laptopYear["Provided By Ins."][y] = 0;
+       laptopYear["Has Laptop"][y] = 0; laptopYear["No! Provided By ins"][y] = 0;
        statusYear["dropout"][y] = 0; statusYear["coursecomplete"][y] = 0; statusYear["active"][y] = 0;
     });
 
@@ -261,7 +261,7 @@ export const generateTechflexRecord = async (studentsData, coursesData, feesData
     };
 
     writeTable('Gender', genderYear, ['Male', 'Female']);
-    writeTable('Laptop', laptopYear, ['Has Laptop', 'No Laptop', 'Provided By Ins.']);
+    writeTable('Laptop', laptopYear, ['Has Laptop', 'No! Provided By ins']);
     writeTable('Student Status', statusYear, ['dropout', 'coursecomplete', 'active']);
 
     dashboardWs.addRow([]);

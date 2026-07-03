@@ -16,7 +16,7 @@ const Students = () => {
   const [filterCourse, setFilterCourse] = useState('');
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState({ type: '', msg: '' });
-  const [sortOrder, setSortOrder] = useState('asc');
+  const [sortOrder, setSortOrder] = useState('desc');
 
   const today = new Date().toISOString().split('T')[0];
 
@@ -223,7 +223,8 @@ const Students = () => {
 
   const filteredStudents = students.filter(s => {
     const matchesSearch = s.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (s.contact && s.contact.includes(searchTerm));
+      (s.contact && s.contact.includes(searchTerm)) ||
+      (s.student_id && s.student_id.toLowerCase().includes(searchTerm.toLowerCase()));
     const matchesCourse = filterCourse === '' || Object.keys(s.enrolled_courses || {}).includes(filterCourse);
     return matchesSearch && matchesCourse;
   }).sort((a, b) => {
@@ -247,8 +248,7 @@ const Students = () => {
       <select name="laptop_status" value={formData.laptop_status} onChange={handleChange} required style={styles.select}>
         <option value="">Laptop</option>
         <option value="Has Laptop">Has Laptop</option>
-        <option value="No Laptop">No Laptop</option>
-        <option value="Provided By Ins.">Provided By Ins.</option>
+        <option value="No! Provided By ins">No! Provided By ins</option>
       </select>
 
       {!isEditing && (
