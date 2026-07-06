@@ -13,7 +13,8 @@ const CourseEnrollment = () => {
 
   const [formData, setFormData] = useState({
     courseId: '',
-    agreed_monthly_fee: ''
+    agreed_monthly_fee: '',
+    startDate: new Date().toISOString().split('T')[0]
   });
 
   useEffect(() => {
@@ -47,6 +48,7 @@ const CourseEnrollment = () => {
     const courseId = e.target.value;
     const course = courses.find(c => c.id === courseId);
     setFormData({
+      ...formData,
       courseId,
       agreed_monthly_fee: course ? course.base_fee : ''
     });
@@ -67,11 +69,21 @@ const CourseEnrollment = () => {
     setLoading(true);
     const selectedCourseData = courses.find(c => c.id === formData.courseId);
 
+    const getLocalDateIso = (dateStr) => {
+      const [year, month, day] = dateStr.split('-');
+      const d = new Date(year, month - 1, day);
+      return d.toISOString();
+    };
+
+    const enrolledDateIso = formData.startDate 
+      ? getLocalDateIso(formData.startDate) 
+      : new Date().toISOString();
+
     const newCourseEntry = {
       course_name: selectedCourseData.name,
       duration: selectedCourseData.duration,
       agreed_monthly_fee: Number(formData.agreed_monthly_fee),
-      enrolledAt: new Date().toISOString(),
+      enrolledAt: enrolledDateIso,
       course_status: 'active'
     };
 
@@ -82,7 +94,7 @@ const CourseEnrollment = () => {
 
       await update(ref(db), updates);
       toast.success(`Enrolled ${selectedStudent.name} in ${selectedCourseData.name}`);
-      setFormData({ courseId: '', agreed_monthly_fee: '' });
+      setFormData({ courseId: '', agreed_monthly_fee: '', startDate: new Date().toISOString().split('T')[0] });
     } catch (err) {
       toast.error("Enrollment failed: " + err.message);
     } finally {
@@ -191,7 +203,18 @@ const CourseEnrollment = () => {
               </div>
 
               <div style={styles.section}>
-                <label style={styles.label}>3. Negotiated Monthly Fee</label>
+                <label style={styles.label}>3. Start Date</label>
+                <input
+                  type="date"
+                  value={formData.startDate}
+                  onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
+                  style={styles.input}
+                  required
+                />
+              </div>
+
+              <div style={styles.section}>
+                <label style={styles.label}>4. Negotiated Monthly Fee</label>
                 <input
                   type="number"
                   value={formData.agreed_monthly_fee}

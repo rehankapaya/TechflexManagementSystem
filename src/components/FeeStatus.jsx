@@ -83,7 +83,31 @@ const FeeStatus = () => {
         const enrollDate = new Date(courseInfo.enrolledAt);
         const endDate = courseInfo.course_status_date ? new Date(courseInfo.course_status_date) : new Date();
         const startBoundary = new Date(enrollDate.getFullYear(), enrollDate.getMonth(), 1);
-        const endBoundary = new Date(endDate.getFullYear(), endDate.getMonth(), 1);
+        
+        let endBoundary = new Date(endDate.getFullYear(), endDate.getMonth(), 1);
+        const cycleStartThisMonth = new Date(endDate.getFullYear(), endDate.getMonth(), enrollDate.getDate());
+        
+        if (endDate <= cycleStartThisMonth) {
+          endBoundary.setMonth(endBoundary.getMonth() - 1);
+        }
+        
+        if (endBoundary < startBoundary) {
+          endBoundary = new Date(startBoundary);
+        }
+
+        const isActive = (!courseInfo.course_status || courseInfo.course_status === 'active') && student.status === 'active';
+        if (isActive) {
+          let duration = 1;
+          const matchedCourse = coursesList.find(c => c.id === courseId);
+          if (matchedCourse && matchedCourse.duration) {
+            duration = parseInt(matchedCourse.duration) || 1;
+          }
+          const durationEndBoundary = new Date(enrollDate.getFullYear(), enrollDate.getMonth() + duration - 1, 1);
+          
+          if (endBoundary < durationEndBoundary) {
+            endBoundary = new Date(durationEndBoundary);
+          }
+        }
 
         selectedRange.forEach(rangeObj => {
           const currentMonthDate = new Date(rangeObj.y, monthsMap[rangeObj.m], 1);

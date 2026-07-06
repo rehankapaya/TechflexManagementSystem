@@ -59,7 +59,17 @@ const OverdueFees = () => {
         const endDate = courseInfo.course_status_date ? new Date(courseInfo.course_status_date) : today;
         
         const startBoundary = new Date(enrollDate.getFullYear(), enrollDate.getMonth(), 1);
-        const endBoundary = new Date(endDate.getFullYear(), endDate.getMonth(), 1);
+        
+        let endBoundary = new Date(endDate.getFullYear(), endDate.getMonth(), 1);
+        const cycleStartThisMonth = new Date(endDate.getFullYear(), endDate.getMonth(), enrollDate.getDate());
+        
+        if (endDate <= cycleStartThisMonth) {
+          endBoundary.setMonth(endBoundary.getMonth() - 1);
+        }
+        
+        if (endBoundary < startBoundary) {
+          endBoundary = new Date(startBoundary);
+        }
 
         // Limit the end boundary to the current month to avoid future overdue items 
         // that haven't occurred yet.
