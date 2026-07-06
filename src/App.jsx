@@ -10,6 +10,7 @@ import Courses from './components/Courses';
 import Students from './components/Students';
 import Fees from './components/Fees';
 import FeeStatus from './components/FeeStatus';
+import OverdueFees from './components/OverdueFees';
 import StudentStatus from './components/StudentStatus';
 import CourseEnrollment from './components/CourseEnrollment';
 import MonthlyAnalytics from './components/MonthlyAnalytics';
@@ -138,6 +139,14 @@ function App() {
               element={
                 <ProtectedRoute>
                   <FeeStatus />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="overdue"
+              element={
+                <ProtectedRoute>
+                  <OverdueFees />
                 </ProtectedRoute>
               }
             />

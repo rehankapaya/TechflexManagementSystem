@@ -81,10 +81,15 @@ const StudentStatus = () => {
       return;
     }
 
+    const parseLocalDate = (dateStr) => {
+      const [year, month, day] = dateStr.split('-');
+      return new Date(year, month - 1, day);
+    };
+
     setLoading(true);
     try {
       const student = students.find(s => s.id === studentId);
-      const updateDate = customStatusDate ? new Date(customStatusDate).toISOString() : new Date().toISOString();
+      const updateDate = customStatusDate ? parseLocalDate(customStatusDate).toISOString() : new Date().toISOString();
       const currentCourseData = student.enrolled_courses[courseId];
 
       const masterUpdate = {
@@ -106,7 +111,7 @@ const StudentStatus = () => {
       }
 
       if (customStartDate) {
-        masterUpdate[`students/${studentId}/enrolled_courses/${courseId}/enrolledAt`] = new Date(customStartDate).toISOString();
+        masterUpdate[`students/${studentId}/enrolled_courses/${courseId}/enrolledAt`] = parseLocalDate(customStartDate).toISOString();
       }
 
       await update(ref(db), masterUpdate);
