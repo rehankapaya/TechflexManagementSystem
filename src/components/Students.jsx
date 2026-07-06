@@ -22,8 +22,25 @@ const Students = () => {
 
   const [formData, setFormData] = useState({
     name: '', contact: '', gender: '', courseId: '', laptop_status: '',
-    agreed_monthly_fee: '', admission_fee: '', createdAt: today
+    agreed_monthly_fee: '', admission_fee: '', createdAt: today,
+    class_type: '', timeslot: ''
   });
+
+  const getTimeslotOptions = (classType) => {
+    if (classType === 'Regular (1 Hour)') {
+      return [
+        "3:00 PM - 4:00 PM", "4:00 PM - 5:00 PM", "5:00 PM - 6:00 PM",
+        "6:00 PM - 7:00 PM", "7:00 PM - 8:00 PM", "8:00 PM - 9:00 PM",
+        "9:00 PM - 10:00 PM"
+      ];
+    } else if (classType === 'Alternate (2 Hours)') {
+      return [
+        "3:00 PM - 5:00 PM", "4:00 PM - 6:00 PM", "5:00 PM - 7:00 PM",
+        "6:00 PM - 8:00 PM", "7:00 PM - 9:00 PM", "8:00 PM - 10:00 PM"
+      ];
+    }
+    return [];
+  };
 
   // --- NEW: Export to Excel Function ---
   const downloadExcel = () => {
@@ -77,7 +94,12 @@ const Students = () => {
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
+    
+    if (name === 'class_type') {
+      setFormData(prev => ({ ...prev, class_type: value, timeslot: '' }));
+    } else {
+      setFormData(prev => ({ ...prev, [name]: value }));
+    }
 
     if (name === 'courseId' && !isEditing) {
       const selectedCourse = courses.find(c => c.id === value);
@@ -114,6 +136,8 @@ const Students = () => {
             [courseId]: {
               ...currentStudent.enrolled_courses[courseId],
               agreed_monthly_fee: Number(formData.agreed_monthly_fee),
+              class_type: formData.class_type,
+              timeslot: formData.timeslot,
             }
           }
         };
@@ -153,7 +177,9 @@ const Students = () => {
               duration: courseDuration,
               agreed_monthly_fee: Number(formData.agreed_monthly_fee),
               enrolledAt: admissionDateTime,
-              course_status: "active"
+              course_status: "active",
+              class_type: formData.class_type,
+              timeslot: formData.timeslot
             }
           }
         };
@@ -166,7 +192,7 @@ const Students = () => {
           toast.success(`Request Sent: ${customId}`);
         }
       }
-      setFormData({ name: '', contact: '', gender: '', courseId: '', laptop_status: '', agreed_monthly_fee: '', admission_fee: '', createdAt: today });
+      setFormData({ name: '', contact: '', gender: '', courseId: '', laptop_status: '', agreed_monthly_fee: '', admission_fee: '', createdAt: today, class_type: '', timeslot: '' });
     } catch (err) {
       toast.error(err.message);
     } finally {
@@ -201,17 +227,19 @@ const Students = () => {
 
   const startEdit = (student) => {
     const courseKey = Object.keys(student.enrolled_courses || {})[0];
-    const courseData = student.enrolled_courses[courseKey];
+    const courseData = student.enrolled_courses ? student.enrolled_courses[courseKey] : null;
     setIsEditing(student.id);
     setFormData({
       name: student.name,
       contact: student.contact || '',
       gender: student.gender || '',
       laptop_status: student.laptop_status || '',
-      courseId: courseKey,
-      agreed_monthly_fee: courseData.agreed_monthly_fee,
+      courseId: courseKey || '',
+      agreed_monthly_fee: courseData ? courseData.agreed_monthly_fee : '',
       admission_fee: student.admission_fee || '',
-      createdAt: student.createdAt ? student.createdAt.split('T')[0] : today
+      createdAt: student.createdAt ? student.createdAt.split('T')[0] : today,
+      class_type: courseData ? (courseData.class_type || '') : '',
+      timeslot: courseData ? (courseData.timeslot || '') : ''
     });
   };
 
@@ -258,6 +286,19 @@ const Students = () => {
         </select>
       )}
 
+      <select name="class_type" value={formData.class_type} onChange={handleChange} required style={styles.select}>
+        <option value="">Class Type</option>
+        <option value="Regular (1 Hour)">Regular (1 Hour)</option>
+        <option value="Alternate (2 Hours)">Alternate (2 Hours)</option>
+      </select>
+
+      <select name="timeslot" value={formData.timeslot} onChange={handleChange} required style={styles.select} disabled={!formData.class_type}>
+        <option value="">Timeslot</option>
+        {getTimeslotOptions(formData.class_type).map(slot => (
+          <option key={slot} value={slot}>{slot}</option>
+        ))}
+      </select>
+
       <input type="date" name="createdAt" value={formData.createdAt} onChange={handleChange} required style={styles.inputSmall} title="Admission Date" />
 
       {!isEditing && (
@@ -271,7 +312,7 @@ const Students = () => {
       </button>
 
       {isEditing && (
-        <button type="button" onClick={() => { setIsEditing(null); setFormData({ name: '', contact: '', gender: '', laptop_status: '', courseId: '', agreed_monthly_fee: '', admission_fee: '', createdAt: today }) }} style={styles.btnCancel}>
+        <button type="button" onClick={() => { setIsEditing(null); setFormData({ name: '', contact: '', gender: '', laptop_status: '', courseId: '', agreed_monthly_fee: '', admission_fee: '', createdAt: today, class_type: '', timeslot: '' }) }} style={styles.btnCancel}>
           ✕
         </button>
       )}

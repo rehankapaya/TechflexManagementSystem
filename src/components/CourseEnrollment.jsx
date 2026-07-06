@@ -14,8 +14,26 @@ const CourseEnrollment = () => {
   const [formData, setFormData] = useState({
     courseId: '',
     agreed_monthly_fee: '',
-    startDate: new Date().toISOString().split('T')[0]
+    startDate: new Date().toISOString().split('T')[0],
+    class_type: '',
+    timeslot: ''
   });
+
+  const getTimeslotOptions = (classType) => {
+    if (classType === 'Regular (1 Hour)') {
+      return [
+        "3:00 PM - 4:00 PM", "4:00 PM - 5:00 PM", "5:00 PM - 6:00 PM",
+        "6:00 PM - 7:00 PM", "7:00 PM - 8:00 PM", "8:00 PM - 9:00 PM",
+        "9:00 PM - 10:00 PM"
+      ];
+    } else if (classType === 'Alternate (2 Hours)') {
+      return [
+        "3:00 PM - 5:00 PM", "4:00 PM - 6:00 PM", "5:00 PM - 7:00 PM",
+        "6:00 PM - 8:00 PM", "7:00 PM - 9:00 PM", "8:00 PM - 10:00 PM"
+      ];
+    }
+    return [];
+  };
 
   useEffect(() => {
     const studentsRef = ref(db, 'students');
@@ -84,7 +102,9 @@ const CourseEnrollment = () => {
       duration: selectedCourseData.duration,
       agreed_monthly_fee: Number(formData.agreed_monthly_fee),
       enrolledAt: enrolledDateIso,
-      course_status: 'active'
+      course_status: 'active',
+      class_type: formData.class_type,
+      timeslot: formData.timeslot
     };
 
     try {
@@ -94,7 +114,7 @@ const CourseEnrollment = () => {
 
       await update(ref(db), updates);
       toast.success(`Enrolled ${selectedStudent.name} in ${selectedCourseData.name}`);
-      setFormData({ courseId: '', agreed_monthly_fee: '', startDate: new Date().toISOString().split('T')[0] });
+      setFormData({ courseId: '', agreed_monthly_fee: '', startDate: new Date().toISOString().split('T')[0], class_type: '', timeslot: '' });
     } catch (err) {
       toast.error("Enrollment failed: " + err.message);
     } finally {
@@ -177,7 +197,12 @@ const CourseEnrollment = () => {
                 {selectedStudent.enrolled_courses && Object.keys(selectedStudent.enrolled_courses).length > 0 ? (
                   Object.entries(selectedStudent.enrolled_courses).map(([id, course]) => (
                     <div key={id} style={styles.courseItem}>
-                      <span>{course.course_name} <small style={{ color: '#64748B' }}>(PKR {course.agreed_monthly_fee})</small></span>
+                      <div>
+                        <div style={{ fontWeight: '600' }}>{course.course_name} <small style={{ color: '#64748B', fontWeight: 'normal' }}>(PKR {course.agreed_monthly_fee})</small></div>
+                        {course.class_type && course.timeslot && (
+                          <div style={{ fontSize: '11px', color: '#8B5CF6', marginTop: '2px' }}>⏱️ {course.class_type} | {course.timeslot}</div>
+                        )}
+                      </div>
                       <button
                         onClick={() => handleDeleteCourse(id, course.course_name)}
                         style={styles.btnDeleteCourse}
@@ -203,7 +228,37 @@ const CourseEnrollment = () => {
               </div>
 
               <div style={styles.section}>
-                <label style={styles.label}>3. Start Date</label>
+                <label style={styles.label}>3. Class Type</label>
+                <select 
+                  value={formData.class_type} 
+                  onChange={(e) => setFormData({ ...formData, class_type: e.target.value, timeslot: '' })} 
+                  style={styles.input} 
+                  required
+                >
+                  <option value="">-- Select Class Type --</option>
+                  <option value="Regular (1 Hour)">Regular (1 Hour)</option>
+                  <option value="Alternate (2 Hours)">Alternate (2 Hours)</option>
+                </select>
+              </div>
+
+              <div style={styles.section}>
+                <label style={styles.label}>4. Timeslot</label>
+                <select 
+                  value={formData.timeslot} 
+                  onChange={(e) => setFormData({ ...formData, timeslot: e.target.value })} 
+                  style={styles.input} 
+                  required 
+                  disabled={!formData.class_type}
+                >
+                  <option value="">-- Select Timeslot --</option>
+                  {getTimeslotOptions(formData.class_type).map(slot => (
+                    <option key={slot} value={slot}>{slot}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div style={styles.section}>
+                <label style={styles.label}>5. Start Date</label>
                 <input
                   type="date"
                   value={formData.startDate}
@@ -214,7 +269,7 @@ const CourseEnrollment = () => {
               </div>
 
               <div style={styles.section}>
-                <label style={styles.label}>4. Negotiated Monthly Fee</label>
+                <label style={styles.label}>6. Negotiated Monthly Fee</label>
                 <input
                   type="number"
                   value={formData.agreed_monthly_fee}

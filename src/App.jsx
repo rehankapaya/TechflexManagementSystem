@@ -13,6 +13,7 @@ import FeeStatus from './components/FeeStatus';
 import OverdueFees from './components/OverdueFees';
 import StudentStatus from './components/StudentStatus';
 import CourseEnrollment from './components/CourseEnrollment';
+import TimeslotAnalytics from './components/TimeslotAnalytics';
 import MonthlyAnalytics from './components/MonthlyAnalytics';
 import GlobalExport from './components/GlobalExport';
 import CertificateGenerator from './components/CertificateGenerator';
@@ -171,6 +172,14 @@ function App() {
               element={
                 <ProtectedRoute>
                   <CourseEnrollment />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="timeslot-analytics"
+              element={
+                <ProtectedRoute>
+                  <TimeslotAnalytics />
                 </ProtectedRoute>
               }
             />
