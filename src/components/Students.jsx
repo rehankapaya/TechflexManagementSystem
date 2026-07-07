@@ -17,6 +17,8 @@ const Students = () => {
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState({ type: '', msg: '' });
   const [sortOrder, setSortOrder] = useState('desc');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [laptopFilter, setLaptopFilter] = useState('all');
 
   const today = new Date().toISOString().split('T')[0];
 
@@ -117,7 +119,13 @@ const Students = () => {
     e.preventDefault();
     setLoading(true);
 
-    const admissionDateTime = new Date(formData.createdAt).toISOString();
+    const getLocalDateIso = (dateStr) => {
+      if (!dateStr) return new Date().toISOString();
+      if (dateStr.includes('T')) return dateStr;
+      const [year, month, day] = dateStr.split('-');
+      return new Date(year, month - 1, day, 12, 0, 0).toISOString();
+    };
+    const admissionDateTime = getLocalDateIso(formData.createdAt);
 
     try {
       if (isEditing) {
@@ -246,7 +254,7 @@ const Students = () => {
   const formatDate = (dateString) => {
     if (!dateString) return "—";
     const date = new Date(dateString);
-    return date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+    return date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'UTC' });
   };
 
   const filteredStudents = students.filter(s => {
@@ -254,68 +262,134 @@ const Students = () => {
       (s.contact && s.contact.includes(searchTerm)) ||
       (s.student_id && s.student_id.toLowerCase().includes(searchTerm.toLowerCase()));
     const matchesCourse = filterCourse === '' || Object.keys(s.enrolled_courses || {}).includes(filterCourse);
-    return matchesSearch && matchesCourse;
+    
+    const studentStatus = s.status || 'active';
+    const matchesStatus = statusFilter === 'all' || studentStatus === statusFilter;
+    
+    const matchesLaptop = laptopFilter === 'all' || s.laptop_status === laptopFilter;
+    
+    return matchesSearch && matchesCourse && matchesStatus && matchesLaptop;
   }).sort((a, b) => {
     const idA = a.student_id || "";
     const idB = b.student_id || "";
     return sortOrder === 'asc' ? idA.localeCompare(idB) : idB.localeCompare(idA);
   });
 
-  const formContent = (
-    <form onSubmit={handleSubmit} style={{ ...styles.quickForm, borderColor: isEditing ? '#3B82F6' : '#E2E8F0' }}>
-      <input type="text" name="name" placeholder="Full Name" value={formData.name} onChange={handleChange} required style={styles.input} />
-      <input type="text" name="contact" placeholder="Phone" value={formData.contact} onChange={handleChange} required style={styles.inputSmall} />
+  const handleEditCourseChange = (e) => {
+    const cid = e.target.value;
+    const editingStudent = students.find(s => s.id === isEditing);
+    if (!editingStudent) return;
+    const courseData = editingStudent.enrolled_courses ? editingStudent.enrolled_courses[cid] : null;
+    setFormData(prev => ({
+      ...prev,
+      courseId: cid,
+      agreed_monthly_fee: courseData ? courseData.agreed_monthly_fee : '',
+      class_type: courseData ? (courseData.class_type || '') : '',
+      timeslot: courseData ? (courseData.timeslot || '') : ''
+    }));
+  };
 
-      <select name="gender" value={formData.gender} onChange={handleChange} required style={styles.select}>
-        <option value="">Gender</option>
-        <option value="Male">Male</option>
-        <option value="Female">Female</option>
-        <option value="Other">Other</option>
-      </select>
+  const renderFormContent = (isEditMode) => (
+    <form onSubmit={handleSubmit} style={isEditMode ? styles.editForm : { ...styles.quickForm, borderColor: '#E2E8F0' }}>
+      <div style={isEditMode ? styles.formGroup : {}}>
+        {isEditMode && <label style={styles.label}>Full Name</label>}
+        <input type="text" name="name" placeholder="Full Name" value={formData.name} onChange={handleChange} required style={isEditMode ? styles.modalInput : styles.input} />
+      </div>
 
-      <select name="laptop_status" value={formData.laptop_status} onChange={handleChange} required style={styles.select}>
-        <option value="">Laptop</option>
-        <option value="Has Laptop">Has Laptop</option>
-        <option value="No! Provided By ins">No! Provided By ins</option>
-      </select>
+      <div style={isEditMode ? styles.formGroup : {}}>
+        {isEditMode && <label style={styles.label}>Phone</label>}
+        <input type="text" name="contact" placeholder="Phone" value={formData.contact} onChange={handleChange} required style={isEditMode ? styles.modalInput : styles.inputSmall} />
+      </div>
 
-      {!isEditing && (
+      <div style={isEditMode ? styles.formGroup : {}}>
+        {isEditMode && <label style={styles.label}>Gender</label>}
+        <select name="gender" value={formData.gender} onChange={handleChange} required style={isEditMode ? styles.modalInput : styles.select}>
+          <option value="">Gender</option>
+          <option value="Male">Male</option>
+          <option value="Female">Female</option>
+          <option value="Other">Other</option>
+        </select>
+      </div>
+
+      <div style={isEditMode ? styles.formGroup : {}}>
+        {isEditMode && <label style={styles.label}>Laptop Status</label>}
+        <select name="laptop_status" value={formData.laptop_status} onChange={handleChange} required style={isEditMode ? styles.modalInput : styles.select}>
+          <option value="">Laptop</option>
+          <option value="Has Laptop">Has Laptop</option>
+          <option value="No! Provided By ins">No! Provided By ins</option>
+        </select>
+      </div>
+
+      <div style={isEditMode ? styles.formGroup : {}}>
+        {isEditMode && <label style={styles.label}>Admission Date</label>}
+        <input type="date" name="createdAt" value={formData.createdAt} onChange={handleChange} required style={isEditMode ? styles.modalInput : styles.inputSmall} title="Admission Date" />
+      </div>
+
+      {isEditMode ? (
+        <>
+          <div style={{ ...styles.formGroup, gridColumn: '1 / -1' }}>
+            <h4 style={{ margin: '15px 0 5px 0', borderBottom: '1px solid #E2E8F0', paddingBottom: '5px', color: '#1E293B' }}>Course Settings</h4>
+          </div>
+          <div style={styles.formGroup}>
+            <label style={styles.label}>Select Enrolled Course to Edit</label>
+            <select name="courseId" value={formData.courseId} onChange={handleEditCourseChange} required style={styles.modalInput}>
+               {(() => {
+                 const editingStudent = students.find(s => s.id === isEditing);
+                 if (editingStudent && editingStudent.enrolled_courses) {
+                   return Object.keys(editingStudent.enrolled_courses).map(cid => (
+                     <option key={cid} value={cid}>{editingStudent.enrolled_courses[cid].course_name}</option>
+                   ));
+                 }
+                 return <option value="">Select Course</option>;
+               })()}
+            </select>
+          </div>
+        </>
+      ) : (
         <select name="courseId" value={formData.courseId} onChange={handleChange} required style={styles.select}>
           <option value="">Select Course</option>
           {courses.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
         </select>
       )}
 
-      <select name="class_type" value={formData.class_type} onChange={handleChange} required style={styles.select}>
-        <option value="">Class Type</option>
-        <option value="Regular (1 Hour)">Regular (1 Hour)</option>
-        <option value="Alternate (2 Hours)">Alternate (2 Hours)</option>
-      </select>
+      <div style={isEditMode ? styles.formGroup : {}}>
+        {isEditMode && <label style={styles.label}>Class Type</label>}
+        <select name="class_type" value={formData.class_type} onChange={handleChange} required style={isEditMode ? styles.modalInput : styles.select}>
+          <option value="">Class Type</option>
+          <option value="Regular (1 Hour)">Regular (1 Hour)</option>
+          <option value="Alternate (2 Hours)">Alternate (2 Hours)</option>
+        </select>
+      </div>
 
-      <select name="timeslot" value={formData.timeslot} onChange={handleChange} required style={styles.select} disabled={!formData.class_type}>
-        <option value="">Timeslot</option>
-        {getTimeslotOptions(formData.class_type).map(slot => (
-          <option key={slot} value={slot}>{slot}</option>
-        ))}
-      </select>
+      <div style={isEditMode ? styles.formGroup : {}}>
+        {isEditMode && <label style={styles.label}>Timeslot</label>}
+        <select name="timeslot" value={formData.timeslot} onChange={handleChange} required style={isEditMode ? styles.modalInput : styles.select} disabled={!formData.class_type}>
+          <option value="">Timeslot</option>
+          {getTimeslotOptions(formData.class_type).map(slot => (
+            <option key={slot} value={slot}>{slot}</option>
+          ))}
+        </select>
+      </div>
 
-      <input type="date" name="createdAt" value={formData.createdAt} onChange={handleChange} required style={styles.inputSmall} title="Admission Date" />
+      <div style={isEditMode ? styles.formGroup : {}}>
+        {isEditMode && <label style={styles.label}>Monthly Fee</label>}
+        <input type="number" name="agreed_monthly_fee" placeholder="Monthly Fee" value={formData.agreed_monthly_fee} onChange={handleChange} required style={isEditMode ? styles.modalInput : styles.inputTiny} />
+      </div>
 
-      {!isEditing && (
+      {!isEditMode && (
         <input type="number" name="admission_fee" placeholder="Adm. Fee" value={formData.admission_fee} onChange={handleChange} required style={styles.inputTiny} />
       )}
 
-      <input type="number" name="agreed_monthly_fee" placeholder="Monthly Fee" value={formData.agreed_monthly_fee} onChange={handleChange} required style={styles.inputTiny} />
-
-      <button type="submit" disabled={loading} style={styles.btnPrimary}>
-        {loading ? "..." : isEditing ? "Update" : (isAdmin ? "Enroll" : "Request")}
-      </button>
-
-      {isEditing && (
-        <button type="button" onClick={() => { setIsEditing(null); setFormData({ name: '', contact: '', gender: '', laptop_status: '', courseId: '', agreed_monthly_fee: '', admission_fee: '', createdAt: today, class_type: '', timeslot: '' }) }} style={styles.btnCancel}>
-          ✕
+      <div style={isEditMode ? { ...styles.formGroup, gridColumn: '1 / -1', display: 'flex', gap: '10px', marginTop: '10px', flexDirection: 'row' } : { display: 'flex', gap: '8px' }}>
+        <button type="submit" disabled={loading} style={isEditMode ? styles.btnPrimaryLarge : styles.btnPrimary}>
+          {loading ? "..." : isEditMode ? "Update Profile & Course" : (isAdmin ? "Enroll" : "Request")}
         </button>
-      )}
+        {isEditMode && (
+          <button type="button" onClick={() => { setIsEditing(null); setFormData({ name: '', contact: '', gender: '', laptop_status: '', courseId: '', agreed_monthly_fee: '', admission_fee: '', createdAt: today, class_type: '', timeslot: '' }) }} style={styles.btnCancelLarge}>
+            Cancel
+          </button>
+        )}
+      </div>
     </form>
   );
 
@@ -327,14 +401,14 @@ const Students = () => {
           <p style={styles.subtitle}>Registration and Course Enrollment Management</p>
         </div>
 
-        {!isEditing && formContent}
+        {!isEditing && renderFormContent(false)}
       </header>
 
       {isEditing && (
         <div style={styles.modalOverlay}>
           <div style={styles.modalContent}>
             <h3 style={{ marginTop: 0, color: '#1E293B', marginBottom: '20px' }}>Edit Student Profile 👤</h3>
-            {formContent}
+            {renderFormContent(true)}
           </div>
         </div>
       )}
@@ -390,6 +464,18 @@ const Students = () => {
             <option value="desc">Sort: ID (Desc)</option>
           </select>
 
+          <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} style={styles.filterSelect}>
+            <option value="all">Status: All</option>
+            <option value="active">Status: Active</option>
+            <option value="inactive">Status: Inactive</option>
+          </select>
+
+          <select value={laptopFilter} onChange={(e) => setLaptopFilter(e.target.value)} style={styles.filterSelect}>
+            <option value="all">Laptop: All</option>
+            <option value="Has Laptop">Has Laptop</option>
+            <option value="No! Provided By ins">No! Provided By ins</option>
+          </select>
+
           {/* ADDED EXCEL BUTTON HERE */}
           <button onClick={downloadExcel} style={styles.btnExport}>
             📥 Download Excel
@@ -403,6 +489,7 @@ const Students = () => {
                 <th style={styles.th}>S.ID</th>
                 <th style={styles.th}>Name / Gender</th>
                 <th style={styles.th}>Courses</th>
+                <th style={styles.th}>Time Slot</th>
                 <th style={styles.th}>Adm. Fee</th>
                 <th style={styles.th}>Monthly Fee</th>
                 <th style={styles.th}>Adm. Date</th>
@@ -418,8 +505,20 @@ const Students = () => {
                     <div style={styles.contactSub}>{s.contact}</div>
                   </td>
                   <td>
+                    {Object.values(s.enrolled_courses || {}).map((course, idx) => {
+                      const isActive = !course.course_status || course.course_status === 'active';
+                      return (
+                        <div key={idx} style={isActive ? styles.activeCourseTag : styles.courseTag}>
+                          {course.course_name}
+                        </div>
+                      );
+                    })}
+                  </td>
+                  <td>
                     {Object.values(s.enrolled_courses || {}).map((course, idx) => (
-                      <div key={idx} style={styles.courseTag}>{course.course_name}</div>
+                      <div key={idx} style={{ fontSize: '12px', color: '#64748B', padding: '2px 0' }}>
+                        {course.timeslot || 'N/A'}
+                      </div>
                     ))}
                   </td>
                   <td style={styles.feeCell}>PKR {s.admission_fee?.toLocaleString() || 0}</td>
@@ -477,6 +576,13 @@ const styles = {
   btnPrimary: { background: '#3B82F6', color: '#fff', border: 'none', padding: '10px 20px', borderRadius: '10px', fontWeight: '700', cursor: 'pointer' },
   btnCancel: { background: '#F1F5F9', color: '#64748B', border: 'none', width: '38px', borderRadius: '10px', cursor: 'pointer' },
 
+  editForm: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' },
+  formGroup: { display: 'flex', flexDirection: 'column', gap: '5px' },
+  label: { fontSize: '13px', fontWeight: '600', color: '#475569' },
+  modalInput: { padding: '10px 14px', borderRadius: '8px', border: '1px solid #CBD5E1', fontSize: '14px', outline: 'none', backgroundColor: '#F8FAFC' },
+  btnPrimaryLarge: { background: '#3B82F6', color: '#fff', border: 'none', padding: '10px 20px', borderRadius: '8px', fontWeight: '600', cursor: 'pointer', flex: 1 },
+  btnCancelLarge: { background: '#F1F5F9', color: '#475569', border: '1px solid #CBD5E1', padding: '10px 20px', borderRadius: '8px', fontWeight: '600', cursor: 'pointer', flex: 1 },
+
   pendingCard: { background: '#FFFBEB', padding: '24px', borderRadius: '16px', border: '1px solid #FEF3C7', marginBottom: '30px' },
   pendingTitle: { margin: '0 0 15px 0', color: '#92400E', fontSize: '16px' },
 
@@ -496,7 +602,8 @@ const styles = {
   idCell: { padding: '16px 20px', fontWeight: '700', color: '#3B82F6', fontSize: '13px' },
   nameCell: { padding: '16px 20px', fontSize: '14px' },
   contactSub: { fontSize: '11px', color: '#94A3B8', marginTop: '2px' },
-  courseTag: { fontSize: '12px', fontWeight: '600', color: '#475569', background: '#F1F5F9', padding: '2px 8px', borderRadius: '6px', marginBottom: '4px', display: 'inline-block' },
+  courseTag: { fontSize: '12px', fontWeight: '600', color: '#475569', background: '#F1F5F9', padding: '2px 8px', borderRadius: '6px', marginBottom: '4px', display: 'table', border: '1px solid #E2E8F0' },
+  activeCourseTag: { fontSize: '12px', fontWeight: '600', color: '#065F46', background: '#D1FAE5', padding: '2px 8px', borderRadius: '6px', marginBottom: '4px', display: 'table', border: '1px solid #34D399' },
   courseBadge: { fontSize: '11px', fontWeight: '700', color: '#B45309', background: '#FEF3C7', padding: '2px 8px', borderRadius: '6px', marginBottom: '4px' },
   feeCell: { padding: '16px 20px', fontSize: '13px', fontWeight: '600', color: '#1E293B' },
   dateCell: { padding: '16px 20px', color: '#64748B', fontSize: '12px' },

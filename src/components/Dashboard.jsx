@@ -107,14 +107,16 @@ const Dashboard = () => {
             />
           </div>
 
-          {isAdmin && (
-            <div className="px-4 mb-6">
-              {!sidebarCollapsed && <p className="text-[10px] font-bold text-slate-500 tracking-widest mb-4 px-2">ACADEMICS</p>}
-              <SidebarLink to="/dashboard/courses" icon={<BookOpen size={20} />} label="Courses" collapsed={sidebarCollapsed} active={isActive('/dashboard/courses')} />
-              <SidebarLink to="/dashboard/courseenrollment" icon={<PenSquare size={20} />} label="Enrollment" collapsed={sidebarCollapsed} active={isActive('/dashboard/courseenrollment')} />
-              <SidebarLink to="/dashboard/timeslot-analytics" icon={<Clock size={20} />} label="Timeslots" collapsed={sidebarCollapsed} active={isActive('/dashboard/timeslot-analytics')} />
-            </div>
-          )}
+          <div className="px-4 mb-6">
+            {!sidebarCollapsed && <p className="text-[10px] font-bold text-slate-500 tracking-widest mb-4 px-2">ACADEMICS</p>}
+            {isAdmin && (
+              <>
+                <SidebarLink to="/dashboard/courses" icon={<BookOpen size={20} />} label="Courses" collapsed={sidebarCollapsed} active={isActive('/dashboard/courses')} />
+                <SidebarLink to="/dashboard/courseenrollment" icon={<PenSquare size={20} />} label="Enrollment" collapsed={sidebarCollapsed} active={isActive('/dashboard/courseenrollment')} />
+              </>
+            )}
+            <SidebarLink to="/dashboard/timeslot-analytics" icon={<Clock size={20} />} label="Timeslots" collapsed={sidebarCollapsed} active={isActive('/dashboard/timeslot-analytics')} />
+          </div>
 
           <div className="px-4 mb-6">
             {!sidebarCollapsed && <p className="text-[10px] font-bold text-slate-500 tracking-widest mb-4 px-2">FINANCE</p>}

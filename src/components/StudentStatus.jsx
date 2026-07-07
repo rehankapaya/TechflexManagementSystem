@@ -42,7 +42,7 @@ const StudentStatus = () => {
   const formatDate = (dateString) => {
     if (!dateString) return null;
     return new Date(dateString).toLocaleDateString('en-GB', {
-      day: '2-digit', month: 'short', year: 'numeric'
+      day: '2-digit', month: 'short', year: 'numeric', timeZone: 'UTC'
     });
   };
 

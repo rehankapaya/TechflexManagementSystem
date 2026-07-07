@@ -89,7 +89,7 @@ const CourseEnrollment = () => {
 
     const getLocalDateIso = (dateStr) => {
       const [year, month, day] = dateStr.split('-');
-      const d = new Date(year, month - 1, day);
+      const d = new Date(year, month - 1, day, 12, 0, 0);
       return d.toISOString();
     };
 
