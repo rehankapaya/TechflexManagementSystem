@@ -19,6 +19,7 @@ const MONTH_ALIASES = {
 
 const normalizeMonthKey = (value = '') => {
   if (!value) return '';
+
   const parts = String(value).split(/[_\-\s/]+/).filter(Boolean);
   if (parts.length < 2) return String(value).trim();
 
@@ -133,14 +134,14 @@ const FeeStatus = () => {
         const enrollDate = new Date(courseInfo.enrolledAt);
         const endDate = courseInfo.course_status_date ? new Date(courseInfo.course_status_date) : new Date();
         const startBoundary = new Date(enrollDate.getFullYear(), enrollDate.getMonth(), 1);
-        
+
         let endBoundary = new Date(endDate.getFullYear(), endDate.getMonth(), 1);
         const cycleStartThisMonth = new Date(endDate.getFullYear(), endDate.getMonth(), enrollDate.getDate());
-        
+
         if (endDate <= cycleStartThisMonth) {
           endBoundary.setMonth(endBoundary.getMonth() - 1);
         }
-        
+
         if (endBoundary < startBoundary) {
           endBoundary = new Date(startBoundary);
         }
@@ -153,7 +154,7 @@ const FeeStatus = () => {
             duration = parseInt(matchedCourse.duration) || 1;
           }
           const durationEndBoundary = new Date(enrollDate.getFullYear(), enrollDate.getMonth() + duration - 1, 1);
-          
+
           if (endBoundary < durationEndBoundary) {
             endBoundary = new Date(durationEndBoundary);
           }
