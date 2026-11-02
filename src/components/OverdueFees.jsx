@@ -3,6 +3,50 @@ import { db } from '../firebase.js';
 import { ref, onValue } from 'firebase/database';
 import { Phone, MessageCircle } from 'lucide-react';
 
+const MONTH_ALIASES = {
+  jan: 'Jan', january: 'Jan',
+  feb: 'Feb', february: 'Feb',
+  mar: 'Mar', march: 'Mar',
+  apr: 'Apr', april: 'Apr',
+  may: 'May',
+  jun: 'Jun', june: 'Jun',
+  jul: 'Jul', july: 'Jul',
+  aug: 'Aug', august: 'Aug',
+  sep: 'Sep', sept: 'Sep', september: 'Sep',
+  oct: 'Oct', october: 'Oct',
+  nov: 'Nov', november: 'Nov',
+  dec: 'Dec', december: 'Dec'
+};
+
+const normalizeMonthKey = (value = '') => {
+  if (!value) return '';
+
+  const parts = String(value).split(/[_\-\s/]+/).filter(Boolean);
+  if (parts.length < 2) return String(value).trim();
+
+  const monthPart = parts[0];
+  const yearPart = parts[parts.length - 1];
+  const normalizedMonth = MONTH_ALIASES[monthPart.toLowerCase()] || monthPart;
+
+  return `${normalizedMonth}_${yearPart}`;
+};
+
+const resolveFeeRecord = (studentId, courseId, monthKey, feesData) => {
+  const courseMap = feesData?.[studentId]?.[courseId];
+  if (!courseMap) return null;
+
+  if (courseMap[monthKey]) return courseMap[monthKey];
+
+  const targetKey = normalizeMonthKey(monthKey);
+  for (const [key, record] of Object.entries(courseMap)) {
+    if (!key) continue;
+    if (normalizeMonthKey(key) === targetKey) return record;
+    if (record?.month_key && normalizeMonthKey(record.month_key) === targetKey) return record;
+  }
+
+  return null;
+};
+
 const OverdueFees = () => {
   const [students, setStudents] = useState([]);
   const [feesData, setFeesData] = useState({});
@@ -26,25 +70,37 @@ const OverdueFees = () => {
   };
 
   const getSingleMonthStatus = (studentId, courseId, monthKey, agreedFee) => {
-    const record = feesData[studentId]?.[courseId]?.[monthKey];
-    if (!record) return { label: 'Unpaid', color: '#EF4444', bg: '#FEF2F2', paid: 0, waived: 0, balance: agreedFee };
+    const record = resolveFeeRecord(studentId, courseId, monthKey, feesData);
+    if (!record) {
+      return { label: 'Unpaid', color: '#EF4444', bg: '#FEF2F2', paid: 0, waived: 0, balance: Number(agreedFee || 0) };
+    }
 
-    const paid = Number(record.paid || 0);
-    const waived = Number(record.waived || 0);
+    const paid = Number(record.paid ?? record.amount_paid ?? record.amount ?? 0);
+    const waived = Number(record.waived ?? record.discount ?? 0);
     const totalSettled = paid + waived;
-    const balance = agreedFee - totalSettled;
+    const feeAmount = Number(agreedFee || 0);
+    const storedBalance = Number(record.balance ?? 0);
+    const computedBalance = Number.isFinite(storedBalance) && storedBalance >= 0
+      ? storedBalance
+      : Math.max(0, feeAmount - totalSettled);
 
-    if (balance <= 0) return { label: 'Paid', color: '#10B981', bg: '#DCFCE7', paid, waived, balance: 0 };
-    if (totalSettled > 0) return { label: 'Partial', color: '#F59E0B', bg: '#FFFBEB', paid, waived, balance };
-    return { label: 'Unpaid', color: '#EF4444', bg: '#FEF2F2', paid: 0, waived: 0, balance: agreedFee };
+    if (computedBalance <= 0 || totalSettled >= feeAmount) {
+      return { label: 'Paid', color: '#10B981', bg: '#DCFCE7', paid, waived, balance: 0 };
+    }
+
+    if (totalSettled > 0) {
+      return { label: 'Partial', color: '#F59E0B', bg: '#FFFBEB', paid, waived, balance: computedBalance };
+    }
+
+    return { label: 'Unpaid', color: '#EF4444', bg: '#FEF2F2', paid: 0, waived: 0, balance: feeAmount };
   };
 
   let rawList = [];
   const today = new Date();
 
   students.forEach(student => {
-    if (student.status === 'inactive') return; // Only track active students
-    
+    if (student.status === 'inactive') return;
+
     const courses = student.enrolled_courses || {};
     Object.keys(courses).forEach(courseId => {
       const courseInfo = courses[courseId];
@@ -57,27 +113,24 @@ const OverdueFees = () => {
 
         const enrollDate = new Date(courseInfo.enrolledAt);
         const endDate = courseInfo.course_status_date ? new Date(courseInfo.course_status_date) : today;
-        
+
         const startBoundary = new Date(enrollDate.getFullYear(), enrollDate.getMonth(), 1);
-        
         let endBoundary = new Date(endDate.getFullYear(), endDate.getMonth(), 1);
         const cycleStartThisMonth = new Date(endDate.getFullYear(), endDate.getMonth(), enrollDate.getDate());
-        
+
         if (endDate <= cycleStartThisMonth) {
           endBoundary.setMonth(endBoundary.getMonth() - 1);
         }
-        
+
         if (endBoundary < startBoundary) {
           endBoundary = new Date(startBoundary);
         }
 
-        // Limit the end boundary to the current month to avoid future overdue items 
-        // that haven't occurred yet.
         const currentMonthBoundary = new Date(today.getFullYear(), today.getMonth(), 1);
         const actualEndBoundary = endBoundary > currentMonthBoundary ? currentMonthBoundary : endBoundary;
 
         let current = new Date(startBoundary);
-        
+
         while (current <= actualEndBoundary) {
           const mLabel = current.toLocaleString('default', { month: 'short' });
           const yLabel = current.getFullYear();
@@ -85,42 +138,35 @@ const OverdueFees = () => {
 
           const status = getSingleMonthStatus(student.id, courseId, monthKey, courseInfo.agreed_monthly_fee);
 
-          // Only consider unpaid or partial payments
           if (status.balance > 0) {
-            // Calculate due date
-            // Due date is 10 days after the enrollment date day of the month for that specific billing month
             const enrollmentDay = enrollDate.getDate();
             const dueDateDay = enrollmentDay + 10;
-            
-            // Note: If enrollmentDay is 25, dueDateDay is 35. Date constructor handles overflow automatically
             const dueDate = new Date(current.getFullYear(), current.getMonth(), dueDateDay);
-            
-            // Remove time component for accurate comparison
-            dueDate.setHours(0,0,0,0);
+            dueDate.setHours(0, 0, 0, 0);
+
             const todayDate = new Date();
-            todayDate.setHours(0,0,0,0);
+            todayDate.setHours(0, 0, 0, 0);
 
             if (todayDate > dueDate) {
-               // Calculate how many days overdue
-               const timeDiff = todayDate.getTime() - dueDate.getTime();
-               const daysOverdue = Math.ceil(timeDiff / (1000 * 3600 * 24));
+              const timeDiff = todayDate.getTime() - dueDate.getTime();
+              const daysOverdue = Math.ceil(timeDiff / (1000 * 3600 * 24));
 
-               rawList.push({
-                 studentId: student.student_id,
-                 name: student.name,
-                 phone: student.contact || '',
-                 studentStatus: student.status,
-                 courseName: courseInfo.course_name,
-                 monthStr: `${mLabel} ${yLabel}`,
-                 agreedFee: courseInfo.agreed_monthly_fee,
-                 dueDateStr: dueDate.toLocaleDateString('en-GB'),
-                 daysOverdue: daysOverdue,
-                 sortValue: dueDate.getTime(), // Sort by oldest due date
-                 balance: status.balance,
-                 paid: status.paid,
-                 waived: status.waived,
-                 label: status.label
-               });
+              rawList.push({
+                studentId: student.student_id,
+                name: student.name,
+                phone: student.contact || '',
+                studentStatus: student.status,
+                courseName: courseInfo.course_name,
+                monthStr: `${mLabel} ${yLabel}`,
+                agreedFee: courseInfo.agreed_monthly_fee,
+                dueDateStr: dueDate.toLocaleDateString('en-GB'),
+                daysOverdue: daysOverdue,
+                sortValue: dueDate.getTime(),
+                balance: status.balance,
+                paid: status.paid,
+                waived: status.waived,
+                label: status.label
+              });
             }
           }
 
@@ -142,7 +188,6 @@ const OverdueFees = () => {
     } else {
       grouped[key].monthsList.push(item.monthStr);
       grouped[key].totalBalance += item.balance;
-      // keep the oldest due date
       if (item.sortValue < grouped[key].sortValue) {
         grouped[key].sortValue = item.sortValue;
         grouped[key].dueDateStr = item.dueDateStr;
@@ -152,8 +197,6 @@ const OverdueFees = () => {
   });
 
   const finalDisplayList = Object.values(grouped);
-
-  // Sort by oldest due date first (most urgent)
   finalDisplayList.sort((a, b) => a.sortValue - b.sortValue);
 
   const exportToExcel = () => {
@@ -179,7 +222,7 @@ const OverdueFees = () => {
   const handleWhatsApp = (phone, name, monthsStr, balance, dueDateStr) => {
     if (!phone) return alert("No phone number found for this student.");
     const cleanPhone = phone.replace(/[^0-9]/g, '');
-    const message = `Hello ${name}, this is a gentle reminder that your fee of PKR ${balance} for the month(s) of ${monthsStr} was due on ${dueDateStr}. Kindly clear it at your earliest convenience. Thank you.`;
+    const message = `Hello ${name}, this is a gentle reminder that your fee of PKR ${balance} for the month(s) of ${monthsStr} was due on ${dueDateStr}. Kindly clear it at your earliest convenience.`;
     window.open(`https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`, '_blank');
   };
 
@@ -298,7 +341,8 @@ const styles = {
   summaryCard: { padding: '20px', borderRadius: '12px' },
   btnExport: { backgroundColor: '#10b981', color: '#fff', border: 'none', padding: '10px 18px', borderRadius: '10px', fontWeight: '700', cursor: 'pointer' },
   btnReset: { backgroundColor: '#f1f5f9', color: '#475569', border: '1px solid #e2e8f0', padding: '10px 18px', borderRadius: '10px', fontWeight: '600', cursor: 'pointer' },
-  filterSection: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', backgroundColor: '#fff', padding: '16px', borderRadius: '14px', border: '1px solid #e2e8f0', marginBottom: '20px', flexWrap: 'wrap', gap: '20px' },
+  filterSection: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', backgroundColor: '#fff', padding: '16px', borderRadius: '14px', border: '1px solid #e2e8f0', marginBottom: '20px' },
+  searchWrapper: { display: 'flex', flexDirection: 'column', gap: '6px' },
   miniLabel: { display: 'block', fontSize: '11px', fontWeight: '800', color: '#94a3b8', textTransform: 'uppercase', marginBottom: '6px' },
   searchInput: { padding: '10px 14px', borderRadius: '8px', border: '1px solid #cbd5e1', width: '250px', outline: 'none', fontSize: '14px' },
   card: { background: '#fff', borderRadius: '16px', border: '1px solid #e2e8f0', overflow: 'hidden', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)' },
@@ -314,8 +358,8 @@ const styles = {
   dangerCell: { padding: '16px 20px', color: '#DC2626', fontWeight: '800', fontSize: '13px' },
   balanceCell: { padding: '16px 20px', fontWeight: '800', fontSize: '14px' },
   actionCell: { padding: '12px 20px', display: 'flex', gap: '8px' },
-  actionBtnWA: { display: 'flex', alignItems: 'center', gap: '5px', backgroundColor: '#22c55e', color: '#fff', border: 'none', padding: '6px 12px', borderRadius: '6px', fontSize: '12px', fontWeight: '600', cursor: 'pointer' },
-  actionBtnCall: { display: 'flex', alignItems: 'center', gap: '5px', backgroundColor: '#3b82f6', color: '#fff', border: 'none', padding: '6px 12px', borderRadius: '6px', fontSize: '12px', fontWeight: '600', cursor: 'pointer', textDecoration: 'none' },
+  actionBtnWA: { display: 'flex', alignItems: 'center', gap: '5px', backgroundColor: '#22c55e', color: '#fff', border: 'none', padding: '6px 12px', borderRadius: '6px', fontSize: '12px', fontWeight: '700', cursor: 'pointer' },
+  actionBtnCall: { display: 'flex', alignItems: 'center', gap: '5px', backgroundColor: '#3b82f6', color: '#fff', border: 'none', padding: '6px 12px', borderRadius: '6px', fontSize: '12px', fontWeight: '700', textDecoration: 'none' },
   monthsWrapper: { display: 'flex', flexWrap: 'wrap', gap: '4px', maxWidth: '180px' },
   monthBadge: { backgroundColor: '#f1f5f9', color: '#475569', fontSize: '11px', padding: '4px 8px', borderRadius: '4px', border: '1px solid #e2e8f0', whiteSpace: 'nowrap' },
   empty: { textAlign: 'center', padding: '50px', color: '#94a3b8' }
