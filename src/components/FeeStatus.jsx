@@ -2,6 +2,49 @@ import React, { useState, useEffect } from 'react';
 import { db } from '../firebase.js';
 import { ref, onValue } from 'firebase/database';
 
+const MONTH_ALIASES = {
+  jan: 'Jan', january: 'Jan',
+  feb: 'Feb', february: 'Feb',
+  mar: 'Mar', march: 'Mar',
+  apr: 'Apr', april: 'Apr',
+  may: 'May',
+  jun: 'Jun', june: 'Jun',
+  jul: 'Jul', july: 'Jul',
+  aug: 'Aug', august: 'Aug',
+  sep: 'Sep', sept: 'Sep', september: 'Sep',
+  oct: 'Oct', october: 'Oct',
+  nov: 'Nov', november: 'Nov',
+  dec: 'Dec', december: 'Dec'
+};
+
+const normalizeMonthKey = (value = '') => {
+  if (!value) return '';
+  const parts = String(value).split(/[_\-\s/]+/).filter(Boolean);
+  if (parts.length < 2) return String(value).trim();
+
+  const monthPart = parts[0];
+  const yearPart = parts[parts.length - 1];
+  const normalizedMonth = MONTH_ALIASES[monthPart.toLowerCase()] || monthPart;
+
+  return `${normalizedMonth}_${yearPart}`;
+};
+
+const resolveFeeRecord = (studentId, courseId, monthKey, feesData) => {
+  const courseMap = feesData?.[studentId]?.[courseId];
+  if (!courseMap) return null;
+
+  if (courseMap[monthKey]) return courseMap[monthKey];
+
+  const targetKey = normalizeMonthKey(monthKey);
+  for (const [key, record] of Object.entries(courseMap)) {
+    if (!key) continue;
+    if (normalizeMonthKey(key) === targetKey) return record;
+    if (record?.month_key && normalizeMonthKey(record.month_key) === targetKey) return record;
+  }
+
+  return null;
+};
+
 const FeeStatus = () => {
   const [students, setStudents] = useState([]);
   const [feesData, setFeesData] = useState({});
@@ -52,19 +95,26 @@ const FeeStatus = () => {
     return range;
   };
 
-  // --- FIXED LOGIC ---
   const getSingleMonthStatus = (studentId, courseId, monthKey, agreedFee) => {
-    const record = feesData[studentId]?.[courseId]?.[monthKey];
-    if (!record) return { label: 'Unpaid', color: '#EF4444', bg: '#FEF2F2', paid: 0, waived: 0, balance: agreedFee };
+    const record = resolveFeeRecord(studentId, courseId, monthKey, feesData);
+    if (!record) return { label: 'Unpaid', color: '#EF4444', bg: '#FEF2F2', paid: 0, waived: 0, balance: Number(agreedFee || 0) };
 
-    const paid = Number(record.paid || 0);
-    const waived = Number(record.waived || 0);
+    const paid = Number(record.paid ?? record.amount_paid ?? record.amount ?? 0);
+    const waived = Number(record.waived ?? record.discount ?? 0);
     const totalSettled = paid + waived;
-    const balance = agreedFee - totalSettled;
+    const feeAmount = Number(agreedFee || 0);
+    const storedBalance = Number(record.balance ?? 0);
+    const computedBalance = Number.isFinite(storedBalance) && storedBalance >= 0
+      ? storedBalance
+      : Math.max(0, feeAmount - totalSettled);
 
-    if (balance <= 0) return { label: 'Paid', color: '#10B981', bg: '#DCFCE7', paid, waived, balance: 0 };
-    if (totalSettled > 0) return { label: 'Partial', color: '#F59E0B', bg: '#FFFBEB', paid, waived, balance };
-    return { label: 'Unpaid', color: '#EF4444', bg: '#FEF2F2', paid: 0, waived: 0, balance: agreedFee };
+    if (computedBalance <= 0 || totalSettled >= feeAmount) {
+      return { label: 'Paid', color: '#10B981', bg: '#DCFCE7', paid, waived, balance: 0 };
+    }
+    if (totalSettled > 0) {
+      return { label: 'Partial', color: '#F59E0B', bg: '#FFFBEB', paid, waived, balance: computedBalance };
+    }
+    return { label: 'Unpaid', color: '#EF4444', bg: '#FEF2F2', paid: 0, waived: 0, balance: feeAmount };
   };
 
   let finalDisplayList = [];
@@ -133,7 +183,6 @@ const FeeStatus = () => {
   finalDisplayList.sort((a, b) => b.sortValue - a.sortValue);
 
   const exportToExcel = () => {
-    // ADDED WAIVED TO HEADERS AND ROWS
     const headers = ["ID", "Student Name", "Status", "Course", "Month", "Year", "Monthly Fee", "Paid", "Waived", "Balance", "Fee Status"];
     const rows = finalDisplayList.map(item => [
       item.studentId,
@@ -144,7 +193,7 @@ const FeeStatus = () => {
       item.year,
       item.agreedFee,
       item.paid,
-      item.waived, // Exporting the waived amount
+      item.waived,
       item.balance,
       item.label
     ]);
@@ -235,7 +284,6 @@ const FeeStatus = () => {
                   <td style={styles.dateCell}>{item.month} {item.year}</td>
                   <td style={styles.feeCell}>PKR {item.agreedFee.toLocaleString()}</td>
                   <td style={styles.paidCell}>{item.paid > 0 ? `PKR ${item.paid.toLocaleString()}` : '—'}</td>
-                  {/* DISPLAY WAIVED AMOUNT IN TABLE */}
                   <td style={{ ...styles.paidCell, color: '#64748b' }}>{item.waived > 0 ? `PKR ${item.waived.toLocaleString()}` : '—'}</td>
                   <td style={{ ...styles.balanceCell, color: item.balance > 0 ? '#EF4444' : '#10B981' }}>
                     {item.balance > 0 ? `PKR ${item.balance.toLocaleString()}` : 'Cleared'}
@@ -265,7 +313,7 @@ const styles = {
   subtitle: { color: '#64748b', fontSize: '13px' },
   btnExport: { backgroundColor: '#10b981', color: '#fff', border: 'none', padding: '10px 18px', borderRadius: '10px', fontWeight: '700', cursor: 'pointer' },
   btnReset: { backgroundColor: '#f1f5f9', color: '#475569', border: '1px solid #e2e8f0', padding: '10px 18px', borderRadius: '10px', fontWeight: '600', cursor: 'pointer' },
-  filterSection: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', backgroundColor: '#fff', padding: '16px', borderRadius: '14px', border: '1px solid #e2e8f0', marginBottom: '20px', flexWrap: 'wrap', gap: '20px' },
+  filterSection: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', backgroundColor: '#fff', padding: '16px', borderRadius: '14px', border: '1px solid #e2e8f0', marginBottom: '20px' },
   miniLabel: { display: 'block', fontSize: '11px', fontWeight: '800', color: '#94a3b8', textTransform: 'uppercase', marginBottom: '6px' },
   searchInput: { padding: '10px 14px', borderRadius: '8px', border: '1px solid #cbd5e1', width: '180px', outline: 'none', fontSize: '14px' },
   rangePickers: { display: 'flex', gap: '24px', flexWrap: 'wrap' },
