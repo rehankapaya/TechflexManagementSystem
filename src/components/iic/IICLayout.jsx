@@ -1,31 +1,43 @@
 import React, { useState, useEffect } from 'react';
 import { Outlet, NavLink, useLocation } from 'react-router-dom';
-import { BrainCircuit, TrendingUp, AlertTriangle, MessageSquare, BarChart, Settings, Megaphone } from 'lucide-react';
-import { fetchIICData } from '../../services/iicDataAggregator';
+import { BrainCircuit, TrendingUp, AlertTriangle, MessageSquare, BarChart, Settings, Megaphone, RefreshCw } from 'lucide-react';
+import { fetchIICData, getCachedIICData } from '../../services/iicDataAggregator';
 import toast, { Toaster } from 'react-hot-toast';
 
 const IICLayout = () => {
   const [apiKey, setApiKey] = useState('');
-  const [iicData, setIicData] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [iicData, setIicData] = useState(() => getCachedIICData());
+  const [loading, setLoading] = useState(() => !getCachedIICData());
+  const [refreshing, setRefreshing] = useState(false);
   const location = useLocation();
+
+  const loadData = async (force = false) => {
+    if (force) setRefreshing(true);
+    else if (!iicData) setLoading(true);
+
+    try {
+      const data = await fetchIICData(force);
+      setIicData(data);
+      if (force) {
+        toast.success("Intelligence Center data refreshed");
+      }
+    } catch (error) {
+      toast.error("Failed to fetch data for Intelligence Center");
+      console.error(error);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  };
 
   useEffect(() => {
     const savedKey = localStorage.getItem('IIC_GROQ_API_KEY') || import.meta.env.VITE_GROQ_API_KEY;
     if (savedKey) setApiKey(savedKey);
 
-    const loadData = async () => {
-      try {
-        const data = await fetchIICData();
-        setIicData(data);
-      } catch (error) {
-        toast.error("Failed to fetch data for Intelligence Center");
-        console.error(error);
-      } finally {
-        setLoading(false);
-      }
-    };
-    loadData();
+    // If we don't have cached data in memory/sessionStorage, load it immediately
+    if (!iicData) {
+      loadData(false);
+    }
   }, []);
 
   const saveApiKey = (e) => {
@@ -43,10 +55,11 @@ const IICLayout = () => {
     { path: '/dashboard/iic/marketing', label: 'Marketing AI', icon: <Megaphone size={18} /> },
   ];
 
-  if (loading) {
+  if (loading && !iicData) {
     return (
-      <div className="flex items-center justify-center h-full">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#8B5CF6]"></div>
+      <div className="flex flex-col items-center justify-center h-96 gap-3">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600"></div>
+        <p className="text-sm font-semibold text-slate-500">Loading Intelligence Center...</p>
       </div>
     );
   }
@@ -54,10 +67,10 @@ const IICLayout = () => {
   return (
     <div className="flex flex-col min-h-full relative font-sans text-slate-800">
       <Toaster position="top-right" />
-      {/* Settings Modal overlay if we want, or just a bar at the top */}
+      {/* Header Banner */}
       <div className="bg-gradient-to-r from-indigo-900 to-purple-900 text-white rounded-t-2xl p-6 shadow-md relative overflow-hidden shrink-0">
         <div className="absolute top-0 left-0 w-full h-full opacity-10 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')]"></div>
-        <div className="relative z-10 flex justify-between items-center">
+        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
             <h1 className="text-3xl font-extrabold tracking-tight flex items-center gap-3">
               <BrainCircuit className="text-purple-400" size={32} />
@@ -65,7 +78,18 @@ const IICLayout = () => {
             </h1>
             <p className="text-indigo-200 mt-1 font-medium">AI-powered analytics and predictive insights</p>
           </div>
-          <div className="flex flex-col items-end gap-2">
+
+          <div className="flex items-center gap-3 self-end md:self-auto">
+            <button
+              onClick={() => loadData(true)}
+              disabled={refreshing}
+              className="flex items-center gap-1.5 px-3 py-2 bg-white/10 hover:bg-white/20 text-white rounded-xl text-xs font-bold transition-all border border-white/20 backdrop-blur-sm cursor-pointer disabled:opacity-50"
+              title="Refresh Live Data from Database"
+            >
+              <RefreshCw size={14} className={refreshing ? "animate-spin" : ""} />
+              <span>{refreshing ? "Syncing..." : "Sync Data"}</span>
+            </button>
+
             <form onSubmit={saveApiKey} className="flex items-center gap-2 bg-white/10 p-2 rounded-xl backdrop-blur-sm border border-white/20">
               <Settings size={16} className="text-indigo-300 ml-2" />
               <input
@@ -73,26 +97,25 @@ const IICLayout = () => {
                 placeholder="Groq API Key..."
                 value={apiKey}
                 onChange={(e) => setApiKey(e.target.value)}
-                className="bg-transparent border-none outline-none text-sm text-white placeholder-indigo-300 w-48 px-2"
+                className="bg-transparent border-none outline-none text-sm text-white placeholder-indigo-300 w-40 px-2"
               />
-              <button type="submit" className="bg-purple-500 hover:bg-purple-600 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors">
-                Save Key
+              <button type="submit" className="bg-purple-500 hover:bg-purple-600 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors cursor-pointer">
+                Save
               </button>
             </form>
-            {!apiKey && <p className="text-xs text-red-300 animate-pulse font-medium">⚠️ API Key required for AI features</p>}
           </div>
         </div>
       </div>
 
       <div className="border-b border-slate-200 bg-white shadow-sm sticky top-0 z-10 shrink-0">
-        <nav className="flex gap-2 p-2 px-6">
+        <nav className="flex gap-2 p-2 px-6 overflow-x-auto custom-scrollbar">
           {navLinks.map((link) => {
             const isActive = link.exact ? location.pathname === link.path : location.pathname.startsWith(link.path);
             return (
               <NavLink
                 key={link.path}
                 to={link.path}
-                className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all ${isActive
+                className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all shrink-0 ${isActive
                   ? 'bg-purple-100 text-purple-700 shadow-sm'
                   : 'text-slate-500 hover:bg-slate-100 hover:text-slate-800'
                   }`}

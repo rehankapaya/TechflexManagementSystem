@@ -4,11 +4,20 @@ import { askAIAssistant } from '../../services/aiService';
 import { formatMarkdown } from '../../utils/formatMarkdown';
 import { Send, Bot, User, Sparkles, AlertCircle } from 'lucide-react';
 
+const DEFAULT_MESSAGES = [
+  { id: 1, type: 'ai', text: 'Hello! I am your Institution Intelligence Center AI Assistant. How can I help you analyze the portal data today?' }
+];
+
 const AIAssistant = () => {
   const { iicData, hasApiKey } = useOutletContext();
-  const [messages, setMessages] = useState([
-    { id: 1, type: 'ai', text: 'Hello! I am your Institution Intelligence Center AI Assistant. How can I help you analyze the portal data today?' }
-  ]);
+  const [messages, setMessages] = useState(() => {
+    try {
+      const saved = sessionStorage.getItem('IIC_CHAT_MESSAGES');
+      return saved ? JSON.parse(saved) : DEFAULT_MESSAGES;
+    } catch (e) {
+      return DEFAULT_MESSAGES;
+    }
+  });
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef(null);
@@ -19,6 +28,9 @@ const AIAssistant = () => {
 
   useEffect(() => {
     scrollToBottom();
+    try {
+      sessionStorage.setItem('IIC_CHAT_MESSAGES', JSON.stringify(messages));
+    } catch (e) {}
   }, [messages]);
 
   const handleSend = async (e) => {

@@ -1,6 +1,6 @@
 import React from 'react';
 import { useOutletContext } from 'react-router-dom';
-import { DollarSign, AlertCircle, PieChart as PieChartIcon } from 'lucide-react';
+import { DollarSign, AlertCircle, PieChart as PieChartIcon, TrendingUp } from 'lucide-react';
 import { PieChart, Pie, Cell, Tooltip as RechartsTooltip, ResponsiveContainer, Legend } from 'recharts';
 
 const FeeIntelligence = () => {
@@ -31,7 +31,7 @@ const FeeIntelligence = () => {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex flex-col justify-center">
           <p className="text-sm font-semibold text-slate-500 mb-1">Total Outstanding</p>
-          <h3 className="text-3xl font-bold text-rose-500 mb-4">${kpis.totalOutstanding.toLocaleString()}</h3>
+          <h3 className="text-3xl font-bold text-rose-500 mb-4">PKR {kpis.totalOutstanding.toLocaleString()}</h3>
           <div className="w-full bg-slate-100 rounded-full h-2">
             <div className="bg-rose-500 h-2 rounded-full" style={{ width: `${(kpis.totalOutstanding / (kpis.totalRevenue + kpis.totalOutstanding) * 100) || 0}%` }}></div>
           </div>
@@ -39,9 +39,9 @@ const FeeIntelligence = () => {
 
         <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 flex flex-col justify-center">
           <p className="text-sm font-semibold text-slate-500 mb-1">Predicted Recovery (This Month)</p>
-          <h3 className="text-3xl font-bold text-emerald-500 mb-4">${expectedRecovery.toLocaleString()}</h3>
+          <h3 className="text-3xl font-bold text-emerald-500 mb-4">PKR {expectedRecovery.toLocaleString()}</h3>
           <div className="flex items-center gap-2 text-xs font-semibold text-emerald-600 bg-emerald-50 w-max px-2.5 py-1 rounded-md">
-            <TrendingUpMock size={14} /> +4.2% Expected
+            <TrendingUp size={14} /> +4.2% Expected
           </div>
         </div>
 
@@ -105,9 +105,5 @@ const FeeIntelligence = () => {
     </div>
   );
 };
-
-const TrendingUpMock = ({ size }) => (
-  <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"></polyline><polyline points="16 7 22 7 22 13"></polyline></svg>
-);
 
 export default FeeIntelligence;

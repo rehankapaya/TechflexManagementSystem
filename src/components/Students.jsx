@@ -1,3 +1,4 @@
+import { useSearchParams } from 'react-router-dom';
 import React, { useState, useEffect } from 'react';
 import { db } from '../firebase.js';
 import { useAuth } from '../contexts/AuthContext';
@@ -23,7 +24,9 @@ import {
   ArrowUpDown,
   BookOpen,
   DollarSign,
-  ChevronDown
+  ChevronDown,
+  Eye,
+  MessageSquare
 } from 'lucide-react';
 import { parseLocalDateMidday } from '../utils/monthUtils';
 
@@ -40,6 +43,30 @@ const Students = () => {
   const [sortOrder, setSortOrder] = useState('desc');
   const [statusFilter, setStatusFilter] = useState('all');
   const [laptopFilter, setLaptopFilter] = useState('all');
+  const [searchParams] = useSearchParams();
+  const [viewingStudent, setViewingStudent] = useState(null);
+
+  useEffect(() => {
+    const q = searchParams.get('search') || searchParams.get('id');
+    if (q) {
+      setSearchTerm(q);
+    }
+  }, [searchParams]);
+
+  useEffect(() => {
+    const q = searchParams.get('search') || searchParams.get('id');
+    const autoView = searchParams.get('view') === 'true';
+    if (q && autoView && students.length > 0) {
+      const matched = students.find(s => 
+        (s.student_id && s.student_id.toLowerCase() === q.toLowerCase()) ||
+        (s.name && s.name.toLowerCase() === q.toLowerCase()) ||
+        s.id === q
+      );
+      if (matched) {
+        setViewingStudent(matched);
+      }
+    }
+  }, [searchParams, students]);
 
   const today = new Date().toISOString().split('T')[0];
 
@@ -644,13 +671,13 @@ const Students = () => {
                 <th className="px-5 py-3.5">Admission Fee</th>
                 <th className="px-5 py-3.5">Monthly Fee</th>
                 <th className="px-5 py-3.5">Admission Date</th>
-                {isAdmin && <th className="px-5 py-3.5 text-right">Actions</th>}
+                <th className="px-5 py-3.5 text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
               {filteredStudents.length === 0 ? (
                 <tr>
-                  <td colSpan={isAdmin ? 8 : 7} className="px-5 py-12 text-center text-slate-400">
+                  <td colSpan={8} className="px-5 py-12 text-center text-slate-400">
                     <User size={36} className="mx-auto mb-2 opacity-30" />
                     <p className="text-sm font-medium">No students match your filter criteria</p>
                   </td>
@@ -660,7 +687,11 @@ const Students = () => {
                   const isStudentActive = !s.status || s.status === 'active';
                   return (
                     <tr key={s.id} className="hover:bg-slate-50/60 transition-colors group">
-                      <td className="px-5 py-4 font-mono font-bold text-blue-600 text-xs">
+                      <td 
+                        onClick={() => setViewingStudent(s)}
+                        className="px-5 py-4 font-mono font-bold text-blue-600 text-xs hover:underline cursor-pointer"
+                        title="Click to view profile"
+                      >
                         {s.student_id}
                       </td>
 
@@ -674,7 +705,11 @@ const Students = () => {
                             {s.name ? s.name.charAt(0).toUpperCase() : '?'}
                           </div>
                           <div>
-                            <div className="flex items-center gap-1.5 font-semibold text-slate-800">
+                            <div 
+                              onClick={() => setViewingStudent(s)}
+                              className="flex items-center gap-1.5 font-semibold text-slate-800 hover:text-blue-600 cursor-pointer transition-colors"
+                              title="Click to view profile"
+                            >
                               <span>{s.name}</span>
                               <span className="text-[10px] px-1.5 py-0.2 bg-slate-100 text-slate-500 rounded font-normal">
                                 {s.gender || 'N/A'}
@@ -737,31 +772,40 @@ const Students = () => {
                         </div>
                       </td>
 
-                      {isAdmin && (
-                        <td className="px-5 py-4 text-right">
-                          <div className="flex items-center justify-end gap-1.5">
-                            <button
-                              onClick={() => startEdit(s)}
-                              className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors cursor-pointer"
-                              title="Edit Profile"
-                            >
-                              <Edit2 size={16} />
-                            </button>
-                            <button
-                              onClick={() => {
-                                if (window.confirm(`Delete record for ${s.name}?`)) {
-                                  remove(ref(db, `students/${s.id}`));
-                                  toast.success("Student removed");
-                                }
-                              }}
-                              className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
-                              title="Delete Student"
-                            >
-                              <Trash2 size={16} />
-                            </button>
-                          </div>
-                        </td>
-                      )}
+                      <td className="px-5 py-4 text-right">
+                        <div className="flex items-center justify-end gap-1.5">
+                          <button
+                            onClick={() => setViewingStudent(s)}
+                            className="p-1.5 text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors cursor-pointer"
+                            title="View Student Details"
+                          >
+                            <Eye size={16} />
+                          </button>
+                          {isAdmin && (
+                            <>
+                              <button
+                                onClick={() => startEdit(s)}
+                                className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors cursor-pointer"
+                                title="Edit Profile"
+                              >
+                                <Edit2 size={16} />
+                              </button>
+                              <button
+                                onClick={() => {
+                                  if (window.confirm(`Delete record for ${s.name}?`)) {
+                                    remove(ref(db, `students/${s.id}`));
+                                    toast.success("Student removed");
+                                  }
+                                }}
+                                className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
+                                title="Delete Student"
+                              >
+                                <Trash2 size={16} />
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      </td>
                     </tr>
                   );
                 })
@@ -963,8 +1007,166 @@ const Students = () => {
           </div>
         </div>
       )}
+
+      {/* VIEW STUDENT DETAILS MODAL */}
+      {viewingStudent && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div 
+            className="bg-white rounded-2xl shadow-2xl border border-slate-100 max-w-2xl w-full flex flex-col max-h-[90vh] overflow-hidden animate-in zoom-in-95 duration-200"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+              <div className="flex items-center gap-3">
+                <div className={`w-11 h-11 rounded-xl flex items-center justify-center text-white font-bold text-lg shadow-sm ${
+                  viewingStudent.gender === 'Female'
+                    ? 'bg-gradient-to-br from-pink-500 to-rose-600'
+                    : 'bg-gradient-to-br from-blue-500 to-indigo-600'
+                }`}>
+                  {viewingStudent.name ? viewingStudent.name.charAt(0).toUpperCase() : 'S'}
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h3 className="font-bold text-slate-800 text-lg leading-tight">{viewingStudent.name}</h3>
+                    <span className="px-2 py-0.5 rounded-md text-xs font-mono font-semibold bg-slate-100 text-slate-700 border border-slate-200">
+                      {viewingStudent.student_id}
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-500 mt-0.5">Comprehensive Student Profile</p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold ${
+                  (!viewingStudent.status || viewingStudent.status === 'active')
+                    ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                    : 'bg-slate-100 text-slate-600 border border-slate-200'
+                }`}>
+                  {(!viewingStudent.status || viewingStudent.status === 'active') ? 'Active' : 'Inactive'}
+                </span>
+                <button
+                  onClick={() => setViewingStudent(null)}
+                  className="text-slate-400 hover:text-slate-600 p-1.5 rounded-lg hover:bg-slate-200/60 transition-colors cursor-pointer"
+                  title="Close Dialog"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+            </div>
+
+            {/* Body */}
+            <div className="flex-1 overflow-y-auto p-6 space-y-6 custom-scrollbar">
+              {/* Quick Info Grid */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Gender</p>
+                  <p className="text-xs font-semibold text-slate-800">{viewingStudent.gender || 'N/A'}</p>
+                </div>
+                <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Laptop Status</p>
+                  <p className="text-xs font-semibold text-slate-800">{viewingStudent.laptop_status || 'N/A'}</p>
+                </div>
+                <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Admission Fee</p>
+                  <p className="text-xs font-semibold text-slate-800">PKR {Number(viewingStudent.admission_fee || 0).toLocaleString()}</p>
+                </div>
+                <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Admission Date</p>
+                  <p className="text-xs font-semibold text-slate-800">{formatDate(viewingStudent.createdAt)}</p>
+                </div>
+              </div>
+
+              {/* Contact Card */}
+              <div className="p-4 rounded-xl bg-slate-50 border border-slate-200/70 flex items-center justify-between">
+                <div>
+                  <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Contact Number</p>
+                  <p className="text-sm font-bold font-mono text-slate-800 mt-0.5">{viewingStudent.contact || 'No phone recorded'}</p>
+                </div>
+                {viewingStudent.contact && (
+                  <button
+                    onClick={() => {
+                      const digits = viewingStudent.contact.replace(/[^0-9]/g, '');
+                      const waPhone = digits.startsWith('0') ? '92' + digits.slice(1) : digits;
+                      window.open(`https://wa.me/${waPhone}`, '_blank');
+                    }}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold transition-colors cursor-pointer shadow-sm"
+                  >
+                    <MessageSquare size={13} /> Open WhatsApp
+                  </button>
+                )}
+              </div>
+
+              {/* Enrolled Courses */}
+              <div>
+                <h4 className="font-bold text-slate-800 text-sm mb-3 flex items-center gap-2">
+                  <GraduationCap size={16} className="text-blue-600" />
+                  Enrolled Courses ({Object.keys(viewingStudent.enrolled_courses || {}).length})
+                </h4>
+                <div className="space-y-2.5">
+                  {Object.entries(viewingStudent.enrolled_courses || {}).map(([cId, course]) => {
+                    const isCourseActive = !course.course_status || course.course_status === 'active';
+                    return (
+                      <div key={cId} className="p-3.5 bg-white border border-slate-200 rounded-xl">
+                        <div className="flex items-center justify-between mb-1.5">
+                          <span className="font-bold text-slate-800 text-xs truncate mr-2">{course.course_name}</span>
+                          <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold uppercase ${
+                            isCourseActive
+                              ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                              : 'bg-slate-100 text-slate-600 border border-slate-200'
+                          }`}>
+                            {isCourseActive ? 'Active' : (course.course_status || 'Inactive')}
+                          </span>
+                        </div>
+                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs text-slate-500 mt-2 pt-2 border-t border-slate-100">
+                          <div>
+                            <span className="text-slate-400 text-[11px] block">Timings:</span>
+                            <span className="font-medium text-slate-700">{course.timeslot || 'Not Assigned'}</span>
+                          </div>
+                          <div>
+                            <span className="text-slate-400 text-[11px] block">Class Type:</span>
+                            <span className="font-medium text-slate-700">{course.class_type || 'Regular'}</span>
+                          </div>
+                          <div>
+                            <span className="text-slate-400 text-[11px] block">Agreed Monthly Fee:</span>
+                            <span className="font-bold text-slate-800">PKR {Number(course.agreed_monthly_fee || 0).toLocaleString()}</span>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="px-6 py-4 border-t border-slate-100 bg-slate-50/50 flex items-center justify-between">
+              {isAdmin && (
+                <button
+                  onClick={() => {
+                    const s = viewingStudent;
+                    setViewingStudent(null);
+                    startEdit(s);
+                  }}
+                  className="inline-flex items-center gap-1.5 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition-colors cursor-pointer shadow-sm"
+                >
+                  <Edit2 size={13} /> Edit Profile
+                </button>
+              )}
+              <div className="ml-auto">
+                <button
+                  onClick={() => setViewingStudent(null)}
+                  className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-xl text-xs font-bold transition-colors cursor-pointer"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
+
 
 export default Students;

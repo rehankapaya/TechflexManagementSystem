@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
 import { useOutletContext } from 'react-router-dom';
-import { ShieldAlert, Search, Filter } from 'lucide-react';
+import { ShieldAlert, Search, Eye } from 'lucide-react';
+import StudentRiskModal from './StudentRiskModal';
 
 const StudentRisk = () => {
   const { iicData } = useOutletContext();
   const [searchTerm, setSearchTerm] = useState('');
+  const [selectedStudent, setSelectedStudent] = useState(null);
 
   if (!iicData) return null;
 
@@ -12,7 +14,8 @@ const StudentRisk = () => {
 
   const filteredAlerts = highRiskAlerts.filter(s => 
     (s.name || '').toLowerCase().includes(searchTerm.toLowerCase()) || 
-    (s.course || '').toLowerCase().includes(searchTerm.toLowerCase())
+    (s.course || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (s.student_id || '').toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   return (
@@ -28,15 +31,12 @@ const StudentRisk = () => {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
             <input 
               type="text" 
-              placeholder="Search students..." 
+              placeholder="Search by student name, ID or course..." 
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-9 pr-4 py-2 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none text-sm w-64"
+              className="pl-9 pr-4 py-2 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 outline-none text-sm w-72"
             />
           </div>
-          <button className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 rounded-xl text-sm font-semibold text-slate-600 hover:bg-slate-50">
-            <Filter size={16} /> Filter
-          </button>
         </div>
       </div>
 
@@ -47,8 +47,8 @@ const StudentRisk = () => {
               <ShieldAlert size={20} />
             </div>
             <div>
-              <h3 className="font-bold text-slate-800 text-lg">Active Alerts</h3>
-              <p className="text-sm text-slate-500">{filteredAlerts.length} students require attention based on AI heuristics.</p>
+              <h3 className="font-bold text-slate-800 text-lg">Active Risk Alerts</h3>
+              <p className="text-sm text-slate-500">{filteredAlerts.length} student{filteredAlerts.length === 1 ? '' : 's'} flagged based on overdue fees and course engagement.</p>
             </div>
           </div>
         </div>
@@ -57,36 +57,55 @@ const StudentRisk = () => {
           <table className="w-full text-left border-collapse">
             <thead className="sticky top-0 bg-white shadow-sm z-10">
               <tr className="border-b border-slate-100 text-xs font-bold text-slate-500 uppercase tracking-wider">
-                <th className="py-4 px-6">Student Name</th>
+                <th className="py-4 px-6">Student</th>
                 <th className="py-4 px-6">Course</th>
-                <th className="py-4 px-6">Risk Score</th>
+                <th className="py-4 px-6">Risk Level & Score</th>
                 <th className="py-4 px-6">Primary Risk Factors</th>
-                <th className="py-4 px-6">Suggested Action</th>
+                <th className="py-4 px-6 text-right">Action</th>
               </tr>
             </thead>
             <tbody>
               {filteredAlerts.length > 0 ? filteredAlerts.map((student) => (
                 <tr key={student.id} className="border-b border-slate-50 hover:bg-slate-50/80 transition-colors group">
                   <td className="py-4 px-6">
-                    <div className="font-bold text-slate-800">{student.name}</div>
-                    <div className="text-xs text-slate-500 font-mono mt-0.5">ID: {student.id ? student.id.slice(0,8) : 'N/A'}...</div>
+                    <div 
+                      onClick={() => setSelectedStudent(student)}
+                      className="font-bold text-slate-800 hover:text-rose-600 cursor-pointer transition-colors"
+                      title="Click to view student dossier"
+                    >
+                      {student.name}
+                    </div>
+                    <div className="text-xs text-slate-500 font-mono mt-0.5">ID: {student.student_id || student.id}</div>
                   </td>
                   <td className="py-4 px-6 text-sm text-slate-600 font-medium">{student.course}</td>
                   <td className="py-4 px-6">
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2.5">
                       <div className="w-16 h-2 bg-slate-100 rounded-full overflow-hidden">
                         <div 
-                          className={`h-full rounded-full ${student.riskScore >= 70 ? 'bg-rose-500' : 'bg-orange-400'}`}
-                          style={{ width: `${student.riskScore}%` }}
+                          className={`h-full rounded-full ${
+                            student.riskScore >= 70 ? 'bg-rose-500' : student.riskScore >= 40 ? 'bg-orange-500' : 'bg-amber-500'
+                          }`}
+                          style={{ width: `${Math.min(100, student.riskScore)}%` }}
                         ></div>
                       </div>
-                      <span className={`text-sm font-bold ${student.riskScore >= 70 ? 'text-rose-600' : 'text-orange-600'}`}>
+                      <span className={`text-sm font-bold ${
+                        student.riskScore >= 70 ? 'text-rose-600' : student.riskScore >= 40 ? 'text-orange-600' : 'text-amber-600'
+                      }`}>
                         {student.riskScore}
+                      </span>
+                      <span className={`px-2 py-0.5 rounded-full text-xs font-bold inline-flex items-center ${
+                        student.category === 'Critical' 
+                          ? 'bg-rose-100 text-rose-700 border border-rose-200' 
+                          : student.category === 'High' 
+                          ? 'bg-orange-100 text-orange-700 border border-orange-200' 
+                          : 'bg-amber-100 text-amber-700 border border-amber-200'
+                      }`}>
+                        {student.category}
                       </span>
                     </div>
                   </td>
                   <td className="py-4 px-6">
-                    <div className="flex flex-wrap gap-1">
+                    <div className="flex flex-wrap gap-1.5">
                       {student.reasons.split(',').map((r, i) => (
                         <span key={i} className="px-2 py-0.5 bg-rose-50 text-rose-700 rounded text-xs font-semibold border border-rose-100">
                           {r.trim()}
@@ -94,18 +113,21 @@ const StudentRisk = () => {
                       ))}
                     </div>
                   </td>
-                  <td className="py-4 px-6">
-                    <button className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-white rounded-lg text-xs font-bold transition-colors shadow-sm opacity-0 group-hover:opacity-100 focus:opacity-100">
-                      View Profile
+                  <td className="py-4 px-6 text-right">
+                    <button 
+                      onClick={() => setSelectedStudent(student)}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-white rounded-lg text-xs font-bold transition-colors shadow-sm cursor-pointer"
+                    >
+                      <Eye size={13} /> View Student
                     </button>
                   </td>
                 </tr>
               )) : (
                 <tr>
                   <td colSpan="5" className="py-12 text-center text-slate-500">
-                    <ShieldAlert size={48} className="mx-auto text-slate-200 mb-4" />
-                    <p className="text-lg font-medium">No students match the criteria.</p>
-                    <p className="text-sm mt-1">Try adjusting your search filters.</p>
+                    <ShieldAlert size={48} className="mx-auto text-emerald-300 mb-4" />
+                    <p className="text-lg font-medium text-slate-700">No At-Risk Students Found</p>
+                    <p className="text-sm mt-1 text-slate-400">All student course enrollments and fees are currently in good standing.</p>
                   </td>
                 </tr>
               )}
@@ -113,6 +135,14 @@ const StudentRisk = () => {
           </table>
         </div>
       </div>
+
+      {/* STUDENT PROFILE & RISK DOSSIER MODAL */}
+      {selectedStudent && (
+        <StudentRiskModal
+          student={selectedStudent}
+          onClose={() => setSelectedStudent(null)}
+        />
+      )}
     </div>
   );
 };

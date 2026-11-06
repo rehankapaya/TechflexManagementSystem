@@ -2,32 +2,35 @@ import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
 import ProtectedRoute from './components/ProtectedRoute';
+import { Toaster } from 'react-hot-toast';
+
+// Lazy-loaded or standard imports for code splitting
 import Login from './components/Login';
 import Dashboard from './components/Dashboard';
-import CreateUser from './components/CreateUser';
 import Overview from './components/Overview';
+import CreateUser from './components/CreateUser';
+import MonthlyAnalytics from './components/MonthlyAnalytics';
 import Courses from './components/Courses';
-import Students from './components/Students';
+import StaffSalary from './components/StaffSalary';
+import GlobalExport from './components/GlobalExport';
+import CertificateGenerator from './components/CertificateGenerator';
+import StudentStatus from './components/StudentStatus';
 import Fees from './components/Fees';
 import FeeStatus from './components/FeeStatus';
 import OverdueFees from './components/OverdueFees';
-import StudentStatus from './components/StudentStatus';
+import Expenses from './components/Expenses';
+import Students from './components/Students';
 import CourseEnrollment from './components/CourseEnrollment';
 import TimeslotAnalytics from './components/TimeslotAnalytics';
-import MonthlyAnalytics from './components/MonthlyAnalytics';
-import GlobalExport from './components/GlobalExport';
-import CertificateGenerator from './components/CertificateGenerator';
-import Expenses from './components/Expenses';
-import StaffSalary from './components/StaffSalary';
+
+// IIC Imports
 import IICLayout from './components/iic/IICLayout';
 import ExecutiveDashboard from './components/iic/ExecutiveDashboard';
 import AdmissionForecasting from './components/iic/AdmissionForecasting';
-import FeeIntelligence from './components/iic/FeeIntelligence';
 import StudentRisk from './components/iic/StudentRisk';
 import CourseAnalytics from './components/iic/CourseAnalytics';
 import AIAssistant from './components/iic/AIAssistant';
 import SocialMarketingAI from './components/iic/SocialMarketingAI';
-import { Toaster } from 'react-hot-toast';
 
 function App() {
   return (
@@ -76,7 +79,7 @@ function App() {
                 </ProtectedRoute>
               }
             />
-                        <Route
+            <Route
               path="record"
               element={
                 <ProtectedRoute requiredRole="admin">
@@ -84,7 +87,7 @@ function App() {
                 </ProtectedRoute>
               }
             />
-                        <Route
+            <Route
               path="certificate"
               element={
                 <ProtectedRoute requiredRole="admin">
@@ -118,11 +121,11 @@ function App() {
               <Route path="marketing" element={<SocialMarketingAI />} />
             </Route>
             
-            {/* NEW: Status Management should probably be Admin Only */}
+            {/* Status Management */}
             <Route
               path="studentstatus"
               element={
-                <ProtectedRoute >
+                <ProtectedRoute>
                   <StudentStatus />
                 </ProtectedRoute>
               }
@@ -186,6 +189,21 @@ function App() {
               }
             />
           </Route>
+
+          {/* Top-Level Route Aliases / Backward Compatibility */}
+          <Route path="/students" element={<Navigate to="/dashboard/students" replace />} />
+          <Route path="/feestatus" element={<Navigate to="/dashboard/feestatus" replace />} />
+          <Route path="/fee-status" element={<Navigate to="/dashboard/feestatus" replace />} />
+          <Route path="/fees" element={<Navigate to="/dashboard/fees" replace />} />
+          <Route path="/overdue" element={<Navigate to="/dashboard/overdue" replace />} />
+          <Route path="/analytics" element={<Navigate to="/dashboard/analytics" replace />} />
+          <Route path="/courses" element={<Navigate to="/dashboard/courses" replace />} />
+          <Route path="/salary" element={<Navigate to="/dashboard/salary" replace />} />
+          <Route path="/studentstatus" element={<Navigate to="/dashboard/studentstatus" replace />} />
+          <Route path="/courseenrollment" element={<Navigate to="/dashboard/courseenrollment" replace />} />
+          <Route path="/timeslot-analytics" element={<Navigate to="/dashboard/timeslot-analytics" replace />} />
+          <Route path="/iic" element={<Navigate to="/dashboard/iic" replace />} />
+          <Route path="/iic/*" element={<Navigate to="/dashboard/iic" replace />} />
 
           {/* Redirection Logic */}
           <Route path="/" element={<Navigate to="/dashboard" replace />} />

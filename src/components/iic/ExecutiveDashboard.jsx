@@ -2,14 +2,20 @@ import React, { useState, useEffect } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import { generateAIRecommendations } from '../../services/aiService';
 import { formatMarkdown } from '../../utils/formatMarkdown';
-import { Users, UserCheck, UserMinus, DollarSign, Brain, Activity, Lightbulb, RefreshCw } from 'lucide-react';
+import { Users, UserCheck, UserMinus, DollarSign, Brain, Activity, Lightbulb, RefreshCw, Eye } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import StudentRiskModal from './StudentRiskModal';
 
 const ExecutiveDashboard = () => {
   const { iicData, hasApiKey } = useOutletContext();
-  const [recommendations, setRecommendations] = useState('');
+  const [recommendations, setRecommendations] = useState(() => {
+    return sessionStorage.getItem('IIC_AI_RECOMMENDATIONS') || '';
+  });
   const [loadingAI, setLoadingAI] = useState(false);
-  const [hasFetched, setHasFetched] = useState(false);
+  const [hasFetched, setHasFetched] = useState(() => {
+    return Boolean(sessionStorage.getItem('IIC_AI_RECOMMENDATIONS'));
+  });
+  const [selectedStudent, setSelectedStudent] = useState(null);
 
   const getRecs = async () => {
     if (!hasApiKey || !iicData) return;
@@ -18,6 +24,9 @@ const ExecutiveDashboard = () => {
       const result = await generateAIRecommendations(iicData.aiContext);
       setRecommendations(result);
       setHasFetched(true);
+      try {
+        sessionStorage.setItem('IIC_AI_RECOMMENDATIONS', result);
+      } catch (e) {}
     } catch (error) {
       console.error(error);
       setRecommendations(`Failed to generate AI insights.\n\nError: ${error.message || 'Please check your API key.'}`);
@@ -27,20 +36,20 @@ const ExecutiveDashboard = () => {
   };
 
   useEffect(() => {
-    if (hasApiKey && iicData && !hasFetched && !loadingAI) {
+    if (hasApiKey && iicData && !hasFetched && !loadingAI && !recommendations) {
       getRecs();
     }
-  }, [hasApiKey, iicData, hasFetched]);
+  }, [hasApiKey, iicData, hasFetched, recommendations]);
 
   if (!iicData) return null;
 
-  const { kpis, monthlyTrends, highRiskAlerts } = iicData;
+  const { kpis, monthlyTrends, highRiskAlerts = [] } = iicData;
 
   const kpiCards = [
     { title: "Total Admissions", value: kpis.totalAdmissions, icon: <Users size={24} className="text-blue-500" />, bg: "bg-blue-50" },
     { title: "Active Students", value: kpis.activeStudents, icon: <UserCheck size={24} className="text-emerald-500" />, bg: "bg-emerald-50" },
     { title: "Retention Rate", value: `${kpis.retentionRate}%`, icon: <Activity size={24} className="text-purple-500" />, bg: "bg-purple-50" },
-    { title: "Total Revenue", value: `$${kpis.totalRevenue.toLocaleString()}`, icon: <DollarSign size={24} className="text-indigo-500" />, bg: "bg-indigo-50" },
+    { title: "Total Revenue", value: `PKR ${kpis.totalRevenue.toLocaleString()}`, icon: <DollarSign size={24} className="text-indigo-500" />, bg: "bg-indigo-50" },
   ];
 
   return (
@@ -107,7 +116,7 @@ const ExecutiveDashboard = () => {
               <button 
                 onClick={getRecs} 
                 disabled={loadingAI}
-                className="p-1.5 bg-purple-100 hover:bg-purple-200 text-purple-600 rounded-lg transition-colors"
+                className="p-1.5 bg-purple-100 hover:bg-purple-200 text-purple-600 rounded-lg transition-colors cursor-pointer"
                 title="Refresh Insights"
               >
                 <RefreshCw size={16} className={loadingAI ? "animate-spin" : ""} />
@@ -138,37 +147,67 @@ const ExecutiveDashboard = () => {
         </div>
       </div>
       
-      {/* High Risk Alerts preview */}
+      {/* Risk Alerts preview */}
       <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
-        <h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
-          <UserMinus className="text-rose-500" size={20} />
-          Critical Risk Alerts
-        </h3>
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2">
+            <UserMinus className="text-rose-500" size={20} />
+            Critical & High Risk Alerts
+          </h3>
+          <span className="text-xs font-semibold px-2.5 py-1 bg-slate-100 text-slate-600 rounded-full">
+            {highRiskAlerts.length} Student{highRiskAlerts.length === 1 ? '' : 's'} at Risk
+          </span>
+        </div>
         {highRiskAlerts.length === 0 ? (
-          <p className="text-slate-500 text-sm">No high-risk students detected.</p>
+          <div className="text-center py-8 text-slate-500 text-sm">
+            <p className="font-medium text-emerald-600 mb-1">All Clear</p>
+            <p className="text-slate-400 text-xs">No at-risk students detected. All student fee schedules and courses are on track.</p>
+          </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse">
               <thead>
-                <tr className="border-b border-slate-100 text-sm font-semibold text-slate-500 uppercase tracking-wider">
+                <tr className="border-b border-slate-100 text-xs font-bold text-slate-500 uppercase tracking-wider">
                   <th className="py-3 px-4">Student</th>
                   <th className="py-3 px-4">Course</th>
                   <th className="py-3 px-4">Risk Factors</th>
                   <th className="py-3 px-4">Score</th>
+                  <th className="py-3 px-4 text-right">Action</th>
                 </tr>
               </thead>
               <tbody>
                 {highRiskAlerts.slice(0, 5).map((student) => (
                   <tr key={student.id} className="border-b border-slate-50 hover:bg-slate-50/50 transition-colors">
-                    <td className="py-3 px-4 font-medium text-slate-800">{student.name}</td>
+                    <td className="py-3 px-4">
+                      <div 
+                        onClick={() => setSelectedStudent(student)}
+                        className="font-semibold text-slate-800 text-sm hover:text-rose-600 cursor-pointer transition-colors"
+                        title="Click to view student dossier"
+                      >
+                        {student.name}
+                      </div>
+                      <div className="text-xs text-slate-400 font-mono">{student.student_id}</div>
+                    </td>
                     <td className="py-3 px-4 text-sm text-slate-600">{student.course}</td>
                     <td className="py-3 px-4 text-sm text-rose-600 font-medium">{student.reasons}</td>
                     <td className="py-3 px-4">
-                      <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${
-                        student.category === 'Critical' ? 'bg-rose-100 text-rose-700' : 'bg-orange-100 text-orange-700'
+                      <span className={`px-2.5 py-1 rounded-full text-xs font-bold inline-flex items-center gap-1 ${
+                        student.category === 'Critical' 
+                          ? 'bg-rose-100 text-rose-700 border border-rose-200' 
+                          : student.category === 'High' 
+                          ? 'bg-orange-100 text-orange-700 border border-orange-200' 
+                          : 'bg-amber-100 text-amber-700 border border-amber-200'
                       }`}>
                         {student.riskScore} ({student.category})
                       </span>
+                    </td>
+                    <td className="py-3 px-4 text-right">
+                      <button
+                        onClick={() => setSelectedStudent(student)}
+                        className="inline-flex items-center gap-1 px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-white rounded-lg text-xs font-semibold transition-colors shadow-sm cursor-pointer"
+                      >
+                        <Eye size={12} /> View
+                      </button>
                     </td>
                   </tr>
                 ))}
@@ -177,6 +216,14 @@ const ExecutiveDashboard = () => {
           </div>
         )}
       </div>
+
+      {/* STUDENT RISK DOSSIER MODAL */}
+      {selectedStudent && (
+        <StudentRiskModal
+          student={selectedStudent}
+          onClose={() => setSelectedStudent(null)}
+        />
+      )}
     </div>
   );
 };

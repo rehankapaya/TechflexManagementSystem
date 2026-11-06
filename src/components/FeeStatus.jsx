@@ -1,3 +1,4 @@
+import { useSearchParams } from 'react-router-dom';
 import React, { useState, useEffect } from 'react';
 import { db } from '../firebase.js';
 import { ref, onValue } from 'firebase/database';
@@ -22,6 +23,15 @@ const FeeStatus = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCourseFilter, setSelectedCourseFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('active');
+  const [searchParams] = useSearchParams();
+
+  useEffect(() => {
+    const q = searchParams.get('search') || searchParams.get('studentId') || searchParams.get('id');
+    if (q) {
+      setSearchTerm(q);
+      setFromMonth('Jan');
+    }
+  }, [searchParams]);
 
   const currentMonthLabel = getCanonicalShortMonth();
   const currentYearLabel = new Date().getFullYear().toString();

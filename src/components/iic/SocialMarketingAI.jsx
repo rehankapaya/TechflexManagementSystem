@@ -6,7 +6,9 @@ import { formatMarkdown } from '../../utils/formatMarkdown';
 
 const SocialMarketingAI = () => {
   const { iicData, hasApiKey } = useOutletContext();
-  const [marketingPlan, setMarketingPlan] = useState('');
+  const [marketingPlan, setMarketingPlan] = useState(() => {
+    return sessionStorage.getItem('IIC_MARKETING_PLAN') || '';
+  });
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -18,6 +20,9 @@ const SocialMarketingAI = () => {
     try {
       const plan = await generateMarketingPlan(iicData.aiContext);
       setMarketingPlan(plan);
+      try {
+        sessionStorage.setItem('IIC_MARKETING_PLAN', plan);
+      } catch (e) {}
     } catch (err) {
       setError(`Failed to generate marketing plan: ${err.message}`);
     } finally {
