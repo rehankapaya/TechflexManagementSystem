@@ -4,6 +4,25 @@ import { useAuth } from '../contexts/AuthContext';
 import { ref, set, push, onValue, remove, update } from 'firebase/database';
 import { downloadFeeSample, parseExcelUpload } from '../utils/bulkUpload';
 import toast from 'react-hot-toast';
+import { MONTHS_SHORT, normalizeMonth, normalizeMonthKey, getCanonicalShortMonth, MONTH_ORDER } from '../utils/monthUtils';
+import {
+  CreditCard,
+  Search,
+  RotateCcw,
+  FileSpreadsheet,
+  Upload,
+  Clock,
+  CheckCircle2,
+  XCircle,
+  Pencil,
+  Trash2,
+  Calendar,
+  AlertCircle,
+  BookOpen,
+  ArrowRight,
+  ShieldCheck,
+  UserCheck
+} from 'lucide-react';
 
 const Fees = () => {
   const { currentUser, isAdmin } = useAuth();
@@ -18,11 +37,11 @@ const Fees = () => {
   const [selectedCourseId, setSelectedCourseId] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(false);
-  const [editingTransaction, setEditingTransaction] = useState(null); // NEW: Track editing state
+  const [editingTransaction, setEditingTransaction] = useState(null);
 
   // Form State Defaults
   const initialFormState = {
-    month: new Date().toLocaleString('default', { month: 'short' }),
+    month: getCanonicalShortMonth(),
     year: new Date().getFullYear().toString(),
     payable: 0,
     paid: 0,
@@ -33,30 +52,34 @@ const Fees = () => {
 
   // --- 1. Realtime Listeners ---
   useEffect(() => {
-    onValue(ref(db, 'students'), (snap) => {
+    const unsubStudents = onValue(ref(db, 'students'), (snap) => {
       const data = snap.val();
       setStudents(data ? Object.keys(data).map(id => ({ id, ...data[id] })) : []);
     });
 
-    onValue(ref(db, 'fee_transactions'), (snap) => {
+    const unsubFees = onValue(ref(db, 'fee_transactions'), (snap) => {
       setFeesData(snap.val() || {});
     });
 
-    onValue(ref(db, 'pending_fee_approvals'), (snap) => {
+    const unsubPending = onValue(ref(db, 'pending_fee_approvals'), (snap) => {
       const data = snap.val();
       setPendingFees(data ? Object.keys(data).map(id => ({ id, ...data[id] })) : []);
     });
+
+    return () => {
+      unsubStudents();
+      unsubFees();
+      unsubPending();
+    };
   }, []);
 
   // --- 2. Logic Functions ---
-
-  // CLEAR / RESET FUNCTION
   const handleReset = () => {
     setSelectedStudent(null);
     setSelectedCourseId('');
     setSearchTerm('');
     setFormData(initialFormState);
-    setEditingTransaction(null); // Reset edit state
+    setEditingTransaction(null);
   };
 
   const handleStudentSelect = (student) => {
@@ -81,7 +104,6 @@ const Fees = () => {
     setEditingTransaction(null);
   };
 
-  // NEW: Handle Edit Click
   const handleEdit = (transaction) => {
     setEditingTransaction(transaction);
     setFormData({
@@ -91,7 +113,6 @@ const Fees = () => {
       paid: transaction.paid,
       waived: transaction.waived
     });
-    // Scroll to form
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -136,50 +157,23 @@ const Fees = () => {
     };
 
     try {
-      // 1. NON-ADMIN: ALWAYS SEND TO PENDING
       if (!isAdmin) {
         await push(ref(db, 'pending_fee_approvals'), transaction);
         toast.success("Transaction sent to Admin for approval.");
-
-        // Reset form after submission
-        setFormData(prev => ({
-          ...prev,
-          paid: prev.payable,
-          waived: 0
-        }));
-      }
-      // 2. ADMIN: EDIT EXISTING RECORD
-      else if (editingTransaction) {
-        // If changing month/year (key changes), remove old record first
+        setFormData(prev => ({ ...prev, paid: prev.payable, waived: 0 }));
+      } else if (editingTransaction) {
         if (editingTransaction.month_key !== monthKey) {
           await remove(ref(db, `fee_transactions/${selectedStudent.id}/${selectedCourseId}/${editingTransaction.id}`));
         }
-
-        // Update/Set new record
         await update(ref(db, `fee_transactions/${selectedStudent.id}/${selectedCourseId}/${monthKey}`), transaction);
         toast.success("Transaction updated successfully.");
         setEditingTransaction(null);
-
-        // Reset form
-        setFormData(prev => ({
-          ...prev,
-          paid: prev.payable,
-          waived: 0
-        }));
-      }
-      // 3. ADMIN: NEW RECORD
-      else {
+        setFormData(prev => ({ ...prev, paid: prev.payable, waived: 0 }));
+      } else {
         await update(ref(db, `fee_transactions/${selectedStudent.id}/${selectedCourseId}/${monthKey}`), transaction);
         toast.success("Payment recorded.");
-
-        // Reset form
-        setFormData(prev => ({
-          ...prev,
-          paid: prev.payable,
-          waived: 0
-        }));
+        setFormData(prev => ({ ...prev, paid: prev.payable, waived: 0 }));
       }
-
     } catch (err) {
       toast.error(err.message);
     } finally {
@@ -194,7 +188,6 @@ const Fees = () => {
     try {
       const rows = await parseExcelUpload(file);
       let successCount = 0;
-
       const updates = {};
 
       for (const row of rows) {
@@ -207,7 +200,8 @@ const Fees = () => {
         const waived = row['Waived'];
 
         if (sId && cName && m && y && payable !== undefined && paid !== undefined) {
-          const monthKey = `${m}_${y}`;
+          const normMonth = normalizeMonth(m);
+          const monthKey = `${normMonth}_${y}`;
           const balance = Number(payable) - Number(paid) - Number(waived || 0);
 
           const student = students.find(s => s.student_id === sId || s.id === sId);
@@ -225,7 +219,7 @@ const Fees = () => {
                 course_id: cId,
                 course_name: courseName,
                 month_key: monthKey,
-                month: m,
+                month: normMonth,
                 year: y.toString(),
                 payable: Number(payable),
                 paid: Number(paid),
@@ -276,11 +270,7 @@ const Fees = () => {
   const getHistory = () => {
     if (!selectedStudent || !selectedCourseId || !feesData[selectedStudent.id]) return [];
     const transactions = feesData[selectedStudent.id][selectedCourseId] || {};
-    
-    const monthOrder = {
-      "Jan": 1, "Feb": 2, "Mar": 3, "Apr": 4, "May": 5, "Jun": 6,
-      "Jul": 7, "Aug": 8, "Sep": 9, "Oct": 10, "Nov": 11, "Dec": 12
-    };
+    const monthOrder = MONTH_ORDER;
 
     return Object.keys(transactions)
       .map(key => ({ id: key, ...transactions[key] }))
@@ -288,9 +278,9 @@ const Fees = () => {
         const yearA = parseInt(a.year || a.id.split('_')[1] || 0, 10);
         const yearB = parseInt(b.year || b.id.split('_')[1] || 0, 10);
         if (yearA !== yearB) return yearB - yearA;
-        
-        const monthA = monthOrder[a.month || a.id.split('_')[0]] || 0;
-        const monthB = monthOrder[b.month || b.id.split('_')[0]] || 0;
+
+        const monthA = monthOrder[normalizeMonth(a.month || a.id.split('_')[0])] || 0;
+        const monthB = monthOrder[normalizeMonth(b.month || b.id.split('_')[0])] || 0;
         return monthB - monthA;
       });
   };
@@ -300,240 +290,445 @@ const Fees = () => {
     (s.student_id && s.student_id.toLowerCase().includes(searchTerm.toLowerCase()))
   ).slice(0, 5);
 
+  const balanceCalc = Number(formData.payable) - Number(formData.paid) - Number(formData.waived);
+
   return (
-    <div style={styles.container}>
-      <header style={styles.header}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <div>
-            <h2 style={styles.title}>Fee Management</h2>
-            <p style={styles.subtitle}>Multi-Course Billing System</p>
+    <div className="space-y-6 font-sans animate-fade-in">
+      {/* HEADER */}
+      <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-slate-200/80">
+        <div>
+          <div className="flex items-center gap-2">
+            <CreditCard className="text-blue-600" size={24} />
+            <h1 className="text-2xl md:text-3xl font-extrabold text-slate-900 tracking-tight">Fee Management</h1>
           </div>
-          <button onClick={handleReset} style={styles.btnResetTop}>🔄 Clear All</button>
+          <p className="text-sm text-slate-500 mt-1 font-medium">Multi-Course Billing, Ledgers & Payment Entry</p>
         </div>
+        <button
+          onClick={handleReset}
+          className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 text-xs font-bold transition-all shadow-xs w-fit"
+        >
+          <RotateCcw size={14} className="text-slate-400" />
+          <span>Reset Form</span>
+        </button>
       </header>
 
-      <div style={styles.layout}>
-        {/* LEFT COLUMN */}
-        <div style={styles.sideCol}>
-          <div style={styles.card}>
-            <h3>{editingTransaction ? `Edit Fee (${editingTransaction.month_key.replace('_', ' ')})` : 'Collect Fee'}</h3>
+      {/* MAIN TWO-COLUMN GRID */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+        {/* LEFT COLUMN: FORM & BULK UPLOAD (5 cols) */}
+        <div className="lg:col-span-5 space-y-6">
+          {/* COLLECT / EDIT FEE CARD */}
+          <div className="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-xs">
+            <div className="flex items-center justify-between pb-3 mb-5 border-b border-slate-100">
+              <h2 className="text-base font-bold text-slate-900 tracking-tight">
+                {editingTransaction ? `Edit Fee (${editingTransaction.month_key.replace('_', ' ')})` : 'Collect Fee Payment'}
+              </h2>
+              {editingTransaction && (
+                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200">
+                  Editing
+                </span>
+              )}
+            </div>
 
-            <div style={{ position: 'relative', marginBottom: '15px' }}>
-              <label style={styles.label}>Search Student</label>
-              <input
-                type="text"
-                placeholder="Ex: STU-2025-001"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                style={styles.input}
-                disabled={!!editingTransaction} // Disable search while editing
-              />
+            {/* Student Search */}
+            <div className="relative mb-5">
+              <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wider">
+                Search Student
+              </label>
+              <div className="relative">
+                <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+                <input
+                  type="text"
+                  placeholder="Enter name or ID (e.g. STU-001)..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  disabled={!!editingTransaction}
+                  className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-sm font-medium focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all disabled:opacity-60"
+                />
+              </div>
+
               {searchTerm && searchResults.length > 0 && !editingTransaction && (
-                <div style={styles.dropdown}>
+                <div className="absolute top-full left-0 right-0 mt-1.5 bg-white border border-slate-200 rounded-xl shadow-xl z-30 divide-y divide-slate-100 overflow-hidden">
                   {searchResults.map(s => (
-                    <div key={s.id} onClick={() => handleStudentSelect(s)} style={styles.dropdownItem}>
-                      <strong>{s.student_id}</strong> - {s.name}
+                    <div
+                      key={s.id}
+                      onClick={() => handleStudentSelect(s)}
+                      className="p-3 text-xs cursor-pointer hover:bg-blue-50/70 transition-colors flex items-center justify-between"
+                    >
+                      <span className="font-bold text-slate-900">{s.name}</span>
+                      <span className="font-mono text-blue-600 font-semibold bg-blue-50 px-2 py-0.5 rounded-md">
+                        {s.student_id}
+                      </span>
                     </div>
                   ))}
                 </div>
               )}
             </div>
 
-            {selectedStudent && (
-              <form onSubmit={handlePaymentSubmit} style={styles.form}>
-                <div style={styles.selectionInfo}>Student: <strong>{selectedStudent.name}</strong></div>
+            {selectedStudent ? (
+              <form onSubmit={handlePaymentSubmit} className="space-y-4">
+                {/* Active Student Pill */}
+                <div className="p-3 rounded-xl bg-blue-50/70 border border-blue-100 flex items-center justify-between">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-lg bg-blue-600 text-white flex items-center justify-center font-bold text-xs">
+                      {selectedStudent.name?.charAt(0) || 'S'}
+                    </div>
+                    <div>
+                      <div className="text-xs font-bold text-slate-900 leading-tight">{selectedStudent.name}</div>
+                      <div className="text-[11px] font-mono text-blue-600">{selectedStudent.student_id}</div>
+                    </div>
+                  </div>
+                  <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100/70 px-2 py-0.5 rounded-md">
+                    {selectedStudent.status?.toUpperCase() || 'ACTIVE'}
+                  </span>
+                </div>
 
-                <label style={styles.label}>Select Enrolled Course</label>
-                <select
-                  value={selectedCourseId}
-                  onChange={(e) => handleCourseSelect(e.target.value)}
-                  style={styles.input}
-                  required
-                  disabled={!!editingTransaction} // Disable course selection while editing
-                >
-                  <option value="">-- Choose Course --</option>
-                  {Object.entries(selectedStudent.enrolled_courses || {}).map(([id, data]) => (
-                    <option key={id} value={id}>{data.course_name}</option>
-                  ))}
-                </select>
+                {/* Course Selection */}
+                <div>
+                  <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wider">
+                    Select Enrolled Course
+                  </label>
+                  <select
+                    value={selectedCourseId}
+                    onChange={(e) => handleCourseSelect(e.target.value)}
+                    disabled={!!editingTransaction}
+                    required
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-xs font-semibold focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all disabled:opacity-60"
+                  >
+                    <option value="">-- Choose Course --</option>
+                    {Object.entries(selectedStudent.enrolled_courses || {}).map(([id, data]) => (
+                      <option key={id} value={id}>{data.course_name}</option>
+                    ))}
+                  </select>
+                </div>
 
                 {selectedCourseId && (
                   <>
-                    <div style={styles.row}>
-                      <div style={{ flex: 1 }}>
-                        <label style={styles.label}>Month</label>
-                        <select value={formData.month} onChange={e => setFormData({ ...formData, month: e.target.value })} style={styles.input}>
-                          {["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"].map(m => <option key={m} value={m}>{m}</option>)}
+                    {/* Month & Year Row */}
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wider">
+                          Month
+                        </label>
+                        <select
+                          value={formData.month}
+                          onChange={e => setFormData({ ...formData, month: e.target.value })}
+                          className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 text-xs font-medium focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                        >
+                          {MONTHS_SHORT.map(m => (
+                            <option key={m} value={m}>{m}</option>
+                          ))}
                         </select>
                       </div>
-                      <div style={{ flex: 1 }}>
-                        <label style={styles.label}>Year</label>
-                        <input type="number" value={formData.year} onChange={e => setFormData({ ...formData, year: e.target.value })} style={styles.input} />
+                      <div>
+                        <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wider">
+                          Year
+                        </label>
+                        <input
+                          type="number"
+                          value={formData.year}
+                          onChange={e => setFormData({ ...formData, year: e.target.value })}
+                          className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 text-xs font-mono font-medium focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                        />
                       </div>
                     </div>
 
-                    <label style={styles.label}>Payable for this Course</label>
-                    <input type="number" value={formData.payable} readOnly style={{ ...styles.input, background: '#f1f5f9' }} />
+                    {/* Payable & Paid */}
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wider">
+                          Payable (PKR)
+                        </label>
+                        <input
+                          type="number"
+                          value={formData.payable}
+                          readOnly
+                          className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-slate-100 text-xs font-mono font-bold text-slate-600 cursor-not-allowed"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wider">
+                          Amount Paid (PKR)
+                        </label>
+                        <input
+                          type="number"
+                          value={formData.paid}
+                          onChange={e => setFormData({ ...formData, paid: e.target.value })}
+                          required
+                          className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 text-xs font-mono font-bold text-emerald-700 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                        />
+                      </div>
+                    </div>
 
-                    <label style={styles.label}>Amount Paid</label>
-                    <input type="number" value={formData.paid} onChange={e => setFormData({ ...formData, paid: e.target.value })} style={styles.input} required />
+                    {/* Waiver / Discount */}
+                    <div>
+                      <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wider">
+                        Waiver / Discount (PKR)
+                      </label>
+                      <input
+                        type="number"
+                        value={formData.waived}
+                        onChange={e => setFormData({ ...formData, waived: e.target.value })}
+                        className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 text-xs font-mono font-medium text-slate-700 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                      />
+                    </div>
 
-                    <label style={styles.label}>Waiver/Discount</label>
-                    <input type="number" value={formData.waived} onChange={e => setFormData({ ...formData, waived: e.target.value })} style={styles.input} />
+                    {/* Balance Banner */}
+                    <div className={`p-3.5 rounded-xl text-center border font-bold text-xs flex items-center justify-between ${
+                      balanceCalc > 0
+                        ? 'bg-rose-50 border-rose-200/80 text-rose-700'
+                        : 'bg-emerald-50 border-emerald-200/80 text-emerald-700'
+                    }`}>
+                      <span className="uppercase text-[10px] tracking-wider">Remaining Balance</span>
+                      <span className="font-mono text-base font-extrabold">PKR {balanceCalc.toLocaleString()}</span>
+                    </div>
 
-                    <div style={styles.balanceSummary}>Balance: PKR {formData.payable - formData.paid - formData.waived}</div>
-
-                    <div style={{ display: 'flex', gap: '10px' }}>
-                      <button type="submit" disabled={loading} style={{ ...styles.btnPrimary, flex: 2, background: editingTransaction ? '#f59e0b' : '#4318ff' }}>
-                        {loading ? "Saving..." : (editingTransaction ? "Update Transaction" : (!isAdmin ? "Submit for Approval" : "Update Ledger"))}
+                    {/* Actions */}
+                    <div className="flex gap-2.5 pt-2">
+                      <button
+                        type="submit"
+                        disabled={loading}
+                        className={`flex-1 py-3 px-4 rounded-xl text-white text-xs font-bold transition-all shadow-xs flex items-center justify-center gap-2 ${
+                          editingTransaction
+                            ? 'bg-amber-600 hover:bg-amber-700'
+                            : 'bg-blue-600 hover:bg-blue-700'
+                        }`}
+                      >
+                        <CheckCircle2 size={16} />
+                        <span>
+                          {loading
+                            ? "Saving..."
+                            : editingTransaction
+                            ? "Update Transaction"
+                            : !isAdmin
+                            ? "Submit for Approval"
+                            : "Record Payment"}
+                        </span>
                       </button>
 
                       {editingTransaction ? (
-                        <button type="button" onClick={() => { setEditingTransaction(null); setFormData(initialFormState); }} style={{ ...styles.btnReset, flex: 1 }}>
+                        <button
+                          type="button"
+                          onClick={() => { setEditingTransaction(null); setFormData(initialFormState); }}
+                          className="px-4 py-3 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-700 text-xs font-bold transition-all"
+                        >
                           Cancel
                         </button>
                       ) : (
-                        <button type="button" onClick={handleReset} style={{ ...styles.btnReset, flex: 1 }}>Reset</button>
+                        <button
+                          type="button"
+                          onClick={handleReset}
+                          className="px-4 py-3 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-700 text-xs font-bold transition-all"
+                        >
+                          Clear
+                        </button>
                       )}
                     </div>
                   </>
                 )}
               </form>
+            ) : (
+              <div className="p-8 text-center border-2 border-dashed border-slate-200 rounded-xl text-slate-400 text-xs">
+                Search and select a student above to start payment collection.
+              </div>
             )}
           </div>
 
+          {/* BULK UPLOAD CARD */}
           {isAdmin && (
-            <div style={styles.card}>
-              <h3 style={{ margin: '0 0 15px 0' }}>Bulk Upload Fees</h3>
-              <p style={{ fontSize: '12px', color: '#64748b', marginBottom: '15px' }}>Upload an Excel file to mass-add fee records. Existing records for the same month will be overwritten.</p>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                <button type="button" onClick={downloadFeeSample} style={{ ...styles.btnReset, fontSize: '13px', padding: '10px' }}>
-                  📄 Download Sample Format
+            <div className="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-xs space-y-4">
+              <div className="flex items-center gap-2 pb-3 border-b border-slate-100">
+                <FileSpreadsheet className="text-emerald-600" size={18} />
+                <h3 className="text-sm font-bold text-slate-900 tracking-tight">Bulk Upload Fee Records</h3>
+              </div>
+              <p className="text-xs text-slate-500 leading-relaxed">
+                Upload an Excel sheet to batch import student fee records. Existing transactions matching student and month will be synchronized.
+              </p>
+              <div className="flex flex-col sm:flex-row gap-2.5">
+                <button
+                  type="button"
+                  onClick={downloadFeeSample}
+                  className="flex-1 flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-700 text-xs font-bold transition-all"
+                >
+                  <FileSpreadsheet size={15} />
+                  <span>Download Sample</span>
                 </button>
-                <input type="file" accept=".xlsx, .xls" onChange={handleBulkUploadFees} id="fee-upload" style={{ display: 'none' }} />
-                <button type="button" onClick={() => document.getElementById('fee-upload').click()} style={{ ...styles.btnPrimary, background: '#10B981', fontSize: '13px', padding: '10px' }}>
-                  {loading ? "Processing..." : "📤 Upload Excel File"}
+                <input
+                  type="file"
+                  accept=".xlsx, .xls"
+                  onChange={handleBulkUploadFees}
+                  id="fee-upload"
+                  className="hidden"
+                />
+                <button
+                  type="button"
+                  onClick={() => document.getElementById('fee-upload').click()}
+                  disabled={loading}
+                  className="flex-1 flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition-all shadow-xs disabled:opacity-60"
+                >
+                  <Upload size={15} />
+                  <span>{loading ? "Processing..." : "Upload Excel"}</span>
                 </button>
               </div>
             </div>
           )}
         </div>
 
-        {/* RIGHT COLUMN */}
-        <div style={styles.mainCol}>
+        {/* RIGHT COLUMN: PENDING APPROVALS & COURSE LEDGER (7 cols) */}
+        <div className="lg:col-span-7 space-y-6">
+          {/* PENDING APPROVALS CARD */}
           {isAdmin && pendingFees.length > 0 && (
-            <div style={styles.pendingCard}>
-              <h4 style={{ marginTop: 0, color: '#b45309' }}>⏳ Pending Fee Approvals</h4>
-              <table style={styles.table}>
-                <thead>
-                  <tr style={styles.thRow}>
-                    <th>Student Name</th>
-                    <th>Course</th>
-                    <th>Month</th>
-                    <th>Paid/Waiver</th>
-                    <th>Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {pendingFees.map(f => (
-                    <tr key={f.id} style={styles.tr}>
-                      <td>{f.student_name}</td>
-                      <td><small>{f.course_name}</small></td>
-                      <td>{f.month_key}</td>
-                      <td>
-                        Paid: <strong>{f.paid}</strong><br />
-                        <span style={{ color: 'red', fontSize: '11px' }}>Waived: {f.waived}</span>
-                      </td>
-                      <td>
-                        <button onClick={() => approveFee(f.id, f)} style={styles.btnApprove}>Approve</button>
-                        <button onClick={() => rejectFee(f.id)} style={styles.btnReject}>Reject</button>
-                      </td>
+            <div className="bg-amber-50/80 p-5 rounded-2xl border border-amber-200 shadow-xs space-y-4">
+              <div className="flex items-center justify-between pb-3 border-b border-amber-200/60">
+                <div className="flex items-center gap-2">
+                  <Clock className="text-amber-700" size={18} />
+                  <h3 className="text-sm font-bold text-amber-900 tracking-tight">
+                    Pending Fee Approvals ({pendingFees.length})
+                  </h3>
+                </div>
+                <span className="text-[10px] font-bold text-amber-800 uppercase tracking-wider bg-amber-100 px-2 py-0.5 rounded-md">
+                  Action Required
+                </span>
+              </div>
+
+              <div className="overflow-x-auto rounded-xl border border-amber-200/80 bg-white">
+                <table className="w-full text-left border-collapse text-xs">
+                  <thead>
+                    <tr className="bg-amber-100/50 border-b border-amber-200 text-amber-900 font-bold uppercase tracking-wider text-[11px]">
+                      <th className="py-2.5 px-3">Student</th>
+                      <th className="py-2.5 px-3">Course</th>
+                      <th className="py-2.5 px-3">Month</th>
+                      <th className="py-2.5 px-3 text-right">Paid / Waived</th>
+                      <th className="py-2.5 px-3 text-center">Actions</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody className="divide-y divide-amber-100">
+                    {pendingFees.map(f => (
+                      <tr key={f.id} className="hover:bg-amber-50/50">
+                        <td className="py-2.5 px-3 font-semibold text-slate-900">{f.student_name}</td>
+                        <td className="py-2.5 px-3 text-slate-600">{f.course_name}</td>
+                        <td className="py-2.5 px-3 font-mono font-bold text-slate-700">{f.month_key}</td>
+                        <td className="py-2.5 px-3 text-right font-mono">
+                          <span className="font-bold text-emerald-700">PKR {f.paid}</span>
+                          {f.waived > 0 && <span className="text-rose-600 text-[10px] block">Waived: PKR {f.waived}</span>}
+                        </td>
+                        <td className="py-2.5 px-3 text-center space-x-1.5 whitespace-nowrap">
+                          <button
+                            onClick={() => approveFee(f.id, f)}
+                            className="px-2.5 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[11px] shadow-xs"
+                          >
+                            Approve
+                          </button>
+                          <button
+                            onClick={() => rejectFee(f.id)}
+                            className="px-2.5 py-1 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 font-bold text-[11px]"
+                          >
+                            Reject
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
           )}
 
-          <div style={styles.card}>
-            <h3>Course Ledger {selectedCourseId && `(${selectedStudent.enrolled_courses[selectedCourseId].course_name})`}</h3>
+          {/* COURSE LEDGER HISTORY CARD */}
+          <div className="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-xs space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <div className="flex items-center gap-2">
+                <BookOpen className="text-blue-600" size={18} />
+                <h3 className="text-base font-bold text-slate-900 tracking-tight">
+                  Course Ledger {selectedCourseId && selectedStudent?.enrolled_courses?.[selectedCourseId]
+                    ? `(${selectedStudent.enrolled_courses[selectedCourseId].course_name})`
+                    : ''}
+                </h3>
+              </div>
+              {selectedCourseId && (
+                <span className="text-xs font-mono font-bold text-blue-600 bg-blue-50 px-2.5 py-1 rounded-md">
+                  {getHistory().length} Entries
+                </span>
+              )}
+            </div>
+
             {selectedCourseId ? (
-              <table style={styles.table}>
-                <thead>
-                  <tr style={styles.thRow}>
-                    <th>Month/Year</th>
-                    <th>Payable</th>
-                    <th>Paid</th>
-                    <th>Waived</th>
-                    <th>Balance</th>
-                    {isAdmin && <th>Actions</th>}
-                  </tr>
-                </thead>
-                <tbody>
-                  {getHistory().map(h => (
-                    <tr key={h.id} style={styles.tr}>
-                      <td>{h.month_key ? h.month_key.replace('_', ' ') : h.id.replace('_', ' ')}</td>
-                      <td>{h.payable}</td>
-                      <td style={{ color: '#059669', fontWeight: 'bold' }}>{h.paid}</td>
-                      <td>{h.waived}</td>
-                      <td style={{ color: h.balance > 0 ? 'red' : 'inherit' }}>{h.balance}</td>
-                      {isAdmin && (
-                        <td>
-                          <button onClick={() => handleEdit(h)} style={{ ...styles.btnDeleteSmall, marginRight: '5px' }}>✏️</button>
-                          <button onClick={() => handleDeleteFee(h.id)} style={styles.btnDeleteSmall}>🗑️</button>
-                        </td>
-                      )}
+              <div className="overflow-x-auto rounded-xl border border-slate-200">
+                <table className="w-full text-left border-collapse text-xs">
+                  <thead>
+                    <tr className="bg-slate-50 border-b border-slate-200 text-slate-600 uppercase font-bold tracking-wider text-[11px]">
+                      <th className="py-3 px-3.5">Month / Year</th>
+                      <th className="py-3 px-3.5 text-right">Payable</th>
+                      <th className="py-3 px-3.5 text-right">Paid</th>
+                      <th className="py-3 px-3.5 text-right">Waived</th>
+                      <th className="py-3 px-3.5 text-right">Balance</th>
+                      {isAdmin && <th className="py-3 px-3.5 text-center">Actions</th>}
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {getHistory().length > 0 ? (
+                      getHistory().map(h => (
+                        <tr key={h.id} className="hover:bg-slate-50/70 transition-colors">
+                          <td className="py-3 px-3.5 font-bold text-slate-800">
+                            {h.month_key ? h.month_key.replace('_', ' ') : h.id.replace('_', ' ')}
+                          </td>
+                          <td className="py-3 px-3.5 text-right font-mono text-slate-600">
+                            PKR {Number(h.payable || 0).toLocaleString()}
+                          </td>
+                          <td className="py-3 px-3.5 text-right font-mono font-bold text-emerald-700">
+                            PKR {Number(h.paid || 0).toLocaleString()}
+                          </td>
+                          <td className="py-3 px-3.5 text-right font-mono text-slate-500">
+                            {h.waived > 0 ? `PKR ${Number(h.waived).toLocaleString()}` : '—'}
+                          </td>
+                          <td className={`py-3 px-3.5 text-right font-mono font-black ${
+                            h.balance > 0 ? 'text-rose-600' : 'text-slate-400'
+                          }`}>
+                            {h.balance > 0 ? `PKR ${Number(h.balance).toLocaleString()}` : 'Cleared'}
+                          </td>
+                          {isAdmin && (
+                            <td className="py-3 px-3.5 text-center">
+                              <div className="inline-flex items-center gap-1">
+                                <button
+                                  onClick={() => handleEdit(h)}
+                                  className="p-1.5 rounded-lg text-blue-600 hover:bg-blue-50 transition-colors"
+                                  title="Edit Transaction"
+                                >
+                                  <Pencil size={14} />
+                                </button>
+                                <button
+                                  onClick={() => handleDeleteFee(h.id)}
+                                  className="p-1.5 rounded-lg text-rose-600 hover:bg-rose-50 transition-colors"
+                                  title="Delete Transaction"
+                                >
+                                  <Trash2 size={14} />
+                                </button>
+                              </div>
+                            </td>
+                          )}
+                        </tr>
+                      ))
+                    ) : (
+                      <tr>
+                        <td colSpan={isAdmin ? 6 : 5} className="py-8 text-center text-slate-400 text-xs">
+                          No transaction records found for this course.
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
             ) : (
-              <div style={styles.placeholder}>Select a student and course to view specific history</div>
+              <div className="p-12 text-center border-2 border-dashed border-slate-200 rounded-xl text-slate-400 text-xs space-y-1">
+                <CreditCard className="mx-auto text-slate-300" size={32} />
+                <p className="font-semibold text-slate-600">Select a student and course to inspect ledger records.</p>
+                <p className="text-[11px] text-slate-400">Transaction history will be displayed here automatically.</p>
+              </div>
             )}
           </div>
         </div>
       </div>
     </div>
   );
-};
-
-const styles = {
-  title: { fontSize: '24px', fontWeight: '800', color: '#0f172a' },
-  subtitle: { color: '#64748b', fontSize: '13px' },
-  container: { fontFamily: 'system-ui', width: '100%' },
-  header: { marginBottom: '25px', borderBottom: '2px solid #e2e8f0', paddingBottom: '15px' },
-  layout: { display: 'grid', gridTemplateColumns: '380px 1fr', gap: '30px' },
-  card: { background: '#fff', padding: '24px', borderRadius: '16px', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)' },
-  sideCol: { display: 'flex', flexDirection: 'column', gap: '20px' },
-  label: { fontSize: '13px', fontWeight: '600', color: '#475569', marginBottom: '5px', display: 'block' },
-  input: { width: '100%', padding: '12px', borderRadius: '8px', border: '1px solid #cbd5e1', marginBottom: '15px', boxSizing: 'border-box' },
-  form: { display: 'flex', flexDirection: 'column' },
-  row: { display: 'flex', gap: '15px' },
-  dropdown: { position: 'absolute', top: '100%', left: 0, right: 0, background: '#fff', border: '1px solid #e2e8f0', borderRadius: '8px', zIndex: 10, boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)' },
-  dropdownItem: { padding: '12px', cursor: 'pointer', borderBottom: '1px solid #f1f5f9', fontSize: '14px' },
-  selectionInfo: { background: '#eef2ff', padding: '10px', borderRadius: '8px', color: '#4318ff', marginBottom: '15px', fontSize: '14px' },
-  balanceSummary: { padding: '15px', background: '#f1f5f9', borderRadius: '8px', textAlign: 'center', fontWeight: 'bold', margin: '10px 0 20px 0' },
-  btnPrimary: { background: '#4318ff', color: '#fff', padding: '14px', border: 'none', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer' },
-  btnReset: { background: '#f1f5f9', color: '#64748b', padding: '14px', border: '1px solid #e2e8f0', borderRadius: '8px', fontWeight: 'bold', cursor: 'pointer' },
-  btnResetTop: { background: '#fff', color: '#ef4444', padding: '8px 15px', border: '1px solid #fecaca', borderRadius: '8px', fontWeight: '600', cursor: 'pointer', fontSize: '13px' },
-  pendingCard: { background: '#fffbeb', padding: '20px', borderRadius: '16px', border: '1px solid #fef3c7', marginBottom: '30px' },
-  table: { width: '100%', borderCollapse: 'collapse' },
-  thRow: { textAlign: 'left', color: '#64748b', fontSize: '11px', textTransform: 'uppercase', borderBottom: '2px solid #f1f5f9' },
-  tr: { borderBottom: '1px solid #f1f5f9', fontSize: '14px' },
-  btnApprove: { background: '#10b981', color: '#fff', border: 'none', padding: '5px 10px', borderRadius: '6px', cursor: 'pointer', marginRight: '5px' },
-  btnReject: { background: '#ef4444', color: '#fff', border: 'none', padding: '5px 10px', borderRadius: '6px', cursor: 'pointer' },
-  placeholder: { textAlign: 'center', padding: '60px', color: '#94a3b8', border: '2px dashed #e2e8f0', borderRadius: '12px' },
-  btnDeleteSmall: {
-    background: 'none',
-    border: 'none',
-    cursor: 'pointer',
-    fontSize: '16px',
-    padding: '5px',
-    borderRadius: '4px',
-    transition: 'background 0.2s',
-    ':hover': { background: '#fee2e2' } // Note: Standard JS styles don't support :hover, 
-    // but you can add it via onMouseEnter/Leave if needed.
-  },
 };
 
 export default Fees;

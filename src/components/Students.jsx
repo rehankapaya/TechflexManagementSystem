@@ -1,21 +1,42 @@
 import React, { useState, useEffect } from 'react';
 import { db } from '../firebase.js';
 import { useAuth } from '../contexts/AuthContext';
-import { ref, set, push, onValue, remove, update } from 'firebase/database';
-import * as XLSX from 'xlsx'; // Import the library
+import { ref, set, push, onValue, remove } from 'firebase/database';
+import * as XLSX from 'xlsx';
 import toast from 'react-hot-toast';
+import {
+  Search,
+  Download,
+  Plus,
+  Edit2,
+  Trash2,
+  User,
+  Phone,
+  Laptop,
+  Calendar,
+  GraduationCap,
+  Clock,
+  CheckCircle2,
+  XCircle,
+  AlertCircle,
+  X,
+  ArrowUpDown,
+  BookOpen,
+  DollarSign,
+  ChevronDown
+} from 'lucide-react';
+import { parseLocalDateMidday } from '../utils/monthUtils';
 
 const Students = () => {
-  // ... existing states ...
   const { currentUser, isAdmin } = useAuth();
   const [students, setStudents] = useState([]);
   const [pendingStudents, setPendingStudents] = useState([]);
   const [courses, setCourses] = useState([]);
   const [isEditing, setIsEditing] = useState(null);
+  const [showQuickEnroll, setShowQuickEnroll] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterCourse, setFilterCourse] = useState('');
   const [loading, setLoading] = useState(false);
-  const [status, setStatus] = useState({ type: '', msg: '' });
   const [sortOrder, setSortOrder] = useState('desc');
   const [statusFilter, setStatusFilter] = useState('all');
   const [laptopFilter, setLaptopFilter] = useState('all');
@@ -44,38 +65,27 @@ const Students = () => {
     return [];
   };
 
-  // --- NEW: Export to Excel Function ---
   const downloadExcel = () => {
     if (filteredStudents.length === 0) {
       toast.error("No data available to export");
       return;
     }
 
-    // Prepare the data specifically for Excel columns
-    const excelData = filteredStudents.map(s => {
-      // Get course details (taking the first course as primary)
+    const excelData = filteredStudents.map(s => ({
+      "Student ID": s.student_id,
+      "Name": s.name,
+      "Gender": s.gender,
+      "Contact": s.contact,
+      "Admission Fee": s.admission_fee || 0,
+      "Admission Date": s.createdAt ? s.createdAt.split('T')[0] : "N/A",
+      "Added By": s.addedBy || "N/A"
+    }));
 
-      return {
-        "Student ID": s.student_id,
-        "Name": s.name,
-        "Gender": s.gender,
-        "Contact": s.contact,
-        "Admission Fee": s.admission_fee || 0,
-        "Admission Date": s.createdAt ? s.createdAt.split('T')[0] : "N/A",
-        "Added By": s.addedBy || "N/A"
-      };
-    });
-
-    // Create worksheet and workbook
     const worksheet = XLSX.utils.json_to_sheet(excelData);
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, "Students");
-
-    // Download the file
     XLSX.writeFile(workbook, `Student_Directory_${new Date().toLocaleDateString()}.xlsx`);
   };
-
-  // ... (keep all your existing useEffect, handleChange, handleSubmit, startEdit, and formatDate functions) ...
 
   useEffect(() => {
     onValue(ref(db, 'courses'), (snap) => {
@@ -119,13 +129,7 @@ const Students = () => {
     e.preventDefault();
     setLoading(true);
 
-    const getLocalDateIso = (dateStr) => {
-      if (!dateStr) return new Date().toISOString();
-      if (dateStr.includes('T')) return dateStr;
-      const [year, month, day] = dateStr.split('-');
-      return new Date(year, month - 1, day, 12, 0, 0).toISOString();
-    };
-    const admissionDateTime = getLocalDateIso(formData.createdAt);
+    const admissionDateTime = parseLocalDateMidday(formData.createdAt).toISOString();
 
     try {
       if (isEditing) {
@@ -162,7 +166,7 @@ const Students = () => {
           const numbers = allExistingIds.map(id => {
             if (!id) return 0;
             const parts = id.split('-');
-            return parseInt(parts[parts.length - 1]);
+            return parseInt(parts[parts.length - 1], 10);
           });
           nextNumber = Math.max(...numbers) + 1;
         }
@@ -201,6 +205,7 @@ const Students = () => {
         }
       }
       setFormData({ name: '', contact: '', gender: '', courseId: '', laptop_status: '', agreed_monthly_fee: '', admission_fee: '', createdAt: today, class_type: '', timeslot: '' });
+      setShowQuickEnroll(false);
     } catch (err) {
       toast.error(err.message);
     } finally {
@@ -210,7 +215,7 @@ const Students = () => {
 
   const approveStudent = async (reqId, studentData) => {
     try {
-      const { id, status, ...cleanData } = studentData;
+      const { id, status: _, ...cleanData } = studentData;
       cleanData.status = 'active';
       cleanData.approvedBy = currentUser.name || currentUser.email || 'Admin';
       
@@ -254,7 +259,7 @@ const Students = () => {
   const formatDate = (dateString) => {
     if (!dateString) return "—";
     const date = new Date(dateString);
-    return date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'UTC' });
+    return isNaN(date.getTime()) ? "—" : date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
   };
 
   const filteredStudents = students.filter(s => {
@@ -289,160 +294,268 @@ const Students = () => {
     }));
   };
 
-  const renderFormContent = (isEditMode) => (
-    <form onSubmit={handleSubmit} style={isEditMode ? styles.editForm : { ...styles.quickForm, borderColor: '#E2E8F0' }}>
-      <div style={isEditMode ? styles.formGroup : {}}>
-        {isEditMode && <label style={styles.label}>Full Name</label>}
-        <input type="text" name="name" placeholder="Full Name" value={formData.name} onChange={handleChange} required style={isEditMode ? styles.modalInput : styles.input} />
-      </div>
-
-      <div style={isEditMode ? styles.formGroup : {}}>
-        {isEditMode && <label style={styles.label}>Phone</label>}
-        <input type="text" name="contact" placeholder="Phone" value={formData.contact} onChange={handleChange} required style={isEditMode ? styles.modalInput : styles.inputSmall} />
-      </div>
-
-      <div style={isEditMode ? styles.formGroup : {}}>
-        {isEditMode && <label style={styles.label}>Gender</label>}
-        <select name="gender" value={formData.gender} onChange={handleChange} required style={isEditMode ? styles.modalInput : styles.select}>
-          <option value="">Gender</option>
-          <option value="Male">Male</option>
-          <option value="Female">Female</option>
-          <option value="Other">Other</option>
-        </select>
-      </div>
-
-      <div style={isEditMode ? styles.formGroup : {}}>
-        {isEditMode && <label style={styles.label}>Laptop Status</label>}
-        <select name="laptop_status" value={formData.laptop_status} onChange={handleChange} required style={isEditMode ? styles.modalInput : styles.select}>
-          <option value="">Laptop</option>
-          <option value="Has Laptop">Has Laptop</option>
-          <option value="No! Provided By ins">No! Provided By ins</option>
-        </select>
-      </div>
-
-      <div style={isEditMode ? styles.formGroup : {}}>
-        {isEditMode && <label style={styles.label}>Admission Date</label>}
-        <input type="date" name="createdAt" value={formData.createdAt} onChange={handleChange} required style={isEditMode ? styles.modalInput : styles.inputSmall} title="Admission Date" />
-      </div>
-
-      {isEditMode ? (
-        <>
-          <div style={{ ...styles.formGroup, gridColumn: '1 / -1' }}>
-            <h4 style={{ margin: '15px 0 5px 0', borderBottom: '1px solid #E2E8F0', paddingBottom: '5px', color: '#1E293B' }}>Course Settings</h4>
-          </div>
-          <div style={styles.formGroup}>
-            <label style={styles.label}>Select Enrolled Course to Edit</label>
-            <select name="courseId" value={formData.courseId} onChange={handleEditCourseChange} required style={styles.modalInput}>
-               {(() => {
-                 const editingStudent = students.find(s => s.id === isEditing);
-                 if (editingStudent && editingStudent.enrolled_courses) {
-                   return Object.keys(editingStudent.enrolled_courses).map(cid => (
-                     <option key={cid} value={cid}>{editingStudent.enrolled_courses[cid].course_name}</option>
-                   ));
-                 }
-                 return <option value="">Select Course</option>;
-               })()}
-            </select>
-          </div>
-        </>
-      ) : (
-        <select name="courseId" value={formData.courseId} onChange={handleChange} required style={styles.select}>
-          <option value="">Select Course</option>
-          {courses.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-        </select>
-      )}
-
-      <div style={isEditMode ? styles.formGroup : {}}>
-        {isEditMode && <label style={styles.label}>Class Type</label>}
-        <select name="class_type" value={formData.class_type} onChange={handleChange} required style={isEditMode ? styles.modalInput : styles.select}>
-          <option value="">Class Type</option>
-          <option value="Regular (1 Hour)">Regular (1 Hour)</option>
-          <option value="Alternate (2 Hours)">Alternate (2 Hours)</option>
-        </select>
-      </div>
-
-      <div style={isEditMode ? styles.formGroup : {}}>
-        {isEditMode && <label style={styles.label}>Timeslot</label>}
-        <select name="timeslot" value={formData.timeslot} onChange={handleChange} required style={isEditMode ? styles.modalInput : styles.select} disabled={!formData.class_type}>
-          <option value="">Timeslot</option>
-          {getTimeslotOptions(formData.class_type).map(slot => (
-            <option key={slot} value={slot}>{slot}</option>
-          ))}
-        </select>
-      </div>
-
-      <div style={isEditMode ? styles.formGroup : {}}>
-        {isEditMode && <label style={styles.label}>Monthly Fee</label>}
-        <input type="number" name="agreed_monthly_fee" placeholder="Monthly Fee" value={formData.agreed_monthly_fee} onChange={handleChange} required style={isEditMode ? styles.modalInput : styles.inputTiny} />
-      </div>
-
-      {!isEditMode && (
-        <input type="number" name="admission_fee" placeholder="Adm. Fee" value={formData.admission_fee} onChange={handleChange} required style={styles.inputTiny} />
-      )}
-
-      <div style={isEditMode ? { ...styles.formGroup, gridColumn: '1 / -1', display: 'flex', gap: '10px', marginTop: '10px', flexDirection: 'row' } : { display: 'flex', gap: '8px' }}>
-        <button type="submit" disabled={loading} style={isEditMode ? styles.btnPrimaryLarge : styles.btnPrimary}>
-          {loading ? "..." : isEditMode ? "Update Profile & Course" : (isAdmin ? "Enroll" : "Request")}
-        </button>
-        {isEditMode && (
-          <button type="button" onClick={() => { setIsEditing(null); setFormData({ name: '', contact: '', gender: '', laptop_status: '', courseId: '', agreed_monthly_fee: '', admission_fee: '', createdAt: today, class_type: '', timeslot: '' }) }} style={styles.btnCancelLarge}>
-            Cancel
-          </button>
-        )}
-      </div>
-    </form>
-  );
+  const activeCount = students.filter(s => s.status === 'active' || !s.status).length;
+  const pendingCount = pendingStudents.length;
 
   return (
-    <div style={styles.container}>
-      <header style={styles.header}>
-        <div style={styles.titleArea}>
-          <h2 style={styles.title}>Student Directory 👨‍🎓</h2>
-          <p style={styles.subtitle}>Registration and Course Enrollment Management</p>
+    <div className="space-y-6">
+      {/* HEADER WITH STATS & ACTION BUTTONS */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-2 border-b border-slate-200/80">
+        <div>
+          <div className="flex items-center gap-2.5">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-600 to-indigo-600 flex items-center justify-center text-white shadow-md shadow-blue-500/20">
+              <GraduationCap size={22} />
+            </div>
+            <div>
+              <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Student Directory</h1>
+              <p className="text-sm text-slate-500">Registration, multi-course enrollment & profiles</p>
+            </div>
+          </div>
         </div>
 
-        {!isEditing && renderFormContent(false)}
-      </header>
-
-      {isEditing && (
-        <div style={styles.modalOverlay}>
-          <div style={styles.modalContent}>
-            <h3 style={{ marginTop: 0, color: '#1E293B', marginBottom: '20px' }}>Edit Student Profile 👤</h3>
-            {renderFormContent(true)}
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="hidden lg:flex items-center gap-4 bg-slate-100/80 px-4 py-2 rounded-xl text-xs font-medium text-slate-600 border border-slate-200">
+            <span>Total: <strong className="text-slate-900 font-bold">{students.length}</strong></span>
+            <span className="text-slate-300">•</span>
+            <span>Active: <strong className="text-emerald-700 font-bold">{activeCount}</strong></span>
+            {pendingCount > 0 && (
+              <>
+                <span className="text-slate-300">•</span>
+                <span>Pending: <strong className="text-amber-700 font-bold">{pendingCount}</strong></span>
+              </>
+            )}
           </div>
+
+          <button
+            onClick={downloadExcel}
+            className="flex items-center gap-2 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-sm font-semibold transition-all shadow-sm shadow-emerald-600/20 cursor-pointer"
+          >
+            <Download size={16} />
+            <span>Export Excel</span>
+          </button>
+
+          <button
+            onClick={() => setShowQuickEnroll(!showQuickEnroll)}
+            className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-semibold transition-all shadow-md shadow-blue-500/20 cursor-pointer"
+          >
+            {showQuickEnroll ? <X size={16} /> : <Plus size={16} />}
+            <span>{showQuickEnroll ? 'Close Form' : 'New Enrollment'}</span>
+          </button>
+        </div>
+      </div>
+
+      {/* QUICK ENROLLMENT CARD (EXPANDABLE) */}
+      {showQuickEnroll && (
+        <div className="bg-white border border-blue-200/80 rounded-2xl p-5 shadow-lg shadow-blue-500/5 animate-in fade-in slide-in-from-top-3">
+          <div className="flex items-center justify-between pb-3 mb-4 border-b border-slate-100">
+            <div className="flex items-center gap-2 text-blue-700 font-semibold text-sm">
+              <User size={18} />
+              <span>Quick Student Enrollment</span>
+            </div>
+            <span className="text-xs text-slate-400">All fields required for admission</span>
+          </div>
+
+          <form onSubmit={handleSubmit} className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3.5">
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 mb-1">Full Name</label>
+              <input
+                type="text"
+                name="name"
+                placeholder="e.g. Ayesha Ahmed"
+                value={formData.name}
+                onChange={handleChange}
+                required
+                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 mb-1">Phone Number</label>
+              <input
+                type="text"
+                name="contact"
+                placeholder="03001234567"
+                value={formData.contact}
+                onChange={handleChange}
+                required
+                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 mb-1">Gender</label>
+              <select
+                name="gender"
+                value={formData.gender}
+                onChange={handleChange}
+                required
+                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all cursor-pointer"
+              >
+                <option value="">Select Gender</option>
+                <option value="Male">Male</option>
+                <option value="Female">Female</option>
+                <option value="Other">Other</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 mb-1">Laptop Status</label>
+              <select
+                name="laptop_status"
+                value={formData.laptop_status}
+                onChange={handleChange}
+                required
+                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all cursor-pointer"
+              >
+                <option value="">Select Laptop</option>
+                <option value="Has Laptop">Has Laptop</option>
+                <option value="No! Provided By ins">No! Provided By Ins.</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 mb-1">Course</label>
+              <select
+                name="courseId"
+                value={formData.courseId}
+                onChange={handleChange}
+                required
+                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all cursor-pointer"
+              >
+                <option value="">Select Course</option>
+                {courses.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 mb-1">Class Type</label>
+              <select
+                name="class_type"
+                value={formData.class_type}
+                onChange={handleChange}
+                required
+                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all cursor-pointer"
+              >
+                <option value="">Select Class Type</option>
+                <option value="Regular (1 Hour)">Regular (1 Hour)</option>
+                <option value="Alternate (2 Hours)">Alternate (2 Hours)</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 mb-1">Timeslot</label>
+              <select
+                name="timeslot"
+                value={formData.timeslot}
+                onChange={handleChange}
+                required
+                disabled={!formData.class_type}
+                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all disabled:opacity-50 cursor-pointer"
+              >
+                <option value="">Select Timeslot</option>
+                {getTimeslotOptions(formData.class_type).map(slot => (
+                  <option key={slot} value={slot}>{slot}</option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 mb-1">Admission Date</label>
+              <input
+                type="date"
+                name="createdAt"
+                value={formData.createdAt}
+                onChange={handleChange}
+                required
+                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 mb-1">Admission Fee (PKR)</label>
+              <input
+                type="number"
+                name="admission_fee"
+                placeholder="e.g. 500"
+                value={formData.admission_fee}
+                onChange={handleChange}
+                required
+                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-semibold text-slate-600 mb-1">Agreed Monthly Fee (PKR)</label>
+              <input
+                type="number"
+                name="agreed_monthly_fee"
+                placeholder="e.g. 2500"
+                value={formData.agreed_monthly_fee}
+                onChange={handleChange}
+                required
+                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
+              />
+            </div>
+
+            <div className="sm:col-span-2 md:col-span-1 lg:col-span-2 flex items-end">
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full py-2.5 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-semibold transition-all shadow-md shadow-blue-500/20 disabled:opacity-50 cursor-pointer"
+              >
+                {loading ? "Processing..." : (isAdmin ? "Confirm Enrollment" : "Submit Request")}
+              </button>
+            </div>
+          </form>
         </div>
       )}
 
+      {/* PENDING APPROVALS ALERT */}
       {isAdmin && pendingStudents.length > 0 && (
-        <div style={styles.pendingCard}>
-          <h3 style={styles.pendingTitle}>⏳ Pending Approvals ({pendingStudents.length})</h3>
-          <div style={styles.tableWrapper}>
-            <table style={styles.table}>
-              <thead>
-                <tr style={styles.thRow}>
-                  <th style={styles.th}>Name</th>
-                  <th style={styles.th}>Contact</th>
-                  <th style={styles.th}>Course</th>
-                  <th style={styles.th}>Added By</th>
-                  <th style={styles.th}>Actions</th>
+        <div className="bg-amber-50/70 border border-amber-200 rounded-2xl p-5 shadow-sm">
+          <div className="flex items-center gap-2 mb-3">
+            <AlertCircle className="text-amber-600" size={18} />
+            <h3 className="text-sm font-bold text-amber-900">
+              Pending Enrollment Requests ({pendingStudents.length})
+            </h3>
+          </div>
+          <div className="overflow-x-auto rounded-xl border border-amber-200/60 bg-white">
+            <table className="w-full text-left text-sm">
+              <thead className="bg-amber-50/50 text-amber-900/80 text-xs uppercase font-semibold border-b border-amber-200/60">
+                <tr>
+                  <th className="px-4 py-2.5">Name</th>
+                  <th className="px-4 py-2.5">Contact</th>
+                  <th className="px-4 py-2.5">Course</th>
+                  <th className="px-4 py-2.5">Added By</th>
+                  <th className="px-4 py-2.5 text-right">Actions</th>
                 </tr>
               </thead>
-              <tbody>
+              <tbody className="divide-y divide-amber-100">
                 {pendingStudents.map(s => (
-                  <tr key={s.id} style={styles.tr}>
-                    <td style={styles.nameCell}>{s.name}</td>
-                    <td style={styles.nameCell}>{s.contact}</td>
-                    <td>
+                  <tr key={s.id} className="hover:bg-amber-50/30 transition-colors">
+                    <td className="px-4 py-2.5 font-medium text-slate-800">{s.name}</td>
+                    <td className="px-4 py-2.5 text-slate-600">{s.contact}</td>
+                    <td className="px-4 py-2.5">
                       {Object.values(s.enrolled_courses || {}).map((c, i) => (
-                        <div key={i} style={styles.courseTag}>{c.course_name}</div>
+                        <span key={i} className="inline-block px-2 py-0.5 bg-amber-100 text-amber-800 rounded-md text-xs font-medium mr-1">
+                          {c.course_name}
+                        </span>
                       ))}
                     </td>
-                    <td style={styles.nameCell}>{s.addedBy}</td>
-                    <td>
-                      <div style={styles.actionGroup}>
-                        <button onClick={() => approveStudent(s.id, s)} style={styles.btnApprove}>Approve</button>
-                        <button onClick={() => rejectStudent(s.id)} style={styles.btnReject}>Reject</button>
-                      </div>
+                    <td className="px-4 py-2.5 text-slate-500 text-xs">{s.addedBy}</td>
+                    <td className="px-4 py-2.5 text-right space-x-2">
+                      <button
+                        onClick={() => approveStudent(s.id, s)}
+                        className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-semibold transition-all cursor-pointer shadow-sm"
+                      >
+                        Approve
+                      </button>
+                      <button
+                        onClick={() => rejectStudent(s.id)}
+                        className="px-2.5 py-1 bg-rose-50 text-rose-600 hover:bg-rose-100 border border-rose-200 rounded-lg text-xs font-semibold transition-all cursor-pointer"
+                      >
+                        Reject
+                      </button>
                     </td>
                   </tr>
                 ))}
@@ -452,168 +565,406 @@ const Students = () => {
         </div>
       )}
 
-      <div style={styles.mainCard}>
-        <div style={styles.filterBar}>
-          <div style={styles.searchBox}>
-            <span style={styles.searchIcon}>🔍</span>
-            <input type="text" placeholder="Search students..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} style={styles.filterInput} />
+      {/* FILTER & SEARCH TOOLBAR */}
+      <div className="bg-white border border-slate-200/80 rounded-2xl p-4 shadow-sm space-y-3">
+        <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
+          {/* SEARCH BAR */}
+          <div className="relative flex-1 max-w-md">
+            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+            <input
+              type="text"
+              placeholder="Search by name, student ID, or phone..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
+            />
+            {searchTerm && (
+              <button
+                onClick={() => setSearchTerm('')}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+              >
+                <X size={14} />
+              </button>
+            )}
           </div>
 
-          <select value={sortOrder} onChange={(e) => setSortOrder(e.target.value)} style={styles.filterSelect}>
-            <option value="asc">Sort: ID (Asc)</option>
-            <option value="desc">Sort: ID (Desc)</option>
-          </select>
+          {/* FILTER DROPDOWNS */}
+          <div className="flex flex-wrap items-center gap-2">
+            <select
+              value={filterCourse}
+              onChange={(e) => setFilterCourse(e.target.value)}
+              className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500/20 cursor-pointer"
+            >
+              <option value="">All Courses</option>
+              {courses.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+            </select>
 
-          <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} style={styles.filterSelect}>
-            <option value="all">Status: All</option>
-            <option value="active">Status: Active</option>
-            <option value="inactive">Status: Inactive</option>
-          </select>
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500/20 cursor-pointer"
+            >
+              <option value="all">Status: All</option>
+              <option value="active">Active</option>
+              <option value="inactive">Inactive</option>
+            </select>
 
-          <select value={laptopFilter} onChange={(e) => setLaptopFilter(e.target.value)} style={styles.filterSelect}>
-            <option value="all">Laptop: All</option>
-            <option value="Has Laptop">Has Laptop</option>
-            <option value="No! Provided By ins">No! Provided By ins</option>
-          </select>
+            <select
+              value={laptopFilter}
+              onChange={(e) => setLaptopFilter(e.target.value)}
+              className="px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500/20 cursor-pointer"
+            >
+              <option value="all">Laptop: All</option>
+              <option value="Has Laptop">Has Laptop</option>
+              <option value="No! Provided By ins">No! Provided By Ins.</option>
+            </select>
 
-          {/* ADDED EXCEL BUTTON HERE */}
-          <button onClick={downloadExcel} style={styles.btnExport}>
-            📥 Download Excel
-          </button>
+            <button
+              onClick={() => setSortOrder(prev => prev === 'asc' ? 'desc' : 'asc')}
+              className="flex items-center gap-1.5 px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-medium transition-colors cursor-pointer"
+              title="Toggle Sort Order"
+            >
+              <ArrowUpDown size={14} />
+              <span>ID: {sortOrder.toUpperCase()}</span>
+            </button>
+          </div>
         </div>
-        <div style={styles.tableWrapper}>
-          {/* ... keep existing table ... */}
-          <table style={styles.table}>
-            <thead>
-              <tr style={styles.thRow}>
-                <th style={styles.th}>S.ID</th>
-                <th style={styles.th}>Name / Gender</th>
-                <th style={styles.th}>Courses</th>
-                <th style={styles.th}>Time Slot</th>
-                <th style={styles.th}>Adm. Fee</th>
-                <th style={styles.th}>Monthly Fee</th>
-                <th style={styles.th}>Adm. Date</th>
-                {isAdmin && <th style={styles.th}>Manage</th>}
+      </div>
+
+      {/* STUDENT TABLE */}
+      <div className="bg-white border border-slate-200/80 rounded-2xl shadow-sm overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-sm">
+            <thead className="bg-slate-50/80 text-slate-500 text-xs font-semibold uppercase tracking-wider border-b border-slate-200">
+              <tr>
+                <th className="px-5 py-3.5">Student ID</th>
+                <th className="px-5 py-3.5">Student Info</th>
+                <th className="px-5 py-3.5">Course(s)</th>
+                <th className="px-5 py-3.5">Timeslot</th>
+                <th className="px-5 py-3.5">Admission Fee</th>
+                <th className="px-5 py-3.5">Monthly Fee</th>
+                <th className="px-5 py-3.5">Admission Date</th>
+                {isAdmin && <th className="px-5 py-3.5 text-right">Actions</th>}
               </tr>
             </thead>
-            <tbody>
-              {filteredStudents.map((s) => (
-                <tr key={s.id} style={styles.tr}>
-                  <td style={styles.idCell}>{s.student_id}</td>
-                  <td style={styles.nameCell}>
-                    <div>{s.name} <span style={{ fontSize: '10px', color: '#94A3B8' }}>({s.gender})</span></div>
-                    <div style={styles.contactSub}>{s.contact}</div>
+            <tbody className="divide-y divide-slate-100">
+              {filteredStudents.length === 0 ? (
+                <tr>
+                  <td colSpan={isAdmin ? 8 : 7} className="px-5 py-12 text-center text-slate-400">
+                    <User size={36} className="mx-auto mb-2 opacity-30" />
+                    <p className="text-sm font-medium">No students match your filter criteria</p>
                   </td>
-                  <td>
-                    {Object.values(s.enrolled_courses || {}).map((course, idx) => {
-                      const isActive = !course.course_status || course.course_status === 'active';
-                      return (
-                        <div key={idx} style={isActive ? styles.activeCourseTag : styles.courseTag}>
-                          {course.course_name}
-                        </div>
-                      );
-                    })}
-                  </td>
-                  <td>
-                    {Object.values(s.enrolled_courses || {}).map((course, idx) => (
-                      <div key={idx} style={{ fontSize: '12px', color: '#64748B', padding: '2px 0' }}>
-                        {course.timeslot || 'N/A'}
-                      </div>
-                    ))}
-                  </td>
-                  <td style={styles.feeCell}>PKR {s.admission_fee?.toLocaleString() || 0}</td>
-                  <td style={styles.feeCell}>
-                    {Object.values(s.enrolled_courses || {}).map((course, idx) => (
-                      <div key={idx}>PKR {course.agreed_monthly_fee.toLocaleString()}</div>
-                    ))}
-                  </td>
-                  <td style={styles.dateCell}>{formatDate(s.createdAt)}</td>
-                  {isAdmin && (
-                    <td>
-                      <div style={styles.actionGroup}>
-                        <button onClick={() => startEdit(s)} style={styles.btnEdit}>Edit</button>
-                        <button onClick={() => { if (window.confirm("Delete record?")) remove(ref(db, `students/${s.id}`)) }} style={styles.btnDelete}>🗑️</button>
-                      </div>
-                    </td>
-                  )}
                 </tr>
-              ))}
+              ) : (
+                filteredStudents.map((s) => {
+                  const isStudentActive = !s.status || s.status === 'active';
+                  return (
+                    <tr key={s.id} className="hover:bg-slate-50/60 transition-colors group">
+                      <td className="px-5 py-4 font-mono font-bold text-blue-600 text-xs">
+                        {s.student_id}
+                      </td>
+
+                      <td className="px-5 py-4">
+                        <div className="flex items-center gap-3">
+                          <div className={`w-9 h-9 rounded-xl flex items-center justify-center text-xs font-bold shadow-sm ${
+                            s.gender === 'Female'
+                              ? 'bg-gradient-to-br from-pink-500 to-rose-600 text-white'
+                              : 'bg-gradient-to-br from-blue-500 to-indigo-600 text-white'
+                          }`}>
+                            {s.name ? s.name.charAt(0).toUpperCase() : '?'}
+                          </div>
+                          <div>
+                            <div className="flex items-center gap-1.5 font-semibold text-slate-800">
+                              <span>{s.name}</span>
+                              <span className="text-[10px] px-1.5 py-0.2 bg-slate-100 text-slate-500 rounded font-normal">
+                                {s.gender || 'N/A'}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-2 text-xs text-slate-400 mt-0.5">
+                              <span className="flex items-center gap-1"><Phone size={11} /> {s.contact || 'No phone'}</span>
+                              <span>•</span>
+                              <span className="flex items-center gap-1"><Laptop size={11} /> {s.laptop_status === 'Has Laptop' ? 'Laptop ✓' : 'Ins. Laptop'}</span>
+                            </div>
+                          </div>
+                        </div>
+                      </td>
+
+                      <td className="px-5 py-4">
+                        <div className="space-y-1">
+                          {Object.values(s.enrolled_courses || {}).map((course, idx) => {
+                            const isCourseActive = !course.course_status || course.course_status === 'active';
+                            return (
+                              <span
+                                key={idx}
+                                className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md text-xs font-medium mr-1.5 ${
+                                  isCourseActive
+                                    ? 'bg-emerald-50 text-emerald-700 border border-emerald-200/60'
+                                    : 'bg-slate-100 text-slate-600 border border-slate-200'
+                                }`}
+                              >
+                                {course.course_name}
+                              </span>
+                            );
+                          })}
+                        </div>
+                      </td>
+
+                      <td className="px-5 py-4 text-xs text-slate-600">
+                        {Object.values(s.enrolled_courses || {}).map((course, idx) => (
+                          <div key={idx} className="flex items-center gap-1 py-0.5">
+                            <Clock size={11} className="text-slate-400" />
+                            <span>{course.timeslot || 'Not Assigned'}</span>
+                          </div>
+                        ))}
+                      </td>
+
+                      <td className="px-5 py-4 font-medium text-slate-800 text-xs">
+                        PKR {Number(s.admission_fee || 0).toLocaleString()}
+                      </td>
+
+                      <td className="px-5 py-4 text-xs font-semibold text-slate-800">
+                        {Object.values(s.enrolled_courses || {}).map((course, idx) => (
+                          <div key={idx} className="py-0.5">
+                            PKR {Number(course.agreed_monthly_fee || 0).toLocaleString()}
+                          </div>
+                        ))}
+                      </td>
+
+                      <td className="px-5 py-4 text-xs text-slate-500">
+                        <div className="flex items-center gap-1">
+                          <Calendar size={12} className="text-slate-400" />
+                          <span>{formatDate(s.createdAt)}</span>
+                        </div>
+                      </td>
+
+                      {isAdmin && (
+                        <td className="px-5 py-4 text-right">
+                          <div className="flex items-center justify-end gap-1.5">
+                            <button
+                              onClick={() => startEdit(s)}
+                              className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors cursor-pointer"
+                              title="Edit Profile"
+                            >
+                              <Edit2 size={16} />
+                            </button>
+                            <button
+                              onClick={() => {
+                                if (window.confirm(`Delete record for ${s.name}?`)) {
+                                  remove(ref(db, `students/${s.id}`));
+                                  toast.success("Student removed");
+                                }
+                              }}
+                              className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
+                              title="Delete Student"
+                            >
+                              <Trash2 size={16} />
+                            </button>
+                          </div>
+                        </td>
+                      )}
+                    </tr>
+                  );
+                })
+              )}
             </tbody>
           </table>
         </div>
       </div>
+
+      {/* EDIT MODAL DIALOG */}
+      {isEditing && (
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in">
+          <div className="bg-white rounded-2xl shadow-2xl border border-slate-100 max-w-2xl w-full p-6 animate-in zoom-in-95">
+            <div className="flex items-center justify-between pb-4 border-b border-slate-100 mb-5">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-lg bg-blue-100 text-blue-600 flex items-center justify-center">
+                  <Edit2 size={16} />
+                </div>
+                <h3 className="font-bold text-slate-800 text-lg">Edit Student Profile</h3>
+              </div>
+              <button
+                onClick={() => setIsEditing(null)}
+                className="text-slate-400 hover:text-slate-600 p-1 rounded-lg hover:bg-slate-100 transition-colors"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 mb-1">Full Name</label>
+                  <input
+                    type="text"
+                    name="name"
+                    value={formData.name}
+                    onChange={handleChange}
+                    required
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 mb-1">Phone Number</label>
+                  <input
+                    type="text"
+                    name="contact"
+                    value={formData.contact}
+                    onChange={handleChange}
+                    required
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 mb-1">Gender</label>
+                  <select
+                    name="gender"
+                    value={formData.gender}
+                    onChange={handleChange}
+                    required
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 cursor-pointer"
+                  >
+                    <option value="">Select Gender</option>
+                    <option value="Male">Male</option>
+                    <option value="Female">Female</option>
+                    <option value="Other">Other</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 mb-1">Laptop Status</label>
+                  <select
+                    name="laptop_status"
+                    value={formData.laptop_status}
+                    onChange={handleChange}
+                    required
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 cursor-pointer"
+                  >
+                    <option value="">Select Laptop</option>
+                    <option value="Has Laptop">Has Laptop</option>
+                    <option value="No! Provided By ins">No! Provided By Ins.</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 mb-1">Admission Date</label>
+                  <input
+                    type="date"
+                    name="createdAt"
+                    value={formData.createdAt}
+                    onChange={handleChange}
+                    required
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 mb-1">Admission Fee (PKR)</label>
+                  <input
+                    type="number"
+                    name="admission_fee"
+                    value={formData.admission_fee}
+                    onChange={handleChange}
+                    required
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                  />
+                </div>
+              </div>
+
+              {/* COURSE SETTINGS SECTION */}
+              <div className="pt-3 border-t border-slate-100">
+                <h4 className="text-xs font-bold uppercase text-slate-400 tracking-wider mb-3">Enrolled Course Settings</h4>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="sm:col-span-2">
+                    <label className="block text-xs font-semibold text-slate-600 mb-1">Select Enrolled Course to Edit</label>
+                    <select
+                      name="courseId"
+                      value={formData.courseId}
+                      onChange={handleEditCourseChange}
+                      required
+                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 cursor-pointer"
+                    >
+                      {(() => {
+                        const editingStudent = students.find(s => s.id === isEditing);
+                        if (editingStudent && editingStudent.enrolled_courses) {
+                          return Object.keys(editingStudent.enrolled_courses).map(cid => (
+                            <option key={cid} value={cid}>{editingStudent.enrolled_courses[cid].course_name}</option>
+                          ));
+                        }
+                        return <option value="">Select Course</option>;
+                      })()}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-600 mb-1">Class Type</label>
+                    <select
+                      name="class_type"
+                      value={formData.class_type}
+                      onChange={handleChange}
+                      required
+                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 cursor-pointer"
+                    >
+                      <option value="">Select Class Type</option>
+                      <option value="Regular (1 Hour)">Regular (1 Hour)</option>
+                      <option value="Alternate (2 Hours)">Alternate (2 Hours)</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-600 mb-1">Timeslot</label>
+                    <select
+                      name="timeslot"
+                      value={formData.timeslot}
+                      onChange={handleChange}
+                      required
+                      disabled={!formData.class_type}
+                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 disabled:opacity-50 cursor-pointer"
+                    >
+                      <option value="">Select Timeslot</option>
+                      {getTimeslotOptions(formData.class_type).map(slot => (
+                        <option key={slot} value={slot}>{slot}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="sm:col-span-2">
+                    <label className="block text-xs font-semibold text-slate-600 mb-1">Agreed Monthly Fee (PKR)</label>
+                    <input
+                      type="number"
+                      name="agreed_monthly_fee"
+                      value={formData.agreed_monthly_fee}
+                      onChange={handleChange}
+                      required
+                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setIsEditing(null)}
+                  className="px-4 py-2 border border-slate-200 text-slate-600 hover:bg-slate-50 rounded-xl text-sm font-semibold transition-colors cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-semibold transition-all shadow-md shadow-blue-500/20 disabled:opacity-50 cursor-pointer"
+                >
+                  {loading ? "Saving..." : "Update Student"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
-};
-const styles = {
-
-  btnExport: {
-    background: '#10B981',
-    color: '#fff',
-    border: 'none',
-    padding: '10px 18px',
-    borderRadius: '10px',
-    fontWeight: '700',
-    cursor: 'pointer',
-    fontSize: '14px',
-    display: 'flex',
-    alignItems: 'center',
-    gap: '8px'
-  },
-  modalOverlay: { position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(15, 23, 42, 0.6)', backdropFilter: 'blur(4px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 },
-  modalContent: { background: '#fff', padding: '30px', borderRadius: '20px', width: '90%', maxWidth: '900px', boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)' },
-  container: { width: '100%' },
-  header: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px', flexWrap: 'wrap', gap: '20px' },
-  titleArea: { flex: 1 },
-  title: { fontSize: '24px', fontWeight: '800', color: '#1E293B', margin: 0 },
-  subtitle: { color: '#64748B', fontSize: '14px', marginTop: '4px' },
-
-  quickForm: { background: '#fff', padding: '12px', borderRadius: '14px', display: 'flex', flexWrap: "wrap", gap: '8px', border: '1px solid #E2E8F0', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)' },
-  input: { padding: '10px 14px', borderRadius: '10px', border: '1px solid #E2E8F0', outline: 'none', fontSize: '14px', width: '200px' },
-  inputSmall: { padding: '10px 14px', borderRadius: '10px', border: '1px solid #E2E8F0', outline: 'none', fontSize: '14px', width: '120px' },
-  inputTiny: { padding: '10px 14px', borderRadius: '10px', border: '1px solid #E2E8F0', outline: 'none', fontSize: '14px', width: '80px' },
-  select: { padding: '10px', borderRadius: '10px', border: '1px solid #E2E8F0', outline: 'none', background: '#F8FAFC', fontSize: '14px' },
-  btnPrimary: { background: '#3B82F6', color: '#fff', border: 'none', padding: '10px 20px', borderRadius: '10px', fontWeight: '700', cursor: 'pointer' },
-  btnCancel: { background: '#F1F5F9', color: '#64748B', border: 'none', width: '38px', borderRadius: '10px', cursor: 'pointer' },
-
-  editForm: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' },
-  formGroup: { display: 'flex', flexDirection: 'column', gap: '5px' },
-  label: { fontSize: '13px', fontWeight: '600', color: '#475569' },
-  modalInput: { padding: '10px 14px', borderRadius: '8px', border: '1px solid #CBD5E1', fontSize: '14px', outline: 'none', backgroundColor: '#F8FAFC' },
-  btnPrimaryLarge: { background: '#3B82F6', color: '#fff', border: 'none', padding: '10px 20px', borderRadius: '8px', fontWeight: '600', cursor: 'pointer', flex: 1 },
-  btnCancelLarge: { background: '#F1F5F9', color: '#475569', border: '1px solid #CBD5E1', padding: '10px 20px', borderRadius: '8px', fontWeight: '600', cursor: 'pointer', flex: 1 },
-
-  pendingCard: { background: '#FFFBEB', padding: '24px', borderRadius: '16px', border: '1px solid #FEF3C7', marginBottom: '30px' },
-  pendingTitle: { margin: '0 0 15px 0', color: '#92400E', fontSize: '16px' },
-
-  mainCard: { background: '#fff', borderRadius: '16px', border: '1px solid #E2E8F0', boxShadow: '0 1px 3px rgba(0,0,0,0.1)', overflow: 'hidden' },
-  filterBar: { padding: '20px', borderBottom: '1px solid #F1F5F9', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '15px' },
-  searchBox: { position: 'relative' },
-  searchIcon: { position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', opacity: 0.4 },
-  filterInput: { padding: '10px 12px 10px 35px', borderRadius: '10px', border: '1px solid #E2E8F0', width: '250px', outline: 'none' },
-  filterSelect: { padding: '10px', borderRadius: '10px', border: '1px solid #E2E8F0', background: '#fff', outline: 'none' },
-
-  tableWrapper: { overflowX: 'auto' },
-  table: { width: '100%', borderCollapse: 'collapse', textAlign: 'left' },
-  thRow: { background: '#F8FAFC', borderBottom: '1px solid #E2E8F0' },
-  th: { padding: '15px 20px', color: '#64748B', fontSize: '12px', fontWeight: '700', textTransform: 'uppercase' },
-  tr: { borderBottom: '1px solid #F1F5F9', transition: 'background 0.2s' },
-
-  idCell: { padding: '16px 20px', fontWeight: '700', color: '#3B82F6', fontSize: '13px' },
-  nameCell: { padding: '16px 20px', fontSize: '14px' },
-  contactSub: { fontSize: '11px', color: '#94A3B8', marginTop: '2px' },
-  courseTag: { fontSize: '12px', fontWeight: '600', color: '#475569', background: '#F1F5F9', padding: '2px 8px', borderRadius: '6px', marginBottom: '4px', display: 'table', border: '1px solid #E2E8F0' },
-  activeCourseTag: { fontSize: '12px', fontWeight: '600', color: '#065F46', background: '#D1FAE5', padding: '2px 8px', borderRadius: '6px', marginBottom: '4px', display: 'table', border: '1px solid #34D399' },
-  courseBadge: { fontSize: '11px', fontWeight: '700', color: '#B45309', background: '#FEF3C7', padding: '2px 8px', borderRadius: '6px', marginBottom: '4px' },
-  feeCell: { padding: '16px 20px', fontSize: '13px', fontWeight: '600', color: '#1E293B' },
-  dateCell: { padding: '16px 20px', color: '#64748B', fontSize: '12px' },
-
-  actionGroup: { display: 'flex', gap: '8px' },
-  btnApprove: { background: '#10B981', color: '#fff', border: 'none', padding: '6px 12px', borderRadius: '8px', fontSize: '12px', fontWeight: '700', cursor: 'pointer' },
-  btnReject: { background: '#EF4444', color: '#fff', border: 'none', padding: '6px 12px', borderRadius: '8px', fontSize: '12px', fontWeight: '700', cursor: 'pointer' },
-  btnEdit: { background: '#EFF6FF', color: '#3B82F6', border: 'none', padding: '6px 12px', borderRadius: '8px', fontSize: '12px', fontWeight: '700', cursor: 'pointer' },
-  btnDelete: { background: '#fff', border: '1px solid #FEE2E2', padding: '6px', borderRadius: '8px', cursor: 'pointer' },
-  emptyState: { padding: '50px', textAlign: 'center', color: '#94A3B8' }
 };
 
 export default Students;

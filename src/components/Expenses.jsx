@@ -4,14 +4,30 @@ import { useAuth } from '../contexts/AuthContext';
 import { ref, push, set, onValue, remove } from 'firebase/database';
 import { downloadExpenseSample, parseExcelUpload, exportExpenses } from '../utils/bulkUpload';
 import toast from 'react-hot-toast';
+import { MONTHS_FULL } from '../utils/monthUtils';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Cell } from 'recharts';
+import {
+  Receipt,
+  Plus,
+  FileSpreadsheet,
+  Upload,
+  Download,
+  Pencil,
+  Trash2,
+  X,
+  Calendar,
+  CheckCircle2,
+  DollarSign,
+  BarChart3,
+  Layers
+} from 'lucide-react';
 
 const Expenses = () => {
   const { currentUser, isAdmin } = useAuth();
   const [expenses, setExpenses] = useState([]);
   const [courses, setCourses] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [filterMonth, setFilterMonth] = useState(new Date().getMonth() + 1); // 1-12
+  const [filterMonth, setFilterMonth] = useState(new Date().getMonth() + 1);
   const [filterYear, setFilterYear] = useState(new Date().getFullYear());
   const [showEditExpenseModal, setShowEditExpenseModal] = useState(false);
   const [editFormData, setEditFormData] = useState(null);
@@ -25,12 +41,12 @@ const Expenses = () => {
   });
 
   useEffect(() => {
-    onValue(ref(db, 'courses'), (snap) => {
+    const unsubCourses = onValue(ref(db, 'courses'), (snap) => {
       const data = snap.val();
       setCourses(data ? Object.keys(data).map(id => ({ id, ...data[id] })) : []);
     });
 
-    onValue(ref(db, 'expenses'), (snap) => {
+    const unsubExpenses = onValue(ref(db, 'expenses'), (snap) => {
       const data = snap.val();
       setExpenses(data ? Object.keys(data).map(id => {
         const exp = { id, ...data[id] };
@@ -43,6 +59,11 @@ const Expenses = () => {
         return exp;
       }) : []);
     });
+
+    return () => {
+      unsubCourses();
+      unsubExpenses();
+    };
   }, []);
 
   const handleChange = (e) => setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -139,207 +160,323 @@ const Expenses = () => {
           successCount++;
         }
       }
-      toast.success(`Successfully imported ${successCount} expenses!`);
+
+      toast.success(`Successfully uploaded ${successCount} expenses!`);
     } catch (error) {
-      toast.error("Failed to import expenses: " + error.message);
+      toast.error("Failed to upload: " + error.message);
     } finally {
       setLoading(false);
       e.target.value = null;
     }
   };
 
-  const handleExportAll = () => {
-    if (expenses.length === 0) return toast.error("No records to export.");
-    exportExpenses(expenses, 'All_Expenses.xlsx');
-  };
-
-  const handleExportYearly = () => {
-    const yearly = expenses.filter(e => new Date(e.date).getFullYear() === parseInt(filterYear));
-    if (yearly.length === 0) return toast.error(`No records for ${filterYear}.`);
-    exportExpenses(yearly, `Expenses_${filterYear}.xlsx`);
-  };
-
-  const filteredExpenses = expenses.filter(e => {
-    const d = new Date(e.date);
-    return d.getMonth() + 1 === parseInt(filterMonth) && d.getFullYear() === parseInt(filterYear);
-  }).sort((a, b) => new Date(b.date) - new Date(a.date));
-
-  const totalExpense = filteredExpenses.reduce((acc, curr) => acc + (curr.amount || 0), 0);
-
-  const monthsShort = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-  const yearlyExpenses = expenses.filter(e => new Date(e.date).getFullYear() === parseInt(filterYear));
-
-  const expenseByMonth = yearlyExpenses.reduce((acc, curr) => {
-    const monthName = monthsShort[new Date(curr.date).getMonth()];
-    acc[monthName] = (acc[monthName] || 0) + (curr.amount || 0);
-    return acc;
-  }, {});
-
-  const chartData = monthsShort.map(m => ({
-    name: m,
-    amount: expenseByMonth[m] || 0
-  }));
-
-  const monthsFull = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
   const currentYear = new Date().getFullYear();
   const years = Array.from(new Set([
     currentYear,
     ...expenses.map(e => new Date(e.date).getFullYear())
   ])).filter(y => !isNaN(y)).sort((a, b) => a - b);
 
+  const monthsFull = MONTHS_FULL;
+
+  const filteredExpenses = expenses.filter(e => {
+    if (!e.date) return false;
+    const d = new Date(e.date);
+    return (d.getMonth() + 1) === parseInt(filterMonth) && d.getFullYear() === parseInt(filterYear);
+  }).sort((a, b) => new Date(b.date) - new Date(a.date));
+
+  const totalExpense = filteredExpenses.reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
+
+  const categoryData = filteredExpenses.reduce((acc, curr) => {
+    const cat = curr.courseName || 'General';
+    acc[cat] = (acc[cat] || 0) + curr.amount;
+    return acc;
+  }, {});
+
+  const chartData = Object.keys(categoryData).map(key => ({
+    name: key,
+    amount: categoryData[key]
+  }));
+
+  const COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899', '#6366F1'];
+
   return (
-    <div style={styles.container}>
-      <header style={styles.header}>
-        <div style={styles.titleArea}>
-          <h2 style={styles.title}>Expense Tracker 💸</h2>
-          <p style={styles.subtitle}>Track operational costs per course</p>
+    <div className="space-y-6 font-sans animate-fade-in">
+      {/* HEADER & SUMMARY CARD */}
+      <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-slate-200/80">
+        <div>
+          <div className="flex items-center gap-2">
+            <Receipt className="text-blue-600" size={24} />
+            <h1 className="text-2xl md:text-3xl font-extrabold text-slate-900 tracking-tight">Operating Expenses</h1>
+          </div>
+          <p className="text-sm text-slate-500 mt-1 font-medium">Record and analyze institute operational costs & departmental expenses</p>
         </div>
-        <div style={styles.totalCard}>
-          <div style={styles.totalLabel}>Total Expenses ({monthsFull[filterMonth - 1]} {filterYear})</div>
-          <div style={styles.totalAmount}>PKR {totalExpense.toLocaleString()}</div>
+
+        <div className="p-4 rounded-2xl bg-emerald-500 text-white shadow-lg shadow-emerald-500/20 flex items-center gap-4 min-w-[200px]">
+          <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center font-bold">
+            <DollarSign size={20} />
+          </div>
+          <div>
+            <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-100 block">
+              {monthsFull[filterMonth - 1]} Expense
+            </span>
+            <div className="text-2xl font-black font-mono">
+              PKR {totalExpense.toLocaleString()}
+            </div>
+          </div>
         </div>
       </header>
 
-      <div style={styles.mainGrid}>
-        {/* LEFT COLUMN */}
-        <div style={styles.leftCol}>
-          {/* ADD EXPENSE FORM */}
-          <div style={styles.card}>
-            <h3 style={styles.cardTitle}>Add New Expense</h3>
-            <form onSubmit={handleSubmit} style={styles.form}>
-              <div style={styles.formGroup}>
-                <label style={styles.label}>Date</label>
-                <input type="date" name="date" value={formData.date} onChange={handleChange} required style={styles.input} />
+      {/* MAIN TWO-COLUMN GRID */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+        {/* LEFT COLUMN: ADD FORM & BULK EXCEL (5 cols) */}
+        <div className="lg:col-span-5 space-y-6">
+          {/* Add Expense Form */}
+          <div className="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-xs">
+            <h2 className="text-base font-bold text-slate-900 tracking-tight pb-3 mb-5 border-b border-slate-100 flex items-center gap-2">
+              <Plus size={18} className="text-blue-600" />
+              <span>Record New Expense</span>
+            </h2>
+
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wider">
+                  Date
+                </label>
+                <input
+                  type="date"
+                  name="date"
+                  value={formData.date}
+                  onChange={handleChange}
+                  required
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-xs font-medium focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
+                />
               </div>
 
-              <div style={styles.formGroup}>
-                <label style={styles.label}>Course Category</label>
-                <select name="courseName" value={formData.courseName} onChange={handleChange} required style={styles.select}>
+              <div>
+                <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wider">
+                  Course / Department Category
+                </label>
+                <select
+                  name="courseName"
+                  value={formData.courseName}
+                  onChange={handleChange}
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-xs font-semibold focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
+                >
                   <option value="General">General / Administrative</option>
                   {courses.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
                 </select>
               </div>
 
-              <div style={styles.formGroup}>
-                <label style={styles.label}>Description</label>
-                <input type="text" name="description" placeholder="e.g. Marketing, Stationery, Rent" value={formData.description} onChange={handleChange} required style={styles.input} />
+              <div>
+                <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wider">
+                  Description
+                </label>
+                <input
+                  type="text"
+                  name="description"
+                  placeholder="e.g. Electricity bill, Printer paper, Internet"
+                  value={formData.description}
+                  onChange={handleChange}
+                  required
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-xs font-medium focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
+                />
               </div>
 
-              <div style={styles.formGroup}>
-                <label style={styles.label}>Amount (PKR)</label>
-                <input type="number" name="amount" placeholder="0" value={formData.amount} onChange={handleChange} required style={styles.input} />
+              <div>
+                <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wider">
+                  Amount (PKR)
+                </label>
+                <input
+                  type="number"
+                  name="amount"
+                  placeholder="0.00"
+                  value={formData.amount}
+                  onChange={handleChange}
+                  required
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-xs font-mono font-bold text-emerald-700 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
+                />
               </div>
 
-              <button type="submit" disabled={loading} style={styles.btnPrimary}>
-                {loading ? "Saving..." : "Add Expense"}
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full py-3 px-4 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold transition-all shadow-xs flex items-center justify-center gap-2 disabled:opacity-60"
+              >
+                <CheckCircle2 size={16} />
+                <span>{loading ? "Recording..." : "Save Expense"}</span>
               </button>
             </form>
           </div>
 
-          <div style={styles.card}>
-            <h3 style={styles.cardTitle}>Bulk Upload Expenses</h3>
-            <p style={{ fontSize: '12px', color: '#64748b', marginBottom: '15px' }}>Upload an Excel file to mass-add expense records.</p>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-              <button onClick={downloadExpenseSample} type="button" style={{ background: '#F1F5F9', color: '#475569', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '600', fontSize: '13px', padding: '10px' }}>
-                📄 Download Sample Format
-              </button>
-              <input type="file" accept=".xlsx, .xls" onChange={handleBulkUpload} id="expense-upload" style={{ display: 'none' }} />
-              <button onClick={() => document.getElementById('expense-upload').click()} type="button" style={{ ...styles.btnPrimary, background: '#10B981', fontSize: '13px', padding: '10px', margin: 0 }}>
-                {loading ? "Processing..." : "📤 Upload Excel File"}
-              </button>
+          {/* Bulk Operations */}
+          {isAdmin && (
+            <div className="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-xs space-y-4">
+              <div className="flex items-center gap-2 pb-3 border-b border-slate-100">
+                <FileSpreadsheet className="text-emerald-600" size={18} />
+                <h3 className="text-sm font-bold text-slate-900 tracking-tight">Bulk Excel Actions</h3>
+              </div>
+              <p className="text-xs text-slate-500 leading-relaxed">
+                Import historical expenses or export the current filtered month's records to an Excel file.
+              </p>
+              <div className="flex flex-col gap-2.5">
+                <div className="flex gap-2.5">
+                  <button
+                    onClick={downloadExpenseSample}
+                    className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-700 text-xs font-bold transition-all"
+                  >
+                    <Download size={14} />
+                    <span>Sample File</span>
+                  </button>
+                  <input
+                    type="file"
+                    accept=".xlsx, .xls"
+                    onChange={handleBulkUpload}
+                    id="expense-upload"
+                    className="hidden"
+                  />
+                  <button
+                    onClick={() => document.getElementById('expense-upload').click()}
+                    disabled={loading}
+                    className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition-all shadow-xs disabled:opacity-60"
+                  >
+                    <Upload size={14} />
+                    <span>Upload File</span>
+                  </button>
+                </div>
+                <button
+                  onClick={() => exportExpenses(filteredExpenses, `${monthsFull[filterMonth - 1]}_${filterYear}`)}
+                  className="w-full flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-bold transition-all"
+                >
+                  <FileSpreadsheet size={14} className="text-emerald-600" />
+                  <span>Export {monthsFull[filterMonth - 1]} Expenses</span>
+                </button>
+              </div>
             </div>
-          </div>
+          )}
         </div>
 
-        {/* RIGHT COLUMN */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '25px', overflow: 'hidden' }}>
-
-          {/* EXPENSE GRAPH */}
-          <div style={styles.card}>
-            <h3 style={styles.cardTitle}>Yearly Expense Trend ({filterYear})</h3>
-            {chartData.some(d => d.amount > 0) ? (
-              <div style={{ height: 300, width: '100%' }}>
+        {/* RIGHT COLUMN: CHART & TABLE (7 cols) */}
+        <div className="lg:col-span-7 space-y-6">
+          {/* Recharts Distribution */}
+          {chartData.length > 0 && (
+            <div className="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-xs space-y-4">
+              <div className="flex items-center gap-2 pb-3 border-b border-slate-100">
+                <BarChart3 className="text-blue-600" size={18} />
+                <h3 className="text-sm font-bold text-slate-900 tracking-tight">Category Breakdown</h3>
+              </div>
+              <div className="h-48 w-full">
                 <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={chartData} margin={{ top: 10, right: 10, left: 0, bottom: 20 }}>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E2E8F0" />
-                    <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#64748B' }} angle={-45} textAnchor="end" />
-                    <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#64748B' }} tickFormatter={(val) => `PKR ${val / 1000}k`} />
+                  <BarChart data={chartData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F1F5F9" />
+                    <XAxis dataKey="name" tick={{ fontSize: 11, fill: '#64748B' }} />
+                    <YAxis tick={{ fontSize: 11, fill: '#64748B' }} />
                     <Tooltip
-                      cursor={{ fill: '#F1F5F9' }}
-                      contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)' }}
-                      formatter={(value) => [`PKR ${value.toLocaleString()}`, 'Amount']}
+                      formatter={(val) => [`PKR ${Number(val).toLocaleString()}`, 'Amount']}
+                      contentStyle={{ borderRadius: '12px', border: '1px solid #E2E8F0', fontSize: '12px' }}
                     />
-                    <Bar dataKey="amount" radius={[6, 6, 0, 0]} fill="#3B82F6" />
+                    <Bar dataKey="amount" radius={[6, 6, 0, 0]}>
+                      {chartData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                      ))}
+                    </Bar>
                   </BarChart>
                 </ResponsiveContainer>
               </div>
-            ) : (
-              <div style={{ height: 300, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#94A3B8', fontSize: '14px' }}>
-                No expenses to chart for this year.
-              </div>
-            )}
-          </div>
+            </div>
+          )}
 
-          {/* EXPENSE LIST */}
-          <div style={styles.card}>
-            <div style={styles.listHeader}>
-              <h3 style={styles.cardTitle}>Expense Records</h3>
-              <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
-                <button onClick={handleExportAll} type="button" style={{ ...styles.btnPrimary, background: '#F59E0B', fontSize: '12px', padding: '8px 12px', margin: 0 }}>
-                  📥 Export All
-                </button>
-                <button onClick={handleExportYearly} type="button" style={{ ...styles.btnPrimary, background: '#F59E0B', fontSize: '12px', padding: '8px 12px', margin: 0 }}>
-                  📥 Export {filterYear}
-                </button>
-                <div style={{ width: '1px', height: '24px', background: '#E2E8F0', margin: '0 5px' }} />
-                <div style={styles.filters}>
-                  <select value={filterMonth} onChange={e => setFilterMonth(e.target.value)} style={styles.selectSmall}>
-                    {monthsFull.map((m, i) => <option key={m} value={i + 1}>{m}</option>)}
-                  </select>
-                  <select value={filterYear} onChange={e => setFilterYear(e.target.value)} style={styles.selectSmall}>
-                    {years.map(y => <option key={y} value={y}>{y}</option>)}
-                  </select>
-                </div>
+          {/* Expenses Table */}
+          <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
+            <div className="p-4 bg-slate-50/70 border-b border-slate-200/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-bold text-slate-700">Expense Ledger</span>
+                <span className="font-mono text-xs font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-md">
+                  {filteredExpenses.length} Records
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <select
+                  value={filterMonth}
+                  onChange={e => setFilterMonth(e.target.value)}
+                  className="px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white text-xs font-medium"
+                >
+                  {monthsFull.map((m, i) => <option key={m} value={i + 1}>{m}</option>)}
+                </select>
+                <select
+                  value={filterYear}
+                  onChange={e => setFilterYear(e.target.value)}
+                  className="px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white text-xs font-mono font-medium"
+                >
+                  {years.map(y => <option key={y} value={y}>{y}</option>)}
+                </select>
               </div>
             </div>
 
-            <div style={styles.tableWrapper}>
-              <table style={styles.table}>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse text-xs">
                 <thead>
-                  <tr style={styles.thRow}>
-                    <th style={styles.th}>Date</th>
-                    <th style={styles.th}>Course / Category</th>
-                    <th style={styles.th}>Description</th>
-                    <th style={styles.th}>Amount</th>
-                    <th style={styles.th}>Added By</th>
-                    <th style={styles.th}>Action</th>
+                  <tr className="bg-slate-50 border-b border-slate-200 text-slate-600 uppercase font-bold tracking-wider text-[11px]">
+                    <th className="py-3 px-4">Date</th>
+                    <th className="py-3 px-4">Category</th>
+                    <th className="py-3 px-4">Description</th>
+                    <th className="py-3 px-4 text-right">Amount</th>
+                    <th className="py-3 px-4">Added By</th>
+                    {isAdmin && <th className="py-3 px-4 text-center">Actions</th>}
                   </tr>
                 </thead>
-                <tbody>
-                  {filteredExpenses.length === 0 ? (
-                    <tr><td colSpan="6" style={styles.emptyCell}>No expenses recorded for this month.</td></tr>
-                  ) : (
+                <tbody className="divide-y divide-slate-100">
+                  {filteredExpenses.length > 0 ? (
                     filteredExpenses.map(e => (
-                      <tr key={e.id} style={styles.tr}>
-                        <td style={styles.tdDate}>{new Date(e.date).toLocaleDateString('en-GB')}</td>
-                        <td style={styles.tdCategory}>
-                          <span style={{ ...styles.badge, background: e.courseName === 'General' ? '#F1F5F9' : '#FEF3C7', color: e.courseName === 'General' ? '#475569' : '#92400E' }}>
+                      <tr key={e.id} className="hover:bg-slate-50/70 transition-colors">
+                        <td className="py-3.5 px-4 font-mono text-slate-600 font-medium">
+                          {new Date(e.date).toLocaleDateString('en-GB')}
+                        </td>
+                        <td className="py-3.5 px-4">
+                          <span className={`inline-block px-2.5 py-0.5 rounded-full text-[10px] font-bold border uppercase tracking-wider ${
+                            e.courseName === 'General'
+                              ? 'bg-slate-100 text-slate-700 border-slate-200'
+                              : 'bg-amber-50 text-amber-800 border-amber-200'
+                          }`}>
                             {e.courseName}
                           </span>
                         </td>
-                        <td style={styles.td}>{e.description}</td>
-                        <td style={styles.tdAmount}>PKR {e.amount.toLocaleString()}</td>
-                        <td style={styles.tdUser}>{e.addedBy}</td>
-                        <td style={styles.td}>
-                          {isAdmin && (
-                            <>
-                              <button onClick={() => handleEditExpense(e)} style={{ ...styles.btnDelete, color: '#3B82F6', marginRight: '10px' }}>✏️</button>
-                              <button onClick={() => handleDelete(e.id)} style={styles.btnDelete}>🗑️</button>
-                            </>
-                          )}
+                        <td className="py-3.5 px-4 font-medium text-slate-900 max-w-[200px] truncate">
+                          {e.description}
                         </td>
+                        <td className="py-3.5 px-4 text-right font-mono font-bold text-emerald-700">
+                          PKR {Number(e.amount).toLocaleString()}
+                        </td>
+                        <td className="py-3.5 px-4 text-[11px] text-slate-400 font-medium">
+                          {e.addedBy || 'Admin'}
+                        </td>
+                        {isAdmin && (
+                          <td className="py-3.5 px-4 text-center">
+                            <div className="inline-flex items-center gap-1">
+                              <button
+                                onClick={() => handleEditExpense(e)}
+                                className="p-1.5 rounded-lg text-blue-600 hover:bg-blue-50 transition-colors"
+                                title="Edit Expense"
+                              >
+                                <Pencil size={14} />
+                              </button>
+                              <button
+                                onClick={() => handleDelete(e.id)}
+                                className="p-1.5 rounded-lg text-rose-600 hover:bg-rose-50 transition-colors"
+                                title="Delete Expense"
+                              >
+                                <Trash2 size={14} />
+                              </button>
+                            </div>
+                          </td>
+                        )}
                       </tr>
                     ))
+                  ) : (
+                    <tr>
+                      <td colSpan={isAdmin ? 6 : 5} className="py-12 text-center text-slate-400 text-xs">
+                        No expenses recorded for {monthsFull[filterMonth - 1]} {filterYear}.
+                      </td>
+                    </tr>
                   )}
                 </tbody>
               </table>
@@ -348,94 +485,98 @@ const Expenses = () => {
         </div>
       </div>
 
+      {/* EDIT EXPENSE MODAL */}
       {showEditExpenseModal && editFormData && (
-        <div style={styles.modalOverlay}>
-          <div style={styles.modalContent}>
-            <div style={styles.modalHeader}>
-              <h3 style={styles.cardTitle}>Edit Expense</h3>
-              <button onClick={() => setShowEditExpenseModal(false)} style={styles.btnClose}>✕</button>
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-2xl p-6 w-full max-w-md space-y-5 animate-in fade-in zoom-in-95">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <h3 className="text-base font-bold text-slate-900 tracking-tight">Edit Expense Record</h3>
+              <button
+                onClick={() => setShowEditExpenseModal(false)}
+                className="p-1.5 text-slate-400 hover:text-slate-700 rounded-lg"
+              >
+                <X size={18} />
+              </button>
             </div>
-            <form onSubmit={handleUpdateExpense} style={styles.form}>
-              <div style={styles.formGroup}>
-                <label style={styles.label}>Date</label>
-                <input type="date" value={editFormData.date} onChange={e => setEditFormData({ ...editFormData, date: e.target.value })} required style={styles.input} />
+
+            <form onSubmit={handleUpdateExpense} className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wider">
+                  Date
+                </label>
+                <input
+                  type="date"
+                  value={editFormData.date}
+                  onChange={e => setEditFormData({ ...editFormData, date: e.target.value })}
+                  required
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-xs font-medium"
+                />
               </div>
-              <div style={styles.formGroup}>
-                <label style={styles.label}>Course Category</label>
-                <select value={editFormData.courseName} onChange={e => setEditFormData({ ...editFormData, courseName: e.target.value })} required style={styles.select}>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wider">
+                  Category
+                </label>
+                <select
+                  value={editFormData.courseName}
+                  onChange={e => setEditFormData({ ...editFormData, courseName: e.target.value })}
+                  required
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-xs font-semibold"
+                >
                   <option value="General">General / Administrative</option>
                   {courses.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
                 </select>
               </div>
-              <div style={styles.formGroup}>
-                <label style={styles.label}>Description</label>
-                <input type="text" value={editFormData.description} onChange={e => setEditFormData({ ...editFormData, description: e.target.value })} required style={styles.input} />
+
+              <div>
+                <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wider">
+                  Description
+                </label>
+                <input
+                  type="text"
+                  value={editFormData.description}
+                  onChange={e => setEditFormData({ ...editFormData, description: e.target.value })}
+                  required
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-xs font-medium"
+                />
               </div>
-              <div style={styles.formGroup}>
-                <label style={styles.label}>Amount (PKR)</label>
-                <input type="number" value={editFormData.amount} onChange={e => setEditFormData({ ...editFormData, amount: e.target.value })} required style={styles.input} />
+
+              <div>
+                <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wider">
+                  Amount (PKR)
+                </label>
+                <input
+                  type="number"
+                  value={editFormData.amount}
+                  onChange={e => setEditFormData({ ...editFormData, amount: e.target.value })}
+                  required
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-xs font-mono font-bold text-emerald-700"
+                />
               </div>
-              <button type="submit" disabled={loading} style={styles.btnPrimary}>
-                {loading ? "Updating..." : "Update Expense"}
-              </button>
+
+              <div className="flex gap-2.5 pt-2">
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="flex-1 py-3 px-4 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-xs flex items-center justify-center gap-2"
+                >
+                  <CheckCircle2 size={16} />
+                  <span>{loading ? "Updating..." : "Update Expense"}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowEditExpenseModal(false)}
+                  className="px-4 py-3 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-700 text-xs font-bold"
+                >
+                  Cancel
+                </button>
+              </div>
             </form>
           </div>
         </div>
       )}
     </div>
   );
-};
-
-const styles = {
-  container: { width: '100%', animation: 'fadeIn 0.5s ease-out' },
-  header: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px', flexWrap: 'wrap', gap: '20px' },
-  titleArea: { flex: 1 },
-  title: { fontSize: '24px', fontWeight: '800', color: '#1E293B', margin: 0 },
-  subtitle: { color: '#64748B', fontSize: '14px', marginTop: '4px' },
-
-  totalCard: { background: '#10B981', padding: '15px 25px', borderRadius: '16px', color: '#fff', boxShadow: '0 10px 15px -3px rgba(16, 185, 129, 0.3)' },
-  totalLabel: { fontSize: '12px', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '1px', opacity: 0.9 },
-  totalAmount: { fontSize: '24px', fontWeight: '800', marginTop: '4px' },
-
-  mainGrid: { display: 'grid', gridTemplateColumns: '320px 1fr', gap: '25px', alignItems: 'start' },
-  leftCol: { display: 'flex', flexDirection: 'column', gap: '25px' },
-
-  card: { background: '#fff', padding: '24px', borderRadius: '20px', border: '1px solid #E2E8F0', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)' },
-  cardTitle: { margin: '0 0 20px 0', fontSize: '16px', fontWeight: '700', color: '#1E293B' },
-
-  form: { display: 'flex', flexDirection: 'column', gap: '15px' },
-  formGroup: { display: 'flex', flexDirection: 'column', gap: '6px' },
-  label: { fontSize: '12px', fontWeight: '600', color: '#64748B' },
-  input: { padding: '12px 14px', borderRadius: '10px', border: '1px solid #E2E8F0', outline: 'none', fontSize: '14px', transition: 'border 0.2s', background: '#F8FAFC' },
-  select: { padding: '12px 14px', borderRadius: '10px', border: '1px solid #E2E8F0', outline: 'none', fontSize: '14px', background: '#F8FAFC' },
-  btnPrimary: { background: '#3B82F6', color: '#fff', border: 'none', padding: '12px', borderRadius: '10px', fontWeight: '700', cursor: 'pointer', marginTop: '10px', transition: 'background 0.2s' },
-
-  listHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' },
-  filters: { display: 'flex', gap: '10px' },
-  selectSmall: { padding: '8px 12px', borderRadius: '8px', border: '1px solid #E2E8F0', fontSize: '13px', outline: 'none' },
-
-  tableWrapper: { overflowX: 'auto' },
-  table: { width: '100%', borderCollapse: 'collapse', textAlign: 'left' },
-  thRow: { background: '#F8FAFC', borderBottom: '1px solid #E2E8F0' },
-  th: { padding: '12px 15px', color: '#64748B', fontSize: '12px', fontWeight: '700', textTransform: 'uppercase' },
-  tr: { borderBottom: '1px solid #F1F5F9', transition: 'background 0.2s', ':hover': { background: '#F8FAFC' } },
-  td: { padding: '14px 15px', fontSize: '14px', color: '#1E293B' },
-  tdDate: { padding: '14px 15px', fontSize: '13px', color: '#64748B', fontWeight: '500' },
-  tdCategory: { padding: '14px 15px' },
-  badge: { fontSize: '11px', fontWeight: '700', padding: '4px 10px', borderRadius: '20px', display: 'inline-block' },
-  tdAmount: { padding: '14px 15px', fontSize: '14px', fontWeight: '700', color: '#10B981' },
-  tdUser: { padding: '14px 15px', fontSize: '12px', color: '#94A3B8' },
-  btnDelete: { background: 'transparent', border: 'none', cursor: 'pointer', opacity: 0.6, transition: 'opacity 0.2s' },
-  emptyCell: { padding: '30px', textAlign: 'center', color: '#94A3B8', fontSize: '14px' },
-
-  modalOverlay: { position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 },
-  modalContent: { background: '#fff', padding: '25px', borderRadius: '16px', width: '90%', maxWidth: '500px', boxShadow: '0 10px 25px rgba(0,0,0,0.2)' },
-  modalHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' },
-  btnClose: { background: 'none', border: 'none', fontSize: '20px', cursor: 'pointer', color: '#64748B' },
-
-  '@media (max-width: 1024px)': {
-    mainGrid: { gridTemplateColumns: '1fr' }
-  }
 };
 
 export default Expenses;

@@ -3,6 +3,21 @@ import { auth, db } from '../firebase.js';
 import { createUserWithEmailAndPassword, sendPasswordResetEmail } from 'firebase/auth';
 import { ref, set, onValue, remove, update } from 'firebase/database';
 import toast from 'react-hot-toast';
+import {
+  UserPlus,
+  Users,
+  Crown,
+  BookOpen,
+  Wallet,
+  Key,
+  Pencil,
+  Trash2,
+  X,
+  CheckCircle2,
+  Mail,
+  Lock,
+  UserCheck
+} from 'lucide-react';
 
 const CreateUser = () => {
   const [formData, setFormData] = useState({
@@ -13,15 +28,14 @@ const CreateUser = () => {
   });
   const [users, setUsers] = useState([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [status, setStatus] = useState({ type: '', msg: '' });
 
   const [showEditModal, setShowEditModal] = useState(false);
   const [editFormData, setEditFormData] = useState(null);
 
   const roles = [
-    { value: 'admin', label: 'Admin', icon: '👑', color: '#8B5CF6' },
-    { value: 'teacher', label: 'Teacher', icon: '📚', color: '#3B82F6' },
-    { value: 'feescashier', label: 'Cashier', icon: '💰', color: '#10B981' }
+    { value: 'admin', label: 'Admin', icon: Crown, color: 'text-purple-600 bg-purple-50 border-purple-200' },
+    { value: 'teacher', label: 'Teacher', icon: BookOpen, color: 'text-blue-600 bg-blue-50 border-blue-200' },
+    { value: 'feescashier', label: 'Cashier', icon: Wallet, color: 'text-emerald-600 bg-emerald-50 border-emerald-200' }
   ];
 
   useEffect(() => {
@@ -36,13 +50,6 @@ const CreateUser = () => {
     return () => unsubscribe();
   }, []);
 
-  useEffect(() => {
-    if (status.msg) {
-      const timer = setTimeout(() => setStatus({ type: '', msg: '' }), 5000);
-      return () => clearTimeout(timer);
-    }
-  }, [status]);
-
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData((prev) => ({
@@ -54,7 +61,6 @@ const CreateUser = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsSubmitting(true);
-    setStatus({ type: '', msg: '' });
 
     try {
       const userCredential = await createUserWithEmailAndPassword(
@@ -110,7 +116,7 @@ const CreateUser = () => {
       uid: user.uid,
       name: user.name,
       role: user.role,
-      email: user.email // Readonly in edit
+      email: user.email
     });
     setShowEditModal(true);
   };
@@ -131,259 +137,263 @@ const CreateUser = () => {
   };
 
   return (
-    <>
-      <div style={styles.pageLayout}>
-        {/* LEFT: FORM SECTION */}
-        <div style={styles.formCard}>
-          <div style={styles.header}>
-            <h2 style={styles.title}>Register Staff 👤</h2>
-            <p style={styles.subtitle}>Provide account credentials and system role.</p>
-          </div>
+    <div className="space-y-6 font-sans animate-fade-in">
+      {/* HEADER */}
+      <header className="pb-2 border-b border-slate-200/80">
+        <div className="flex items-center gap-2">
+          <UserPlus className="text-blue-600" size={24} />
+          <h1 className="text-2xl md:text-3xl font-extrabold text-slate-900 tracking-tight">Staff & User Management</h1>
+        </div>
+        <p className="text-sm text-slate-500 mt-1 font-medium">Provision user credentials, configure system roles and manage login access</p>
+      </header>
 
-          {status.msg && (
-            <div style={{
-              ...styles.statusBanner,
-              backgroundColor: status.type === 'success' ? '#F0FDF4' : '#FEF2F2',
-              color: status.type === 'success' ? '#166534' : '#991B1B',
-              borderColor: status.type === 'success' ? '#BBF7D0' : '#FCA5A5'
-            }}>
-              {status.type === 'success' ? '✅ ' : '⚠️ '} {status.msg}
-            </div>
-          )}
+      {/* TWO COLUMN LAYOUT */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+        {/* REGISTER USER FORM (5 cols) */}
+        <div className="lg:col-span-5 bg-white p-6 rounded-2xl border border-slate-200/80 shadow-xs space-y-5">
+          <h2 className="text-base font-bold text-slate-900 tracking-tight pb-3 border-b border-slate-100 flex items-center gap-2">
+            <UserPlus size={18} className="text-blue-600" />
+            <span>Register New User</span>
+          </h2>
 
-          <form onSubmit={handleSubmit} style={styles.form}>
-            <div style={styles.inputGroup}>
-              <label style={styles.label}>Full Name</label>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div>
+              <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wider">
+                Full Name
+              </label>
               <input
-                type="text" name="name" placeholder="John Doe"
-                value={formData.name} onChange={handleChange}
-                required style={styles.input}
+                type="text"
+                name="name"
+                value={formData.name}
+                onChange={handleChange}
+                placeholder="e.g. John Doe"
+                required
+                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-xs font-medium focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
               />
             </div>
 
-            <div style={styles.inputGroup}>
-              <label style={styles.label}>Email Address</label>
-              <input
-                type="email" name="email" placeholder="staff@edu.com"
-                value={formData.email} onChange={handleChange}
-                required style={styles.input}
-              />
+            <div>
+              <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wider">
+                Email Address
+              </label>
+              <div className="relative">
+                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={15} />
+                <input
+                  type="email"
+                  name="email"
+                  value={formData.email}
+                  onChange={handleChange}
+                  placeholder="name@institute.com"
+                  required
+                  className="w-full pl-9 pr-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-xs font-medium focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
+                />
+              </div>
             </div>
 
-            <div style={styles.inputGroup}>
-              <label style={styles.label}>Password</label>
-              <input
-                type="password" name="password" placeholder="Min. 6 characters"
-                value={formData.password} onChange={handleChange}
-                required style={styles.input}
-              />
+            <div>
+              <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wider">
+                Temporary Password
+              </label>
+              <div className="relative">
+                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={15} />
+                <input
+                  type="password"
+                  name="password"
+                  value={formData.password}
+                  onChange={handleChange}
+                  placeholder="At least 6 characters"
+                  required
+                  minLength={6}
+                  className="w-full pl-9 pr-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-xs font-medium focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
+                />
+              </div>
             </div>
 
-            <div style={styles.inputGroup}>
-              <label style={styles.label}>System Role</label>
-              <select name="role" value={formData.role} onChange={handleChange} style={styles.input}>
-                {roles.map(r => (
-                  <option key={r.value} value={r.value}>
-                    {r.icon} {r.label}
-                  </option>
-                ))}
-              </select>
+            <div>
+              <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wider">
+                Assign System Role
+              </label>
+              <div className="grid grid-cols-3 gap-2.5">
+                {roles.map(r => {
+                  const Icon = r.icon;
+                  const isSelected = formData.role === r.value;
+                  return (
+                    <button
+                      key={r.value}
+                      type="button"
+                      onClick={() => setFormData({ ...formData, role: r.value })}
+                      className={`p-3 rounded-xl border text-center transition-all flex flex-col items-center gap-1.5 ${
+                        isSelected
+                          ? 'border-blue-600 bg-blue-50/70 text-blue-700 shadow-xs'
+                          : 'border-slate-200 bg-white hover:bg-slate-50 text-slate-600'
+                      }`}
+                    >
+                      <Icon size={18} className={isSelected ? 'text-blue-600' : 'text-slate-400'} />
+                      <span className="text-xs font-bold">{r.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
 
-            <button type="submit" disabled={isSubmitting} style={styles.button}>
-              {isSubmitting ? 'Creating Profile...' : 'Register User'}
+            <button
+              type="submit"
+              disabled={isSubmitting}
+              className="w-full py-3 px-4 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold transition-all shadow-xs flex items-center justify-center gap-2 disabled:opacity-60"
+            >
+              <CheckCircle2 size={16} />
+              <span>{isSubmitting ? "Provisioning..." : "Create User Account"}</span>
             </button>
           </form>
         </div>
 
-        {/* RIGHT: DIRECTORY SECTION */}
-        <div style={styles.listCard}>
-          <div style={styles.tableHeader}>
-            <div>
-              <h2 style={styles.title}>Staff Directory</h2>
-              <p style={styles.subtitle}>{users.length} active team members</p>
-            </div>
-            <span style={styles.liveBadge}>LIVE</span>
+        {/* ACTIVE USERS DIRECTORY (7 cols) */}
+        <div className="lg:col-span-7 bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
+          <div className="p-4 bg-slate-50/70 border-b border-slate-200/80 flex items-center justify-between text-xs font-bold text-slate-600">
+            <span>Registered Team Accounts ({users.length})</span>
+            <span className="text-xs font-mono font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-md">
+              Active Directory
+            </span>
           </div>
 
-          <div style={styles.scrollArea}>
-            {users.map((user) => {
-              const roleInfo = roles.find(r => r.value === user.role) || roles[1];
-              return (
-                <div key={user.uid} style={styles.userCard}>
-                  <div style={{ ...styles.avatar, backgroundColor: roleInfo.color }}>
-                    {user.name.charAt(0).toUpperCase()}
-                  </div>
-                  <div style={styles.userInfo}>
-                    <div style={styles.nameRow}>
-                      <h4 style={styles.userName}>{user.name}</h4>
-                      <span style={{ ...styles.roleTag, color: roleInfo.color, borderColor: roleInfo.color }}>
-                        {roleInfo.label}
-                      </span>
+          <div className="p-4 space-y-2.5 max-h-[600px] overflow-y-auto">
+            {users.length > 0 ? (
+              users.map((user) => {
+                let roleColor = "bg-blue-50 text-blue-700 border-blue-200";
+                if (user.role === 'admin') roleColor = "bg-purple-50 text-purple-700 border-purple-200";
+                if (user.role === 'feescashier') roleColor = "bg-emerald-50 text-emerald-700 border-emerald-200";
+
+                return (
+                  <div
+                    key={user.uid}
+                    className="p-3.5 rounded-xl border border-slate-100 bg-white hover:bg-slate-50/80 transition-colors flex items-center justify-between gap-3 shadow-2xs"
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="w-10 h-10 rounded-xl bg-slate-900 text-white flex items-center justify-center font-bold text-sm shrink-0">
+                        {user.name?.charAt(0) || 'U'}
+                      </div>
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                          <h4 className="text-xs font-bold text-slate-900 truncate">{user.name}</h4>
+                          <span className={`px-2 py-0.5 rounded-md text-[9px] font-bold border uppercase tracking-wider ${roleColor}`}>
+                            {user.role}
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-slate-500 font-mono truncate">{user.email}</p>
+                      </div>
                     </div>
-                    <p style={styles.userEmail}>{user.email}</p>
+
+                    <div className="flex items-center gap-1 shrink-0">
+                      <button
+                        onClick={() => handleResetPassword(user.email)}
+                        className="p-1.5 rounded-lg text-amber-600 hover:bg-amber-50 transition-colors"
+                        title="Send Password Reset Email"
+                      >
+                        <Key size={14} />
+                      </button>
+                      <button
+                        onClick={() => handleEditUser(user)}
+                        className="p-1.5 rounded-lg text-blue-600 hover:bg-blue-50 transition-colors"
+                        title="Edit User Role"
+                      >
+                        <Pencil size={14} />
+                      </button>
+                      <button
+                        onClick={() => handleDeleteUser(user.uid, user.name)}
+                        className="p-1.5 rounded-lg text-rose-600 hover:bg-rose-50 transition-colors"
+                        title="Delete User"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
                   </div>
-                  <div style={styles.actionRow}>
-                    <button onClick={() => handleEditUser(user)} style={{ ...styles.btnAction, color: '#3B82F6', background: '#DBEAFE' }} title="Edit Profile">✏️</button>
-                    <button onClick={() => handleResetPassword(user.email)} style={{ ...styles.btnAction, color: '#F59E0B', background: '#FEF3C7' }} title="Reset Password">🔑</button>
-                    <button onClick={() => handleDeleteUser(user.uid, user.name)} style={{ ...styles.btnAction, color: '#EF4444', background: '#FEE2E2' }} title="Delete User">🗑️</button>
-                  </div>
-                </div>
-              );
-            })}
+                );
+              })
+            ) : (
+              <div className="p-12 text-center text-slate-400 text-xs">
+                No user accounts found in the directory.
+              </div>
+            )}
           </div>
         </div>
       </div>
 
+      {/* EDIT USER MODAL */}
       {showEditModal && editFormData && (
-        <div style={styles.modalOverlay}>
-          <div style={styles.modalContent}>
-            <div style={styles.modalHeader}>
-              <h3 style={styles.title}>Edit User Profile</h3>
-              <button onClick={() => setShowEditModal(false)} style={styles.btnClose}>✕</button>
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-2xl p-6 w-full max-w-md space-y-5 animate-in fade-in zoom-in-95">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <h3 className="text-base font-bold text-slate-900 tracking-tight">Edit User Profile</h3>
+              <button
+                onClick={() => setShowEditModal(false)}
+                className="p-1.5 text-slate-400 hover:text-slate-700 rounded-lg"
+              >
+                <X size={18} />
+              </button>
             </div>
-            <form onSubmit={handleUpdateUser} style={styles.form}>
-              <div style={styles.inputGroup}>
-                <label style={styles.label}>Full Name</label>
+
+            <form onSubmit={handleUpdateUser} className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wider">
+                  Email (Read-Only)
+                </label>
                 <input
-                  type="text" value={editFormData.name}
-                  onChange={e => setEditFormData({ ...editFormData, name: e.target.value })}
-                  required style={styles.input}
+                  type="text"
+                  value={editFormData.email}
+                  disabled
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-100 text-xs font-mono text-slate-500 cursor-not-allowed"
                 />
               </div>
-              <div style={styles.inputGroup}>
-                <label style={styles.label}>Email Address (Cannot be changed)</label>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wider">
+                  Full Name
+                </label>
                 <input
-                  type="email" value={editFormData.email}
-                  disabled style={{ ...styles.input, backgroundColor: '#E2E8F0', color: '#64748B' }}
+                  type="text"
+                  value={editFormData.name}
+                  onChange={(e) => setEditFormData({ ...editFormData, name: e.target.value })}
+                  required
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-xs font-medium"
                 />
               </div>
-              <div style={styles.inputGroup}>
-                <label style={styles.label}>System Role</label>
-                <select value={editFormData.role} onChange={e => setEditFormData({ ...editFormData, role: e.target.value })} style={styles.input}>
-                  {roles.map(r => (
-                    <option key={r.value} value={r.value}>
-                      {r.icon} {r.label}
-                    </option>
-                  ))}
+
+              <div>
+                <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wider">
+                  Role
+                </label>
+                <select
+                  value={editFormData.role}
+                  onChange={(e) => setEditFormData({ ...editFormData, role: e.target.value })}
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-xs font-semibold"
+                >
+                  <option value="admin">Administrator</option>
+                  <option value="teacher">Teacher</option>
+                  <option value="feescashier">Cashier</option>
                 </select>
               </div>
-              <button type="submit" style={styles.button}>
-                Update User
-              </button>
+
+              <div className="flex gap-2.5 pt-2">
+                <button
+                  type="submit"
+                  className="flex-1 py-3 px-4 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-xs"
+                >
+                  Save Changes
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowEditModal(false)}
+                  className="px-4 py-3 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-700 text-xs font-bold"
+                >
+                  Cancel
+                </button>
+              </div>
             </form>
           </div>
         </div>
       )}
-    </>
+    </div>
   );
-};
-
-const styles = {
-  pageLayout: {
-    display: 'grid',
-    gridTemplateColumns: 'minmax(350px, 450px) 1fr',
-    gap: '30px',
-    animation: 'fadeIn 0.5s ease-out'
-  },
-  formCard: {
-    background: '#fff',
-    padding: '30px',
-    borderRadius: '16px',
-    border: '1px solid #E2E8F0',
-    boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)',
-    height: 'fit-content'
-  },
-  listCard: {
-    background: '#fff',
-    padding: '30px',
-    borderRadius: '16px',
-    border: '1px solid #E2E8F0',
-    boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)',
-    maxHeight: '85vh',
-    display: 'flex',
-    flexDirection: 'column'
-  },
-  header: { marginBottom: '25px' },
-  title: { fontSize: '20px', fontWeight: '700', color: '#1E293B', margin: 0 },
-  subtitle: { fontSize: '13px', color: '#64748B', marginTop: '4px' },
-
-  statusBanner: { padding: '12px 16px', borderRadius: '10px', marginBottom: '20px', border: '1px solid', fontSize: '13px' },
-
-  form: { display: 'flex', flexDirection: 'column', gap: '18px' },
-  inputGroup: { display: 'flex', flexDirection: 'column', gap: '6px' },
-  label: { fontSize: '12px', fontWeight: '600', color: '#475569' },
-  input: {
-    padding: '12px 15px',
-    borderRadius: '10px',
-    border: '1px solid #E2E8F0',
-    backgroundColor: '#F8FAFC',
-    outline: 'none',
-    fontSize: '14px',
-    transition: '0.2s'
-  },
-  button: {
-    padding: '14px',
-    background: '#3B82F6',
-    color: '#fff',
-    border: 'none',
-    borderRadius: '10px',
-    fontWeight: '700',
-    cursor: 'pointer',
-    marginTop: '10px',
-    boxShadow: '0 4px 12px rgba(59, 130, 246, 0.25)'
-  },
-
-  tableHeader: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: '25px',
-    borderBottom: '1px solid #F1F5F9',
-    paddingBottom: '15px'
-  },
-  liveBadge: { fontSize: '9px', fontWeight: '800', color: '#10B981', background: '#DCFCE7', padding: '2px 8px', borderRadius: '20px' },
-
-  scrollArea: { overflowY: 'auto', flex: 1, paddingRight: '10px' },
-  userCard: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '15px',
-    padding: '15px',
-    borderRadius: '12px',
-    marginBottom: '10px',
-    border: '1px solid #F1F5F9',
-    transition: '0.2s'
-  },
-  avatar: {
-    width: '42px',
-    height: '42px',
-    borderRadius: '12px',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    fontSize: '16px',
-    fontWeight: 'bold',
-    color: '#fff'
-  },
-  userInfo: { flex: 1 },
-  nameRow: { display: 'flex', justifyContent: 'space-between', alignItems: 'center' },
-  userName: { margin: 0, fontSize: '15px', fontWeight: '600', color: '#1E293B' },
-  userEmail: { margin: '2px 0 0 0', fontSize: '12px', color: '#64748B' },
-  roleTag: {
-    fontSize: '10px',
-    fontWeight: '700',
-    textTransform: 'uppercase',
-    padding: '2px 8px',
-    borderRadius: '6px',
-    border: '1px solid'
-  },
-  actionRow: { display: 'flex', gap: '8px', alignItems: 'center' },
-  btnAction: { border: 'none', padding: '6px', borderRadius: '6px', cursor: 'pointer', fontSize: '14px', transition: '0.2s' },
-  modalOverlay: { position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 },
-  modalContent: { background: '#fff', padding: '25px', borderRadius: '16px', width: '90%', maxWidth: '400px', boxShadow: '0 10px 25px rgba(0,0,0,0.2)' },
-  modalHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' },
-  btnClose: { background: 'none', border: 'none', fontSize: '20px', cursor: 'pointer', color: '#64748B' }
 };
 
 export default CreateUser;

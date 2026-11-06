@@ -1,4 +1,5 @@
 import { get, ref } from 'firebase/database';
+import { normalizeMonthKey, getCanonicalShortMonth, resolveFeeRecord } from '../utils/monthUtils';
 import { db } from '../firebase';
 
 // Helper to fetch entire collections securely
@@ -59,7 +60,7 @@ const processData = (raw) => {
   // Calculate expenses and salaries for total outflow
   let totalExpenses = 0;
   Object.values(raw.expenses).forEach(ex => totalExpenses += parseFloat(ex.amount || 0));
-  Object.values(raw.salaries).forEach(sal => totalExpenses += parseFloat(sal.net_salary || 0));
+  Object.values(raw.salaries).forEach(sal => totalExpenses += parseFloat(sal.amount || sal.net_salary || 0));
 
   const retentionRate = totalAdmissions > 0 ? ((activeStudents / totalAdmissions) * 100).toFixed(1) : 0;
   const dropoutRate = (100 - parseFloat(retentionRate)).toFixed(1);
@@ -71,7 +72,7 @@ const processData = (raw) => {
   
   for (let i = 5; i >= 0; i--) {
     const d = new Date(currentDate.getFullYear(), currentDate.getMonth() - i, 1);
-    const monthStr = d.toLocaleString('default', { month: 'short' });
+    const monthStr = getCanonicalShortMonth(d);
     const yearStr = d.getFullYear();
     const key = `${monthStr}_${yearStr}`;
     monthlyTrendsMap[key] = { name: monthStr, revenue: 0, admissions: 0 };
@@ -82,8 +83,9 @@ const processData = (raw) => {
   Object.values(raw.fees).forEach(studentCourses => {
     Object.values(studentCourses).forEach(courseMonths => {
       Object.entries(courseMonths).forEach(([monthKey, tx]) => {
-        if (monthlyTrendsMap[monthKey]) {
-          monthlyTrendsMap[monthKey].revenue += parseFloat(tx.paid || 0);
+        const normKey = normalizeMonthKey(monthKey);
+        if (monthlyTrendsMap[normKey]) {
+          monthlyTrendsMap[normKey].revenue += parseFloat(tx.paid || 0);
         }
       });
     });
@@ -93,11 +95,13 @@ const processData = (raw) => {
   students.forEach(s => {
     if (s.createdAt) {
       const d = new Date(s.createdAt);
-      const monthStr = d.toLocaleString('default', { month: 'short' });
-      const yearStr = d.getFullYear();
-      const key = `${monthStr}_${yearStr}`;
-      if (monthlyTrendsMap[key]) {
-        monthlyTrendsMap[key].admissions += 1;
+      if (!isNaN(d.getTime())) {
+        const monthStr = getCanonicalShortMonth(d);
+        const yearStr = d.getFullYear();
+        const key = `${monthStr}_${yearStr}`;
+        if (monthlyTrendsMap[key]) {
+          monthlyTrendsMap[key].admissions += 1;
+        }
       }
     }
   });
@@ -147,12 +151,12 @@ const processData = (raw) => {
       
       let current = new Date(startBoundary);
       while (current <= endBoundary) {
-        const m = current.toLocaleString('default', { month: 'short' });
+        const m = getCanonicalShortMonth(current);
         const y = current.getFullYear();
         const monthKey = `${m}_${y}`;
         
         const agreedFee = Number(courseInfo.agreed_monthly_fee || 0);
-        const record = raw.fees[s.id]?.[courseId]?.[monthKey];
+        const record = resolveFeeRecord(s.id, courseId, monthKey, raw.fees);
         
         if (!record) {
           unpaidCount++;

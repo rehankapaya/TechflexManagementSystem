@@ -77,7 +77,7 @@ const Dashboard = () => {
             <GraduationCap className="text-white w-6 h-6" />
           </div>
           {!sidebarCollapsed && (
-            <span className="text-white font-bold text-xl tracking-tight">EduAdmin</span>
+            <span className="text-white font-bold text-xl tracking-tight">TechFlex</span>
           )}
         </div>
 
@@ -141,11 +141,11 @@ const Dashboard = () => {
               />
 
               <SidebarLink
-                to="/dashboard/analtyics"
+                to="/dashboard/analytics"
                 icon={<BarChart3 size={20} />}
                 label="Analytics"
                 collapsed={sidebarCollapsed}
-                active={isActive('/dashboard/analtyics')}
+                active={isActive('/dashboard/analytics') || isActive('/dashboard/analtyics')}
               />
 
               <SidebarLink
@@ -277,7 +277,7 @@ const Dashboard = () => {
         </main>
 
         <footer className="px-8 py-4 bg-white border-t border-slate-200 flex justify-between items-center text-xs text-slate-400 font-medium">
-          <span>© 2025 EduAdmin System • v2.0.4</span>
+          <span>© 2025 TechFlex Management System • v2.0.4</span>
           <div className="flex gap-4">
             <a href="#support" className="hover:text-[#3B82F6] transition-colors">Support</a>
             <a href="#privacy" className="hover:text-[#3B82F6] transition-colors">Privacy Policy</a>

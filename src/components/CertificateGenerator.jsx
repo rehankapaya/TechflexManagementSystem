@@ -3,11 +3,24 @@ import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
 import { db } from '../firebase.js';
 import { ref, push, set, onValue, remove, update } from 'firebase/database';
 import toast from 'react-hot-toast';
+import {
+  Award,
+  Plus,
+  ArrowLeft,
+  Search,
+  Download,
+  Pencil,
+  Trash2,
+  FileText,
+  Clock,
+  CheckCircle2,
+  Calendar
+} from 'lucide-react';
 
 const CertificateGenerator = () => {
   const [view, setView] = useState('list');
-  const [isEditing, setIsEditing] = useState(null); // Tracks ID of record being edited
-  const [courses, setCourses] = useState([]); // Courses from DB
+  const [isEditing, setIsEditing] = useState(null);
+  const [courses, setCourses] = useState([]);
 
   const [formData, setFormData] = useState({
     name: '',
@@ -22,28 +35,25 @@ const CertificateGenerator = () => {
   const [history, setHistory] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
 
-  // --- NEW: AUTO-INCREMENT LOGIC ---
+  // Auto-increment Cert ID
   useEffect(() => {
-    // Only generate a new ID if we are in 'create' mode and NOT 'editing'
     if (view === 'create' && !isEditing) {
       let nextNumber = 1;
 
       if (history.length > 0) {
-        // Extract numbers from existing certIDs (assuming they end in numbers)
         const numericIds = history.map(item => {
-          const match = item.certID?.match(/\d+$/); // Finds numbers at the end of the string
+          const match = item.certID?.match(/\d+$/);
           return match ? parseInt(match[0], 10) : 0;
         });
         nextNumber = Math.max(...numericIds) + 1;
       }
 
-      // Format: TF- (Technical Foundation) followed by padded number
       const generatedID = `TF-${String(nextNumber).padStart(4, '0')}`;
       setFormData(prev => ({ ...prev, certID: generatedID }));
     }
   }, [view, isEditing, history]);
 
-  // 1. Fetch History and Courses
+  // Fetch History & Courses
   useEffect(() => {
     const certsRef = ref(db, 'generated_certificates');
     const historyUnsub = onValue(certsRef, (snapshot) => {
@@ -186,10 +196,10 @@ const CertificateGenerator = () => {
   };
 
   const deleteRecord = async (id) => {
-    if (window.confirm("Delete this record permanently?")) {
+    if (window.confirm("Delete this certificate record permanently?")) {
       try {
         await remove(ref(db, `generated_certificates/${id}`));
-        toast.success("Certificate deleted");
+        toast.success("Certificate record deleted");
       } catch (error) {
         toast.error("Failed to delete: " + error.message);
       }
@@ -217,12 +227,17 @@ const CertificateGenerator = () => {
   );
 
   return (
-    <div className="w-full bg-[#0f172a] p-6 text-white font-sans rounded-2xl">
-      <div className="flex justify-between items-center mb-8">
+    <div className="space-y-6 font-sans animate-fade-in">
+      {/* HEADER */}
+      <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-slate-200/80">
         <div>
-          <h1 className="text-3xl font-black tracking-tight">Certificate Hub 🎓</h1>
-          <p className="text-slate-400 text-sm">Issue and manage student credentials.</p>
+          <div className="flex items-center gap-2">
+            <Award className="text-blue-600" size={24} />
+            <h1 className="text-2xl md:text-3xl font-extrabold text-slate-900 tracking-tight">Certificate Hub</h1>
+          </div>
+          <p className="text-sm text-slate-500 mt-1 font-medium">Issue, render and archive official student completion certificates</p>
         </div>
+
         {view === 'list' ? (
           <button
             onClick={() => {
@@ -230,114 +245,218 @@ const CertificateGenerator = () => {
               setFormData({ name: '', course: '', durationNum: '', durationUnit: 'Months', certID: '' });
               setView('create');
             }}
-            className="bg-yellow-600 hover:bg-yellow-500 px-6 py-3 rounded-xl font-bold transition-all flex items-center gap-2"
+            className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold transition-all shadow-xs w-fit"
           >
-            <span>+</span> Create New Certificate
+            <Plus size={16} />
+            <span>Create New Certificate</span>
           </button>
         ) : (
-          <button onClick={() => setView('list')} className="text-slate-400 hover:text-white px-6 py-3 rounded-xl font-bold transition-all">
-            ← Back to Log
+          <button
+            onClick={() => setView('list')}
+            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 text-xs font-bold transition-all shadow-xs w-fit"
+          >
+            <ArrowLeft size={14} />
+            <span>Back to Issued Log</span>
           </button>
         )}
-      </div>
+      </header>
 
       {view === 'list' ? (
-        <div className="bg-[#1e293b] rounded-2xl border border-slate-800 overflow-hidden shadow-2xl">
-          <div className="p-4 border-b border-slate-800 bg-slate-800/30">
-            <input
-              type="text"
-              placeholder="Search student or ID..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full bg-[#0f172a] border border-slate-700 p-3 rounded-xl outline-none focus:border-yellow-600 transition-all text-sm"
-            />
+        <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
+          {/* Search bar */}
+          <div className="p-4 bg-slate-50/70 border-b border-slate-200/80 flex items-center justify-between gap-4">
+            <div className="relative max-w-sm w-full">
+              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={15} />
+              <input
+                type="text"
+                placeholder="Search recipient name or Cert ID..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full pl-10 pr-4 py-2 rounded-xl border border-slate-200 bg-white text-xs font-medium focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+              />
+            </div>
+            <span className="text-xs font-mono font-bold text-blue-600 bg-blue-50 px-2.5 py-1 rounded-md">
+              {filteredHistory.length} Issued
+            </span>
           </div>
 
           <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
+            <table className="w-full text-left border-collapse text-xs">
               <thead>
-                <tr className="text-[11px] uppercase tracking-widest text-slate-500 bg-slate-800/50">
-                  <th className="p-4">ID</th>
-                  <th className="p-4">Student Name</th>
-                  <th className="p-4">Course</th>
-                  <th className="p-4">Duration</th>
-                  <th className="p-4 text-right">Actions</th>
+                <tr className="bg-slate-50 border-b border-slate-200 text-slate-600 uppercase font-bold tracking-wider text-[11px]">
+                  <th className="py-3 px-4">Certificate ID</th>
+                  <th className="py-3 px-4">Student Recipient</th>
+                  <th className="py-3 px-4">Course Program</th>
+                  <th className="py-3 px-4">Duration</th>
+                  <th className="py-3 px-4 text-center">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-800">
-                {filteredHistory.map((item) => (
-                  <tr key={item.id} className="hover:bg-slate-800/30 transition-colors">
-                    <td className="p-4 font-mono text-yellow-600 font-bold text-sm">{item.certID}</td>
-                    <td className="p-4 font-bold text-slate-200">{item.name}</td>
-                    <td className="p-4 text-slate-400 text-sm">{item.course}</td>
-                    <td className="p-4 text-slate-500 text-sm">{item.duration}</td>
-                    <td className="p-4 text-right space-x-2">
-                      <button onClick={() => reDownload(item)} className="text-[11px] bg-slate-700 hover:bg-slate-600 px-3 py-1.5 rounded-lg font-bold transition-all">
-                        ⬇ DOWNLOAD
-                      </button>
-                      <button onClick={() => startEdit(item)} className="text-[11px] bg-blue-900/40 text-blue-400 hover:bg-blue-800 hover:text-white px-3 py-1.5 rounded-lg font-bold transition-all">
-                        EDIT
-                      </button>
-                      <button onClick={() => deleteRecord(item.id)} className="text-[11px] bg-red-900/40 text-red-400 hover:bg-red-800 hover:text-white px-3 py-1.5 rounded-lg font-bold transition-all">
-                        DELETE
-                      </button>
+              <tbody className="divide-y divide-slate-100">
+                {filteredHistory.length > 0 ? (
+                  filteredHistory.map((item) => (
+                    <tr key={item.id} className="hover:bg-slate-50/70 transition-colors">
+                      <td className="py-3.5 px-4 font-mono font-bold text-blue-600 text-xs">
+                        {item.certID}
+                      </td>
+                      <td className="py-3.5 px-4 font-bold text-slate-900">
+                        {item.name}
+                      </td>
+                      <td className="py-3.5 px-4 font-medium text-slate-700">
+                        {item.course}
+                      </td>
+                      <td className="py-3.5 px-4 font-mono text-slate-500">
+                        {item.duration}
+                      </td>
+                      <td className="py-3.5 px-4 text-center">
+                        <div className="inline-flex items-center gap-1.5">
+                          <button
+                            onClick={() => reDownload(item)}
+                            className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 font-bold text-[11px] transition-colors"
+                            title="Re-download PDF"
+                          >
+                            <Download size={12} />
+                            <span>PDF</span>
+                          </button>
+                          <button
+                            onClick={() => startEdit(item)}
+                            className="p-1.5 rounded-lg text-blue-600 hover:bg-blue-50 transition-colors"
+                            title="Edit Certificate"
+                          >
+                            <Pencil size={14} />
+                          </button>
+                          <button
+                            onClick={() => deleteRecord(item.id)}
+                            className="p-1.5 rounded-lg text-rose-600 hover:bg-rose-50 transition-colors"
+                            title="Delete Record"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan="5" className="py-12 text-center text-slate-400 text-xs">
+                      No issued certificates found in the archive.
                     </td>
                   </tr>
-                ))}
+                )}
               </tbody>
             </table>
           </div>
         </div>
       ) : (
-        <div className="flex flex-col lg:flex-row gap-8 animate-in fade-in duration-500">
-          <div className="flex-1 bg-[#1e293b] p-8 rounded-2xl border border-slate-800 shadow-2xl space-y-6">
-            <h2 className="text-xl font-bold border-b border-slate-800 pb-4">{isEditing ? 'Edit Certificate' : 'Certificate Details'}</h2>
-            <div className="grid grid-cols-1 gap-4">
-              <div className="flex flex-col gap-1">
-                <label className="text-[10px] font-black text-slate-500 uppercase">Student Name</label>
-                <input name="name" value={formData.name} onChange={handleChange} className="bg-[#0f172a] border border-slate-700 p-4 rounded-xl text-white outline-none focus:ring-2 focus:ring-yellow-600/50" />
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+          {/* FORM (5 cols) */}
+          <div className="lg:col-span-5 bg-white p-6 sm:p-8 rounded-2xl border border-slate-200/80 shadow-xs space-y-5">
+            <div className="pb-3 border-b border-slate-100 flex items-center justify-between">
+              <h2 className="text-base font-bold text-slate-900 tracking-tight">
+                {isEditing ? 'Edit Certificate Details' : 'Issue Certificate'}
+              </h2>
+              <span className="font-mono text-xs font-bold text-blue-600 bg-blue-50 px-2.5 py-1 rounded-md">
+                {formData.certID}
+              </span>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wider">
+                  Student Name
+                </label>
+                <input
+                  type="text"
+                  name="name"
+                  value={formData.name}
+                  onChange={handleChange}
+                  placeholder="e.g. John Doe"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-xs font-bold text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
+                />
               </div>
 
-              <div className="flex flex-col gap-1">
-                <label className="text-[10px] font-black text-slate-500 uppercase">Course</label>
-                <select name="course" value={formData.course} onChange={handleChange} className="bg-[#0f172a] border border-slate-700 p-4 rounded-xl text-white outline-none focus:ring-2 focus:ring-yellow-600/50">
-                  <option value="">Select Course</option>
+              <div>
+                <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wider">
+                  Course Program
+                </label>
+                <select
+                  name="course"
+                  value={formData.course}
+                  onChange={handleChange}
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-xs font-semibold focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
+                >
+                  <option value="">-- Select Course --</option>
                   {courses.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
                 </select>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div className="flex flex-col gap-1">
-                  <label className="text-[10px] font-black text-slate-500 uppercase">Duration</label>
-                  <div className="flex gap-2">
-                    <input type="number" name="durationNum" value={formData.durationNum} onChange={handleChange} placeholder="0" className="w-20 bg-[#0f172a] border border-slate-700 p-4 rounded-xl text-white outline-none focus:ring-2 focus:ring-yellow-600/50" />
-                    <select name="durationUnit" value={formData.durationUnit} onChange={handleChange} className="flex-1 bg-[#0f172a] border border-slate-700 p-4 rounded-xl text-white outline-none focus:ring-2 focus:ring-yellow-600/50">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wider">
+                    Duration
+                  </label>
+                  <div className="flex gap-1.5">
+                    <input
+                      type="number"
+                      name="durationNum"
+                      value={formData.durationNum}
+                      onChange={handleChange}
+                      placeholder="3"
+                      className="w-16 px-2.5 py-2 rounded-xl border border-slate-200 bg-slate-50 text-xs font-mono font-medium focus:bg-white focus:outline-none"
+                    />
+                    <select
+                      name="durationUnit"
+                      value={formData.durationUnit}
+                      onChange={handleChange}
+                      className="flex-1 px-2.5 py-2 rounded-xl border border-slate-200 bg-slate-50 text-xs font-medium focus:bg-white focus:outline-none"
+                    >
                       <option value="Months">Months</option>
                       <option value="Years">Years</option>
                       <option value="Weeks">Weeks</option>
                     </select>
                   </div>
                 </div>
-                <div className="flex flex-col gap-1">
-                  <label className="text-[10px] font-black text-slate-500 uppercase">ID No</label>
-                  <input name="certID" value={formData.certID} onChange={handleChange} className="bg-[#0f172a] border border-slate-700 p-4 rounded-xl text-white outline-none focus:ring-2 focus:ring-yellow-600/50" />
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wider">
+                    Certificate ID
+                  </label>
+                  <input
+                    type="text"
+                    name="certID"
+                    value={formData.certID}
+                    onChange={handleChange}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 text-xs font-mono font-bold text-blue-600 focus:bg-white focus:outline-none"
+                  />
                 </div>
               </div>
+
+              <button
+                onClick={handleDownloadAndSave}
+                disabled={isSaving || !formData.name}
+                className="w-full py-3.5 px-4 rounded-xl bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white text-xs font-bold transition-all shadow-xs flex items-center justify-center gap-2 mt-4"
+              >
+                <CheckCircle2 size={16} />
+                <span>
+                  {isSaving ? 'Generating & Archiving...' : isEditing ? 'Update & Download PDF' : 'Finalize & Download PDF'}
+                </span>
+              </button>
             </div>
-            <button
-              onClick={handleDownloadAndSave}
-              disabled={isSaving || !formData.name}
-              className="w-full bg-yellow-600 hover:bg-yellow-500 disabled:bg-slate-700 text-white font-black py-4 rounded-xl transition-all shadow-xl shadow-yellow-900/10"
-            >
-              {isSaving ? 'Processing...' : isEditing ? 'UPDATE & DOWNLOAD' : 'FINALIZE & DOWNLOAD'}
-            </button>
           </div>
 
-          <div className="flex-1 bg-black/40 rounded-2xl border border-slate-800 p-4 h-[650px] flex items-center justify-center">
+          {/* PDF LIVE PREVIEW (7 cols) */}
+          <div className="lg:col-span-7 bg-slate-900 rounded-2xl border border-slate-800 p-4 min-h-[500px] h-[640px] flex items-center justify-center shadow-xl">
             {pdfPreview ? (
-              <iframe src={`${pdfPreview}#toolbar=0&view=Fit`} title="Preview" className="w-full h-full rounded-lg" style={{ border: 'none' }} />
+              <iframe
+                src={`${pdfPreview}#toolbar=0&view=Fit`}
+                title="Certificate Live Preview"
+                className="w-full h-full rounded-xl"
+                style={{ border: 'none' }}
+              />
             ) : (
-              <div className="text-slate-600 font-bold">Waiting for input...</div>
+              <div className="text-slate-500 text-xs font-medium flex items-center gap-2">
+                <FileText size={18} />
+                <span>Generating live PDF preview...</span>
+              </div>
             )}
           </div>
         </div>

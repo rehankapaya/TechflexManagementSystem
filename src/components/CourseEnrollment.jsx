@@ -2,6 +2,19 @@ import React, { useState, useEffect } from 'react';
 import { db } from '../firebase.js';
 import { ref, onValue, update, remove } from 'firebase/database';
 import toast from 'react-hot-toast';
+import {
+  PenSquare,
+  Search,
+  User,
+  BookOpen,
+  Clock,
+  Calendar,
+  CreditCard,
+  Trash2,
+  CheckCircle2,
+  X,
+  AlertCircle
+} from 'lucide-react';
 
 const CourseEnrollment = () => {
   const [students, setStudents] = useState([]);
@@ -9,7 +22,6 @@ const CourseEnrollment = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedStudent, setSelectedStudent] = useState(null);
   const [loading, setLoading] = useState(false);
-  const [status, setStatus] = useState({ type: '', msg: '' });
 
   const [formData, setFormData] = useState({
     courseId: '',
@@ -44,7 +56,6 @@ const CourseEnrollment = () => {
       const list = data ? Object.keys(data).map(id => ({ id, ...data[id] })) : [];
       setStudents(list);
 
-      // Update the view if the selected student's data changes in DB
       if (selectedStudent) {
         const updated = list.find(s => s.id === selectedStudent.id);
         setSelectedStudent(updated);
@@ -93,8 +104,8 @@ const CourseEnrollment = () => {
       return d.toISOString();
     };
 
-    const enrolledDateIso = formData.startDate 
-      ? getLocalDateIso(formData.startDate) 
+    const enrolledDateIso = formData.startDate
+      ? getLocalDateIso(formData.startDate)
       : new Date().toISOString();
 
     const newCourseEntry = {
@@ -110,7 +121,7 @@ const CourseEnrollment = () => {
     try {
       const updates = {};
       updates[`students/${selectedStudent.id}/enrolled_courses/${formData.courseId}`] = newCourseEntry;
-      updates[`students/${selectedStudent.id}/status`] = 'active'; // Force global active status
+      updates[`students/${selectedStudent.id}/status`] = 'active';
 
       await update(ref(db), updates);
       toast.success(`Enrolled ${selectedStudent.name} in ${selectedCourseData.name}`);
@@ -139,152 +150,229 @@ const CourseEnrollment = () => {
   ).slice(0, 5);
 
   return (
-    <div style={styles.container}>
-      <div style={styles.header}>
-        <h2 style={styles.title}>Multi-Course Enrollment 🎓</h2>
-        <p style={styles.subtitle}>Add or remove courses from student profiles.</p>
-      </div>
-
-      {status.msg && (
-        <div style={{
-          ...styles.statusBanner,
-          backgroundColor: status.type === 'success' ? '#F0FDF4' : '#FEF2F2',
-          color: status.type === 'success' ? '#166534' : '#991B1B',
-          borderColor: status.type === 'success' ? '#BBF7D0' : '#FCA5A5'
-        }}>
-          <span>{status.type === 'success' ? '✅ ' : '⚠️ '} {status.msg}</span>
-          <button onClick={() => setStatus({ type: '', msg: '' })} style={styles.closeStatus}>×</button>
+    <div className="space-y-6 font-sans animate-fade-in max-w-4xl">
+      {/* HEADER */}
+      <header className="pb-2 border-b border-slate-200/80">
+        <div className="flex items-center gap-2">
+          <PenSquare className="text-blue-600" size={24} />
+          <h1 className="text-2xl md:text-3xl font-extrabold text-slate-900 tracking-tight">Student Enrollment</h1>
         </div>
-      )}
+        <p className="text-sm text-slate-500 mt-1 font-medium">Assign students to courses, configure class schedules and negotiated fees</p>
+      </header>
 
-      <div style={styles.card}>
-        <div style={styles.section}>
-          <label style={styles.label}>1. Search Student (ID or Name)</label>
-          <div style={styles.searchContainer}>
-            <input
-              type="text"
-              placeholder="Start typing student name..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              style={styles.input}
-            />
-            {searchTerm && !selectedStudent && (
-              <div style={styles.dropdown}>
-                {filteredStudents.length > 0 ? filteredStudents.map(s => (
-                  <div key={s.id} onClick={() => { setSelectedStudent(s); setSearchTerm(''); }} style={styles.dropdownItem}>
-                    <div style={styles.dropId}>{s.student_id}</div>
-                    <div style={styles.dropName}>{s.name}</div>
-                  </div>
-                )) : <div style={styles.noResult}>No students found</div>}
-              </div>
-            )}
-          </div>
-        </div>
+      {/* MAIN CONTAINER */}
+      <div className="bg-white p-6 sm:p-8 rounded-2xl border border-slate-200/80 shadow-xs space-y-6">
+        {/* Step 1: Select Student */}
+        {!selectedStudent ? (
+          <div className="space-y-3">
+            <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider">
+              1. Search and Select Student
+            </label>
+            <div className="relative">
+              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+              <input
+                type="text"
+                placeholder="Search by student name or ID (e.g. STU-2025-001)..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full pl-10 pr-4 py-3 rounded-xl border border-slate-200 bg-slate-50 text-sm font-medium focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
+              />
+            </div>
 
-        {selectedStudent && (
-          <div style={styles.formAnim}>
-            <div style={styles.studentBadge}>
-              <div style={styles.badgeHeader}>
-                <div>
-                  <div style={styles.badgeLabel}>Target Student</div>
-                  <div style={styles.badgeMain}>{selectedStudent.name} <span style={styles.badgeId}>({selectedStudent.student_id})</span></div>
-                </div>
-                <button onClick={() => setSelectedStudent(null)} style={styles.btnChangeStudent}>Change</button>
-              </div>
-
-              <div style={styles.courseManagementList}>
-                <div style={styles.badgeLabel}>Active Enrollments</div>
-                {selectedStudent.enrolled_courses && Object.keys(selectedStudent.enrolled_courses).length > 0 ? (
-                  Object.entries(selectedStudent.enrolled_courses).map(([id, course]) => (
-                    <div key={id} style={styles.courseItem}>
-                      <div>
-                        <div style={{ fontWeight: '600' }}>{course.course_name} <small style={{ color: '#64748B', fontWeight: 'normal' }}>(PKR {course.agreed_monthly_fee})</small></div>
-                        {course.class_type && course.timeslot && (
-                          <div style={{ fontSize: '11px', color: '#8B5CF6', marginTop: '2px' }}>⏱️ {course.class_type} | {course.timeslot}</div>
-                        )}
+            {searchTerm && (
+              <div className="border border-slate-200 rounded-xl bg-white shadow-lg overflow-hidden divide-y divide-slate-100">
+                {filteredStudents.length > 0 ? (
+                  filteredStudents.map(student => (
+                    <div
+                      key={student.id}
+                      onClick={() => { setSelectedStudent(student); setSearchTerm(''); }}
+                      className="p-3.5 hover:bg-blue-50/70 cursor-pointer flex items-center justify-between transition-colors"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-lg bg-blue-100 text-blue-700 flex items-center justify-center font-bold text-xs">
+                          {student.name?.charAt(0) || 'S'}
+                        </div>
+                        <div>
+                          <div className="text-sm font-bold text-slate-900">{student.name}</div>
+                          <div className="text-xs text-slate-500 font-mono">{student.contact || 'No phone'}</div>
+                        </div>
                       </div>
-                      <button
-                        onClick={() => handleDeleteCourse(id, course.course_name)}
-                        style={styles.btnDeleteCourse}
-                        title="Remove Course"
-                      >🗑️</button>
+                      <span className="font-mono text-xs font-bold text-blue-600 bg-blue-50 px-2.5 py-1 rounded-md">
+                        {student.student_id}
+                      </span>
                     </div>
                   ))
                 ) : (
-                  <div style={{ fontSize: '12px', color: '#94A3B8', marginTop: '5px' }}>No courses enrolled.</div>
+                  <div className="p-6 text-center text-xs text-slate-400">
+                    No matching student found. Please verify the ID or name.
+                  </div>
                 )}
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="space-y-6">
+            {/* Selected Student Banner */}
+            <div className="p-5 rounded-xl bg-blue-50/60 border border-blue-200/80 space-y-4">
+              <div className="flex items-start justify-between">
+                <div>
+                  <span className="text-[10px] font-bold text-blue-600 uppercase tracking-wider block">
+                    Selected Student
+                  </span>
+                  <h3 className="text-lg font-bold text-slate-900 mt-0.5">{selectedStudent.name}</h3>
+                  <span className="font-mono text-xs text-blue-700 font-semibold">{selectedStudent.student_id}</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setSelectedStudent(null)}
+                  className="px-3 py-1.5 rounded-lg border border-blue-200 bg-white hover:bg-blue-100 text-blue-700 text-xs font-bold transition-all shadow-xs"
+                >
+                  Change Student
+                </button>
+              </div>
+
+              {/* Current Active Enrollments */}
+              <div>
+                <span className="text-[11px] font-bold text-slate-600 uppercase tracking-wider block mb-2">
+                  Currently Enrolled Courses
+                </span>
+                <div className="space-y-2">
+                  {selectedStudent.enrolled_courses && Object.keys(selectedStudent.enrolled_courses).length > 0 ? (
+                    Object.entries(selectedStudent.enrolled_courses).map(([id, course]) => (
+                      <div
+                        key={id}
+                        className="p-3 bg-white rounded-xl border border-blue-100 flex items-center justify-between text-xs"
+                      >
+                        <div>
+                          <div className="font-bold text-slate-900">
+                            {course.course_name}{' '}
+                            <span className="font-mono text-emerald-700 font-normal">
+                              (PKR {Number(course.agreed_monthly_fee).toLocaleString()})
+                            </span>
+                          </div>
+                          {course.class_type && course.timeslot && (
+                            <div className="text-[11px] text-purple-700 font-medium flex items-center gap-1.5 mt-0.5">
+                              <Clock size={11} />
+                              <span>{course.class_type} • {course.timeslot}</span>
+                            </div>
+                          )}
+                        </div>
+                        <button
+                          onClick={() => handleDeleteCourse(id, course.course_name)}
+                          className="p-1.5 rounded-lg text-rose-600 hover:bg-rose-50 transition-colors"
+                          title="Remove Course"
+                        >
+                          <Trash2 size={15} />
+                        </button>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="text-xs text-slate-400 italic">No courses currently enrolled.</div>
+                  )}
+                </div>
               </div>
             </div>
 
-            <form onSubmit={handleEnroll}>
-              <div style={styles.section}>
-                <label style={styles.label}>2. Select New Course</label>
-                <select value={formData.courseId} onChange={handleCourseChange} style={styles.input} required>
-                  <option value="">-- Choose from available courses --</option>
+            {/* Enrollment Form */}
+            <form onSubmit={handleEnroll} className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wider">
+                  2. Select New Course
+                </label>
+                <select
+                  value={formData.courseId}
+                  onChange={handleCourseChange}
+                  required
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-xs font-semibold focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
+                >
+                  <option value="">-- Choose from available curriculum --</option>
                   {courses.map(c => (
-                    <option key={c.id} value={c.id}>{c.name} (Base Fee: {c.base_fee})</option>
+                    <option key={c.id} value={c.id}>{c.name} (Base: PKR {c.base_fee})</option>
                   ))}
                 </select>
               </div>
 
-              <div style={styles.section}>
-                <label style={styles.label}>3. Class Type</label>
-                <select 
-                  value={formData.class_type} 
-                  onChange={(e) => setFormData({ ...formData, class_type: e.target.value, timeslot: '' })} 
-                  style={styles.input} 
-                  required
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wider">
+                    3. Class Type
+                  </label>
+                  <select
+                    value={formData.class_type}
+                    onChange={(e) => setFormData({ ...formData, class_type: e.target.value, timeslot: '' })}
+                    required
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-xs font-medium focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
+                  >
+                    <option value="">-- Select Class Type --</option>
+                    <option value="Regular (1 Hour)">Regular (1 Hour)</option>
+                    <option value="Alternate (2 Hours)">Alternate (2 Hours)</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wider">
+                    4. Timeslot
+                  </label>
+                  <select
+                    value={formData.timeslot}
+                    onChange={(e) => setFormData({ ...formData, timeslot: e.target.value })}
+                    required
+                    disabled={!formData.class_type}
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-xs font-medium focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all disabled:opacity-60"
+                  >
+                    <option value="">-- Select Timeslot --</option>
+                    {getTimeslotOptions(formData.class_type).map(slot => (
+                      <option key={slot} value={slot}>{slot}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wider">
+                    5. Start Date
+                  </label>
+                  <input
+                    type="date"
+                    value={formData.startDate}
+                    onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
+                    required
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-xs font-medium focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wider">
+                    6. Negotiated Monthly Fee (PKR)
+                  </label>
+                  <input
+                    type="number"
+                    value={formData.agreed_monthly_fee}
+                    onChange={(e) => setFormData({ ...formData, agreed_monthly_fee: e.target.value })}
+                    placeholder="5000"
+                    required
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-xs font-mono font-bold text-emerald-700 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
+                  />
+                </div>
+              </div>
+
+              <div className="flex gap-3 pt-3">
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="flex-1 py-3 px-4 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold transition-all shadow-xs flex items-center justify-center gap-2 disabled:opacity-60"
                 >
-                  <option value="">-- Select Class Type --</option>
-                  <option value="Regular (1 Hour)">Regular (1 Hour)</option>
-                  <option value="Alternate (2 Hours)">Alternate (2 Hours)</option>
-                </select>
-              </div>
-
-              <div style={styles.section}>
-                <label style={styles.label}>4. Timeslot</label>
-                <select 
-                  value={formData.timeslot} 
-                  onChange={(e) => setFormData({ ...formData, timeslot: e.target.value })} 
-                  style={styles.input} 
-                  required 
-                  disabled={!formData.class_type}
-                >
-                  <option value="">-- Select Timeslot --</option>
-                  {getTimeslotOptions(formData.class_type).map(slot => (
-                    <option key={slot} value={slot}>{slot}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div style={styles.section}>
-                <label style={styles.label}>5. Start Date</label>
-                <input
-                  type="date"
-                  value={formData.startDate}
-                  onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
-                  style={styles.input}
-                  required
-                />
-              </div>
-
-              <div style={styles.section}>
-                <label style={styles.label}>6. Negotiated Monthly Fee</label>
-                <input
-                  type="number"
-                  value={formData.agreed_monthly_fee}
-                  onChange={(e) => setFormData({ ...formData, agreed_monthly_fee: e.target.value })}
-                  style={styles.input}
-                  placeholder="0.00"
-                  required
-                />
-              </div>
-
-              <div style={styles.btnGroup}>
-                <button type="submit" disabled={loading} style={styles.btnPrimary}>
-                  {loading ? "Processing..." : "Confirm Enrollment"}
+                  <CheckCircle2 size={16} />
+                  <span>{loading ? "Processing..." : "Confirm Enrollment"}</span>
                 </button>
-                <button type="button" onClick={() => setSelectedStudent(null)} style={styles.btnCancel}>Close</button>
+                <button
+                  type="button"
+                  onClick={() => setSelectedStudent(null)}
+                  className="px-5 py-3 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-700 text-xs font-bold transition-all"
+                >
+                  Close
+                </button>
               </div>
             </form>
           </div>
@@ -292,45 +380,6 @@ const CourseEnrollment = () => {
       </div>
     </div>
   );
-};
-
-const styles = {
-  container: { width: '100%' },
-  header: { marginBottom: '30px' },
-  title: { fontSize: '24px', fontWeight: '700', color: '#1E293B', margin: '0 0 8px 0' },
-  subtitle: { color: '#64748B', fontSize: '14px' },
-
-  card: { background: '#fff', padding: '32px', borderRadius: '16px', border: '1px solid #E2E8F0', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)' },
-
-  statusBanner: { padding: '12px 20px', borderRadius: '10px', marginBottom: '20px', border: '1px solid', fontSize: '14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' },
-  closeStatus: { background: 'none', border: 'none', fontSize: '18px', cursor: 'pointer', opacity: 0.5 },
-
-  section: { marginBottom: '20px' },
-  label: { display: 'block', fontSize: '13px', fontWeight: '600', color: '#475569', marginBottom: '8px' },
-  input: { width: '100%', padding: '12px 16px', borderRadius: '10px', border: '1px solid #E2E8F0', backgroundColor: '#F8FAFC', fontSize: '14px', outline: 'none', boxSizing: 'border-box' },
-
-  searchContainer: { position: 'relative' },
-  dropdown: { position: 'absolute', top: '100%', left: 0, right: 0, background: '#fff', border: '1px solid #E2E8F0', borderRadius: '12px', zIndex: 100, boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)', marginTop: '5px', overflow: 'hidden' },
-  dropdownItem: { padding: '12px 16px', cursor: 'pointer', borderBottom: '1px solid #F1F5F9', display: 'flex', justifyContent: 'space-between', transition: 'background 0.2s' },
-  dropId: { fontSize: '12px', fontWeight: 'bold', color: '#3B82F6' },
-  dropName: { fontSize: '14px', color: '#1E293B' },
-  noResult: { padding: '15px', textAlign: 'center', color: '#94A3B8', fontSize: '14px' },
-
-  studentBadge: { backgroundColor: '#F1F5F9', padding: '20px', borderRadius: '12px', marginBottom: '25px', borderLeft: '4px solid #3B82F6' },
-  badgeHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '15px' },
-  badgeLabel: { fontSize: '10px', color: '#64748B', fontWeight: 'bold', textTransform: 'uppercase', marginBottom: '4px' },
-  badgeMain: { fontSize: '16px', fontWeight: '700', color: '#1E293B' },
-  badgeId: { color: '#3B82F6', fontWeight: '500' },
-  btnChangeStudent: { background: '#fff', border: '1px solid #E2E8F0', padding: '4px 8px', borderRadius: '6px', fontSize: '11px', cursor: 'pointer', color: '#64748B' },
-
-  courseManagementList: { background: '#fff', padding: '10px', borderRadius: '8px', border: '1px solid #E2E8F0' },
-  courseItem: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '6px 0', borderBottom: '1px solid #F1F5F9', fontSize: '13px', fontWeight: '500' },
-  btnDeleteCourse: { background: '#FEF2F2', border: 'none', padding: '4px 8px', borderRadius: '6px', cursor: 'pointer', color: '#EF4444', fontSize: '12px' },
-
-  btnGroup: { display: 'flex', gap: '12px', marginTop: '30px' },
-  btnPrimary: { flex: 2, background: '#3B82F6', color: '#fff', padding: '14px', border: 'none', borderRadius: '10px', fontWeight: '600', cursor: 'pointer' },
-  btnCancel: { flex: 1, background: '#F1F5F9', color: '#475569', padding: '14px', border: 'none', borderRadius: '10px', fontWeight: '600', cursor: 'pointer' },
-  formAnim: { animation: 'fadeIn 0.3s ease-out' }
 };
 
 export default CourseEnrollment;

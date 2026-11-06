@@ -1,8 +1,21 @@
 import React, { useState, useEffect } from 'react';
 import { db } from '../firebase.js';
 import { ref, onValue, update } from 'firebase/database';
-import * as XLSX from 'xlsx'; // Import library
+import * as XLSX from 'xlsx';
 import toast from 'react-hot-toast';
+import { parseLocalDateMidday } from '../utils/monthUtils';
+import {
+  UserCheck,
+  Search,
+  Download,
+  RefreshCw,
+  Calendar,
+  Filter,
+  ArrowUpDown,
+  CheckCircle2,
+  Clock,
+  BookOpen
+} from 'lucide-react';
 
 const StudentStatus = () => {
   const [students, setStudents] = useState([]);
@@ -46,7 +59,6 @@ const StudentStatus = () => {
     });
   };
 
-  // --- NEW: Download Excel Function ---
   const downloadExcel = () => {
     const excelData = [];
 
@@ -81,10 +93,7 @@ const StudentStatus = () => {
       return;
     }
 
-    const parseLocalDate = (dateStr) => {
-      const [year, month, day] = dateStr.split('-');
-      return new Date(year, month - 1, day);
-    };
+    const parseLocalDate = (dateStr) => parseLocalDateMidday(dateStr);
 
     setLoading(true);
     try {
@@ -136,158 +145,269 @@ const StudentStatus = () => {
       const matchesStatusFilter = selectedStatusFilter === '' || cData.course_status === selectedStatusFilter;
       let matchesMonthFilter = true;
       if (selectedMonthFilter !== '' && cData.enrolledAt) {
-        const enrollmentMonth = cData.enrolledAt.split('-')[1];
-        matchesMonthFilter = enrollmentMonth === selectedMonthFilter;
+        const d = new Date(cData.enrolledAt);
+        if (!isNaN(d.getTime())) {
+          const monthNumStr = String(d.getMonth() + 1).padStart(2, '0');
+          matchesMonthFilter = monthNumStr === selectedMonthFilter;
+        } else {
+          matchesMonthFilter = false;
+        }
       }
       return matchesCourseFilter && matchesStatusFilter && matchesMonthFilter;
     });
 
-    return { ...s, status: computedStatus, filteredCourses: filteredEnrolledCourses, matchesSearch };
+    return {
+      ...s,
+      status: computedStatus,
+      matchesSearch,
+      filteredCourses: filteredEnrolledCourses
+    };
   }).filter(s => s.matchesSearch && s.filteredCourses.length > 0)
     .sort((a, b) => {
-      const idA = a.student_id || "";
-      const idB = b.student_id || "";
-      return sortOrder === 'asc' ? idA.localeCompare(idB) : idB.localeCompare(idA);
+      if (!a.student_id || !b.student_id) return 0;
+      return sortOrder === 'asc'
+        ? a.student_id.localeCompare(b.student_id, undefined, { numeric: true })
+        : b.student_id.localeCompare(a.student_id, undefined, { numeric: true });
     });
 
   return (
-    <div style={styles.container}>
-      <header style={styles.header}>
-        <div style={styles.titleArea}>
-          <h2 style={styles.title}>Student Status Sync 🔄</h2>
-          <p style={styles.subtitle}>Manage start dates and lifecycles.</p>
+    <div className="space-y-6 font-sans animate-fade-in">
+      {/* HEADER */}
+      <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-slate-200/80">
+        <div>
+          <div className="flex items-center gap-2">
+            <UserCheck className="text-blue-600" size={24} />
+            <h1 className="text-2xl md:text-3xl font-extrabold text-slate-900 tracking-tight">Student Status Lifecycle</h1>
+          </div>
+          <p className="text-sm text-slate-500 mt-1 font-medium">Course graduation, dropouts, enrollment start dates & sync</p>
         </div>
-
-        {/* NEW: Download Button */}
-        <div style={{ marginBottom: '10px' }}>
-          <button onClick={downloadExcel} style={styles.btnExcel}>
-            📥 Download Records (Excel)
-          </button>
-        </div>
-
-        <div style={styles.filterGroup}>
-          <div style={styles.searchWrapper}>
-            <select value={selectedMonthFilter} onChange={(e) => setSelectedMonthFilter(e.target.value)} style={{ ...styles.searchInput, paddingLeft: '10px', width: '130px' }}>
-              <option value="">All Months</option>
-              {months.map(m => <option key={m.val} value={m.val}>{m.label}</option>)}
-            </select>
-          </div>
-          <div style={styles.searchWrapper}>
-            <select value={selectedStatusFilter} onChange={(e) => setSelectedStatusFilter(e.target.value)} style={{ ...styles.searchInput, paddingLeft: '15px', width: '130px' }}>
-              <option value="">All Status</option>
-              <option value="active">Active</option>
-              <option value="coursecomplete">Course Complete</option>
-              <option value="dropout">Dropout</option>
-            </select>
-          </div>
-          <div style={styles.searchWrapper}>
-            <select value={selectedCourseFilter} onChange={(e) => setSelectedCourseFilter(e.target.value)} style={{ ...styles.searchInput, paddingLeft: '15px', width: '160px' }}>
-              <option value="">All Courses</option>
-              {allUniqueCourses.map(course => <option key={course} value={course}>{course}</option>)}
-            </select>
-          </div>
-          <div style={styles.searchWrapper}>
-            <span style={styles.searchIcon}>🔍</span>
-            <input type="text" placeholder="Search student..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} style={{ ...styles.searchInput, width: '180px' }} />
-          </div>
-          <div style={styles.searchWrapper}>
-            <select value={sortOrder} onChange={(e) => setSortOrder(e.target.value)} style={{ ...styles.searchInput, paddingLeft: '10px', width: '130px' }}>
-              <option value="asc">Sort: ID (Asc)</option>
-              <option value="desc">Sort: ID (Desc)</option>
-            </select>
-          </div>
-        </div>
+        <button
+          onClick={downloadExcel}
+          className="flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition-all shadow-xs w-fit"
+        >
+          <Download size={14} />
+          <span>Export Excel</span>
+        </button>
       </header>
 
-      {status.msg && (
-        <div style={{ ...styles.statusBanner, backgroundColor: status.type === 'success' ? '#F0FDF4' : '#FEF2F2', color: status.type === 'success' ? '#166534' : '#991B1B', borderColor: status.type === 'success' ? '#BBF7D0' : '#FCA5A5' }}>
-          {status.msg}
-          <button onClick={() => setStatus({ type: '', msg: '' })} style={styles.closeStatus}>×</button>
+      {/* FILTER CONTROLS */}
+      <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3.5">
+        {/* Search */}
+        <div>
+          <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">
+            Search Student
+          </label>
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={15} />
+            <input
+              type="text"
+              placeholder="Name or ID..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-9 pr-3.5 py-2 rounded-xl border border-slate-200 bg-slate-50 text-xs font-medium focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
+            />
+          </div>
         </div>
-      )}
 
-      <div style={styles.card}>
-        <div style={styles.tableWrapper}>
-          <table style={styles.table}>
+        {/* Course Filter */}
+        <div>
+          <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">
+            Course
+          </label>
+          <select
+            value={selectedCourseFilter}
+            onChange={(e) => setSelectedCourseFilter(e.target.value)}
+            className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 text-xs font-medium focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+          >
+            <option value="">All Courses</option>
+            {allUniqueCourses.map(cName => <option key={cName} value={cName}>{cName}</option>)}
+          </select>
+        </div>
+
+        {/* Status Filter */}
+        <div>
+          <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">
+            Course Status
+          </label>
+          <select
+            value={selectedStatusFilter}
+            onChange={(e) => setSelectedStatusFilter(e.target.value)}
+            className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 text-xs font-medium focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+          >
+            <option value="">All Statuses</option>
+            <option value="active">Active Only</option>
+            <option value="coursecomplete">Graduated Only</option>
+            <option value="dropout">Dropout Only</option>
+          </select>
+        </div>
+
+        {/* Month Filter */}
+        <div>
+          <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">
+            Enrollment Month
+          </label>
+          <select
+            value={selectedMonthFilter}
+            onChange={(e) => setSelectedMonthFilter(e.target.value)}
+            className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 text-xs font-medium focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+          >
+            <option value="">All Months</option>
+            {months.map(m => <option key={m.val} value={m.val}>{m.label}</option>)}
+          </select>
+        </div>
+
+        {/* Sort Order */}
+        <div>
+          <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">
+            Sort ID
+          </label>
+          <select
+            value={sortOrder}
+            onChange={(e) => setSortOrder(e.target.value)}
+            className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 text-xs font-medium focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+          >
+            <option value="asc">ID Ascending</option>
+            <option value="desc">ID Descending</option>
+          </select>
+        </div>
+      </div>
+
+      {/* TABLE CARD */}
+      <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
+        <div className="p-4 bg-slate-50/70 border-b border-slate-200/80 flex items-center justify-between text-xs font-bold text-slate-600">
+          <span>Student Cohorts ({filteredStudents.length})</span>
+          <span className="text-slate-400 font-normal">Realtime sync enabled</span>
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="w-full text-left border-collapse text-xs">
             <thead>
-              <tr style={styles.thRow}>
-                <th style={styles.th}>Student Identity</th>
-                <th style={styles.th}>Account Status</th>
-                <th style={styles.th}>Enrollment & Status Control</th>
+              <tr className="bg-slate-50 border-b border-slate-200 text-slate-600 uppercase font-bold tracking-wider text-[11px]">
+                <th className="py-3 px-4 w-48">Student Identity</th>
+                <th className="py-3 px-4 w-28 text-center">Account</th>
+                <th className="py-3 px-4">Enrollment & Status Controls</th>
               </tr>
             </thead>
-            <tbody>
-              {filteredStudents.length > 0 ? filteredStudents.map(s => (
-                <tr key={s.id} style={styles.tr}>
-                  <td style={styles.identityCell}>
-                    <div style={styles.studentId}>{s.student_id}</div>
-                    <div style={styles.studentName}>{s.name}</div>
-                  </td>
-                  <td>
-                    <span style={{ ...styles.badge, backgroundColor: s.status === 'active' ? '#DCFCE7' : '#F1F5F9', color: s.status === 'active' ? '#15803D' : '#64748B', border: `1px solid ${s.status === 'active' ? '#BBF7D0' : '#E2E8F0'}` }}>
-                      {s.status?.toUpperCase()}
-                    </span>
-                  </td>
-                  <td style={styles.coursesCell}>
-                    {s.filteredCourses.map(([cId, cData]) => (
-                      <div key={cId} style={styles.courseRow}>
-                        <div style={styles.courseMainInfo}>
-                          <span style={styles.courseName}>{cData.course_name}</span>
-                          <span style={{ ...styles.miniBadge, color: cData.course_status === 'active' ? '#10B981' : '#EF4444' }}>
-                            ● {cData.course_status}
-                          </span>
-                          <div style={styles.dateTimeline}>
-                            <span>📅 <b>Start:</b> {formatDate(cData.enrolledAt) || "N/A"}</span>
-                            <span style={{ marginLeft: '10px' }}>
-                              🏁 <b>End:</b> {cData.course_status === 'active' ?
-                                <span style={{ color: '#3B82F6', fontWeight: 'bold' }}>In Progress</span> :
-                                formatDate(cData.course_status_date)}
-                            </span>
-                          </div>
-                        </div>
+            <tbody className="divide-y divide-slate-100">
+              {filteredStudents.length > 0 ? (
+                filteredStudents.map(s => (
+                  <tr key={s.id} className="hover:bg-slate-50/50 transition-colors">
+                    {/* Student Identity */}
+                    <td className="py-4 px-4 align-top">
+                      <div className="font-mono text-blue-600 font-bold text-xs">{s.student_id}</div>
+                      <div className="font-bold text-slate-900 text-sm mt-0.5">{s.name}</div>
+                      {s.contact && (
+                        <div className="text-[11px] text-slate-500 mt-1 font-mono">{s.contact}</div>
+                      )}
+                    </td>
 
-                        <div style={styles.actionGroup}>
-                          <div style={styles.inputContainer}>
-                            <label style={styles.tinyLabel}>Change Start Date</label>
-                            <input
-                              type="date"
-                              style={styles.dateInput}
-                              onChange={(e) => setSelectedStartDates(prev => ({ ...prev, [`${s.id}_${cId}`]: e.target.value }))}
-                            />
-                          </div>
+                    {/* Account Status */}
+                    <td className="py-4 px-4 align-top text-center">
+                      <span className={`inline-block px-2.5 py-1 rounded-full text-[10px] font-bold border uppercase tracking-wider ${
+                        s.status === 'active'
+                          ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                          : 'bg-slate-100 text-slate-600 border-slate-200'
+                      }`}>
+                        {s.status?.toUpperCase() || 'ACTIVE'}
+                      </span>
+                    </td>
 
-                          <div style={styles.inputContainer}>
-                            <label style={styles.tinyLabel}>Change Status Date</label>
-                            <input
-                              type="date"
-                              style={styles.dateInput}
-                              onChange={(e) => setSelectedCustomDates(prev => ({ ...prev, [`${s.id}_${cId}`]: e.target.value }))}
-                            />
-                          </div>
+                    {/* Courses Sub-rows */}
+                    <td className="py-3 px-4">
+                      <div className="divide-y divide-slate-100">
+                        {s.filteredCourses.map(([cId, cData]) => {
+                          const isActive = cData.course_status === 'active';
+                          return (
+                            <div key={cId} className="py-3 first:pt-0 last:pb-0 flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                              <div className="space-y-1">
+                                <div className="flex items-center gap-2">
+                                  <span className="font-bold text-slate-900 text-sm">{cData.course_name}</span>
+                                  <span className={`inline-flex items-center gap-1 text-[11px] font-bold ${
+                                    isActive ? 'text-emerald-600' : 'text-rose-600'
+                                  }`}>
+                                    <span className={`w-1.5 h-1.5 rounded-full ${isActive ? 'bg-emerald-500' : 'bg-rose-500'}`}></span>
+                                    {cData.course_status}
+                                  </span>
+                                </div>
+                                <div className="flex items-center gap-4 text-[11px] text-slate-500 font-medium">
+                                  <span className="flex items-center gap-1">
+                                    <Calendar size={12} className="text-slate-400" />
+                                    <span>Start: <b>{formatDate(cData.enrolledAt) || "N/A"}</b></span>
+                                  </span>
+                                  <span className="flex items-center gap-1">
+                                    <Clock size={12} className="text-slate-400" />
+                                    <span>
+                                      End: {isActive ? (
+                                        <span className="text-blue-600 font-bold">In Progress</span>
+                                      ) : (
+                                        <b>{formatDate(cData.course_status_date)}</b>
+                                      )}
+                                    </span>
+                                  </span>
+                                </div>
+                              </div>
 
-                          <div style={styles.inputContainer}>
-                            <label style={styles.tinyLabel}>Update Status</label>
-                            <select
-                              onChange={(e) => setSelectedCourseStatus(prev => ({ ...prev, [`${s.id}_${cId}`]: e.target.value }))}
-                              style={styles.select}
-                            >
-                              <option value="">No Change</option>
-                              <option value="active">Active</option>
-                              <option value="coursecomplete">Graduated</option>
-                              <option value="dropout">Dropout</option>
-                            </select>
-                          </div>
+                              {/* Controls */}
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <div>
+                                  <label className="block text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-1">
+                                    Start Date
+                                  </label>
+                                  <input
+                                    type="date"
+                                    onChange={(e) => setSelectedStartDates(prev => ({ ...prev, [`${s.id}_${cId}`]: e.target.value }))}
+                                    className="px-2 py-1 rounded-lg border border-slate-200 bg-slate-50 text-[11px] font-medium"
+                                  />
+                                </div>
 
-                          <button onClick={() => handleStatusUpdate(s.id, cId)} disabled={loading} style={styles.btnSync}>
-                            Sync
-                          </button>
-                        </div>
+                                <div>
+                                  <label className="block text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-1">
+                                    Status Date
+                                  </label>
+                                  <input
+                                    type="date"
+                                    onChange={(e) => setSelectedCustomDates(prev => ({ ...prev, [`${s.id}_${cId}`]: e.target.value }))}
+                                    className="px-2 py-1 rounded-lg border border-slate-200 bg-slate-50 text-[11px] font-medium"
+                                  />
+                                </div>
+
+                                <div>
+                                  <label className="block text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-1">
+                                    New Status
+                                  </label>
+                                  <select
+                                    onChange={(e) => setSelectedCourseStatus(prev => ({ ...prev, [`${s.id}_${cId}`]: e.target.value }))}
+                                    className="px-2.5 py-1.5 rounded-lg border border-slate-200 bg-slate-50 text-xs font-medium"
+                                  >
+                                    <option value="">No Change</option>
+                                    <option value="active">Active</option>
+                                    <option value="coursecomplete">Graduated</option>
+                                    <option value="dropout">Dropout</option>
+                                  </select>
+                                </div>
+
+                                <button
+                                  onClick={() => handleStatusUpdate(s.id, cId)}
+                                  disabled={loading}
+                                  className="mt-4 px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-xs transition-all flex items-center gap-1.5 disabled:opacity-60"
+                                >
+                                  <RefreshCw size={12} className={loading ? "animate-spin" : ""} />
+                                  <span>Sync</span>
+                                </button>
+                              </div>
+                            </div>
+                          );
+                        })}
                       </div>
-                    ))}
+                    </td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan="3" className="py-12 text-center text-slate-400 text-xs">
+                    No matching student records found.
                   </td>
                 </tr>
-              )) : (
-                <tr><td colSpan="3" style={styles.emptyState}>No matching records found.</td></tr>
               )}
             </tbody>
           </table>
@@ -295,44 +415,6 @@ const StudentStatus = () => {
       </div>
     </div>
   );
-};
-
-const styles = {
-  container: { width: '100%' },
-  header: { display: 'flex', justifyContent: 'space-between', marginBottom: '30px', alignItems: 'flex-end', flexWrap: 'wrap', gap: '20px' },
-  titleArea: { flex: 1 },
-  title: { fontSize: '24px', fontWeight: '800', color: '#1E293B', margin: 0 },
-  subtitle: { color: '#64748B', fontSize: '14px', marginTop: '4px' },
-  filterGroup: { display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' },
-  searchWrapper: { position: 'relative' },
-  searchIcon: { position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', opacity: 0.4 },
-  searchInput: { padding: '10px 15px 10px 35px', borderRadius: '10px', border: '1px solid #E2E8F0', outline: 'none', backgroundColor: '#fff' },
-  statusBanner: { padding: '12px 20px', borderRadius: '10px', marginBottom: '20px', border: '1px solid', fontSize: '14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' },
-  closeStatus: { background: 'none', border: 'none', fontSize: '18px', cursor: 'pointer', opacity: 0.5 },
-  card: { background: '#fff', borderRadius: '16px', border: '1px solid #E2E8F0', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)', overflow: 'hidden' },
-  tableWrapper: { overflowX: 'auto' },
-  table: { width: '100%', borderCollapse: 'collapse', textAlign: 'left', minWidth: '1000px' },
-  thRow: { background: '#F8FAFC', borderBottom: '1px solid #E2E8F0' },
-  th: { padding: '15px 20px', color: '#64748B', fontSize: '11px', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '0.05em' },
-  tr: { borderBottom: '1px solid #F1F5F9' },
-  identityCell: { padding: '20px' },
-  studentId: { fontWeight: '700', color: '#3B82F6', fontSize: '13px' },
-  studentName: { fontSize: '15px', fontWeight: '600', color: '#1E293B', marginTop: '2px' },
-  badge: { padding: '4px 12px', borderRadius: '20px', fontSize: '10px', fontWeight: '800' },
-  coursesCell: { padding: '10px 20px' },
-  courseRow: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '30px', padding: '12px 0', borderBottom: '1px solid #F8FAFC' },
-  courseMainInfo: { display: 'flex', flexDirection: 'column', gap: '4px', flex: 1 },
-  courseName: { fontSize: '14px', fontWeight: '600', color: '#334155' },
-  dateTimeline: { fontSize: '12px', color: '#64748B', display: 'flex', gap: '5px', marginTop: '2px' },
-  actionGroup: { display: 'flex', alignItems: 'flex-end', gap: '12px' },
-  inputContainer: { display: 'flex', flexDirection: 'column', gap: '4px' },
-  miniBadge: { fontSize: '11px', fontWeight: '700', marginTop: '2px' },
-  tinyLabel: { fontSize: '9px', fontWeight: '800', color: '#94A3B8', textTransform: 'uppercase' },
-  dateInput: { padding: '6px', borderRadius: '8px', border: '1px solid #E2E8F0', fontSize: '11px', backgroundColor: '#F8FAFC' },
-  select: { padding: '7px 12px', borderRadius: '8px', border: '1px solid #E2E8F0', fontSize: '12px', backgroundColor: '#F8FAFC' },
-  btnSync: { background: '#3B82F6', color: '#fff', border: 'none', padding: '9px 16px', borderRadius: '8px', cursor: 'pointer', fontWeight: '700', fontSize: '12px' },
-  btnExcel: { background: '#10B981', color: '#fff', border: 'none', padding: '10px 20px', borderRadius: '10px', cursor: 'pointer', fontWeight: '700', fontSize: '14px' },
-  emptyState: { padding: '60px', textAlign: 'center', color: '#94A3B8' }
 };
 
 export default StudentStatus;

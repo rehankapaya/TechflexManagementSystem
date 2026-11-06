@@ -1,50 +1,19 @@
 import React, { useState, useEffect } from 'react';
 import { db } from '../firebase.js';
 import { ref, onValue } from 'firebase/database';
-
-const MONTH_ALIASES = {
-  jan: 'Jan', january: 'Jan',
-  feb: 'Feb', february: 'Feb',
-  mar: 'Mar', march: 'Mar',
-  apr: 'Apr', april: 'Apr',
-  may: 'May',
-  jun: 'Jun', june: 'Jun',
-  jul: 'Jul', july: 'Jul',
-  aug: 'Aug', august: 'Aug',
-  sep: 'Sep', sept: 'Sep', september: 'Sep',
-  oct: 'Oct', october: 'Oct',
-  nov: 'Nov', november: 'Nov',
-  dec: 'Dec', december: 'Dec'
-};
-
-const normalizeMonthKey = (value = '') => {
-  if (!value) return '';
-
-  const parts = String(value).split(/[_\-\s/]+/).filter(Boolean);
-  if (parts.length < 2) return String(value).trim();
-
-  const monthPart = parts[0];
-  const yearPart = parts[parts.length - 1];
-  const normalizedMonth = MONTH_ALIASES[monthPart.toLowerCase()] || monthPart;
-
-  return `${normalizedMonth}_${yearPart}`;
-};
-
-const resolveFeeRecord = (studentId, courseId, monthKey, feesData) => {
-  const courseMap = feesData?.[studentId]?.[courseId];
-  if (!courseMap) return null;
-
-  if (courseMap[monthKey]) return courseMap[monthKey];
-
-  const targetKey = normalizeMonthKey(monthKey);
-  for (const [key, record] of Object.entries(courseMap)) {
-    if (!key) continue;
-    if (normalizeMonthKey(key) === targetKey) return record;
-    if (record?.month_key && normalizeMonthKey(record.month_key) === targetKey) return record;
-  }
-
-  return null;
-};
+import { MONTHS_SHORT, normalizeMonth, normalizeMonthKey, resolveFeeRecord, getCanonicalShortMonth, getMonthIndex } from '../utils/monthUtils';
+import {
+  BadgeDollarSign,
+  Search,
+  Filter,
+  RotateCcw,
+  Download,
+  Calendar,
+  CheckCircle2,
+  AlertCircle,
+  Clock,
+  Layers
+} from 'lucide-react';
 
 const FeeStatus = () => {
   const [students, setStudents] = useState([]);
@@ -54,7 +23,7 @@ const FeeStatus = () => {
   const [selectedCourseFilter, setSelectedCourseFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('active');
 
-  const currentMonthLabel = new Date().toLocaleString('default', { month: 'short' });
+  const currentMonthLabel = getCanonicalShortMonth();
   const currentYearLabel = new Date().getFullYear().toString();
 
   const [fromMonth, setFromMonth] = useState(currentMonthLabel);
@@ -65,30 +34,40 @@ const FeeStatus = () => {
   const monthsMap = { Jan: 0, Feb: 1, Mar: 2, Apr: 3, May: 4, Jun: 5, Jul: 6, Aug: 7, Sep: 8, Oct: 9, Nov: 10, Dec: 11 };
 
   useEffect(() => {
-    onValue(ref(db, 'students'), (snap) => {
+    const unsubStudents = onValue(ref(db, 'students'), (snap) => {
       const data = snap.val();
       setStudents(data ? Object.keys(data).map(id => ({ id, ...data[id] })) : []);
     });
-    onValue(ref(db, 'fee_transactions'), (snap) => setFeesData(snap.val() || {}));
-    onValue(ref(db, 'courses'), (snap) => {
+    const unsubFees = onValue(ref(db, 'fee_transactions'), (snap) => setFeesData(snap.val() || {}));
+    const unsubCourses = onValue(ref(db, 'courses'), (snap) => {
       const data = snap.val();
       setCoursesList(data ? Object.keys(data).map(id => ({ id, ...data[id] })) : []);
     });
+
+    return () => {
+      unsubStudents();
+      unsubFees();
+      unsubCourses();
+    };
   }, []);
 
   const handleReset = () => {
-    setSearchTerm(''); setSelectedCourseFilter(''); setStatusFilter('active');
-    setFromMonth(currentMonthLabel); setFromYear(currentYearLabel);
-    setToMonth(currentMonthLabel); setToYear(currentYearLabel);
+    setSearchTerm('');
+    setSelectedCourseFilter('');
+    setStatusFilter('active');
+    setFromMonth(currentMonthLabel);
+    setFromYear(currentYearLabel);
+    setToMonth(currentMonthLabel);
+    setToYear(currentYearLabel);
   };
 
   const getMonthRange = () => {
-    const start = new Date(parseInt(fromYear), monthsMap[fromMonth], 1);
-    const end = new Date(parseInt(toYear), monthsMap[toMonth], 1);
+    const start = new Date(parseInt(fromYear), getMonthIndex(fromMonth), 1);
+    const end = new Date(parseInt(toYear), getMonthIndex(toMonth), 1);
     const range = [];
     let current = new Date(start);
     while (current <= end) {
-      const m = current.toLocaleString('default', { month: 'short' });
+      const m = getCanonicalShortMonth(current);
       const y = current.getFullYear();
       range.push({ m, y, key: `${m}_${y}`, sortValue: current.getTime() });
       current.setMonth(current.getMonth() + 1);
@@ -98,7 +77,9 @@ const FeeStatus = () => {
 
   const getSingleMonthStatus = (studentId, courseId, monthKey, agreedFee) => {
     const record = resolveFeeRecord(studentId, courseId, monthKey, feesData);
-    if (!record) return { label: 'Unpaid', color: '#EF4444', bg: '#FEF2F2', paid: 0, waived: 0, balance: Number(agreedFee || 0) };
+    if (!record) {
+      return { label: 'Unpaid', statusType: 'unpaid', paid: 0, waived: 0, balance: Number(agreedFee || 0) };
+    }
 
     const paid = Number(record.paid ?? record.amount_paid ?? record.amount ?? 0);
     const waived = Number(record.waived ?? record.discount ?? 0);
@@ -110,12 +91,12 @@ const FeeStatus = () => {
       : Math.max(0, feeAmount - totalSettled);
 
     if (computedBalance <= 0 || totalSettled >= feeAmount) {
-      return { label: 'Paid', color: '#10B981', bg: '#DCFCE7', paid, waived, balance: 0 };
+      return { label: 'Paid', statusType: 'paid', paid, waived, balance: 0 };
     }
     if (totalSettled > 0) {
-      return { label: 'Partial', color: '#F59E0B', bg: '#FFFBEB', paid, waived, balance: computedBalance };
+      return { label: 'Partial', statusType: 'partial', paid, waived, balance: computedBalance };
     }
-    return { label: 'Unpaid', color: '#EF4444', bg: '#FEF2F2', paid: 0, waived: 0, balance: feeAmount };
+    return { label: 'Unpaid', statusType: 'unpaid', paid: 0, waived: 0, balance: feeAmount };
   };
 
   let finalDisplayList = [];
@@ -161,7 +142,7 @@ const FeeStatus = () => {
         }
 
         selectedRange.forEach(rangeObj => {
-          const currentMonthDate = new Date(rangeObj.y, monthsMap[rangeObj.m], 1);
+          const currentMonthDate = new Date(rangeObj.y, getMonthIndex(rangeObj.m), 1);
           if (currentMonthDate >= startBoundary && currentMonthDate <= endBoundary) {
             const status = getSingleMonthStatus(student.id, courseId, rangeObj.key, courseInfo.agreed_monthly_fee);
             finalDisplayList.push({
@@ -207,96 +188,187 @@ const FeeStatus = () => {
   };
 
   return (
-    <div style={styles.container}>
-      <header style={styles.header}>
-        <div style={styles.titleArea}>
-          <h2 style={styles.title}>Student Fee Ledger 📂</h2>
-          <p style={styles.subtitle}>History from Enrollment to Termination</p>
+    <div className="space-y-6 font-sans animate-fade-in">
+      {/* HEADER */}
+      <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-slate-200/80">
+        <div>
+          <div className="flex items-center gap-2">
+            <BadgeDollarSign className="text-blue-600" size={24} />
+            <h1 className="text-2xl md:text-3xl font-extrabold text-slate-900 tracking-tight">Student Fee Ledger</h1>
+          </div>
+          <p className="text-sm text-slate-500 mt-1 font-medium">Historical billing cycle audit from enrollment to graduation</p>
         </div>
-        <div style={styles.headerActions}>
-          <button onClick={handleReset} style={styles.btnReset}>🔄 Reset</button>
-          <button onClick={exportToExcel} style={styles.btnExport}>📥 Export CSV</button>
+        <div className="flex items-center gap-2.5">
+          <button
+            onClick={handleReset}
+            className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 text-xs font-bold transition-all shadow-xs"
+          >
+            <RotateCcw size={14} className="text-slate-400" />
+            <span>Reset Filters</span>
+          </button>
+          <button
+            onClick={exportToExcel}
+            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition-all shadow-xs"
+          >
+            <Download size={14} />
+            <span>Export CSV</span>
+          </button>
         </div>
       </header>
 
-      <div style={styles.filterSection}>
-        <div style={styles.searchWrapper}>
-          <label style={styles.miniLabel}>Search Student</label>
-          <input type="text" placeholder="Name or ID..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} style={styles.searchInput} />
+      {/* FILTER CONTROLS BAR */}
+      <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* Search */}
+        <div>
+          <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">
+            Search Student
+          </label>
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={15} />
+            <input
+              type="text"
+              placeholder="Name or ID..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-9 pr-3.5 py-2 rounded-xl border border-slate-200 bg-slate-50 text-xs font-medium focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
+            />
+          </div>
         </div>
 
-        <div style={styles.searchWrapper}>
-          <label style={styles.miniLabel}>Enrollment Status</label>
-          <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} style={styles.select}>
+        {/* Enrollment Status */}
+        <div>
+          <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">
+            Student Status
+          </label>
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 text-xs font-medium focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+          >
             <option value="active">Active Only</option>
             <option value="inactive">Inactive Only</option>
-            <option value="all">All Students</option>
+            <option value="all">All Statuses</option>
           </select>
         </div>
 
-        <div style={styles.searchWrapper}>
-          <label style={styles.miniLabel}>Filter Course</label>
-          <select value={selectedCourseFilter} onChange={(e) => setSelectedCourseFilter(e.target.value)} style={styles.select}>
+        {/* Course Filter */}
+        <div>
+          <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">
+            Filter Course
+          </label>
+          <select
+            value={selectedCourseFilter}
+            onChange={(e) => setSelectedCourseFilter(e.target.value)}
+            className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 text-xs font-medium focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+          >
             <option value="">All Courses</option>
             {coursesList.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
           </select>
         </div>
 
-        <div style={styles.rangePickers}>
-          <div style={styles.pickerGroup}>
-            <span style={styles.rangeLabel}>From:</span>
-            <select value={fromMonth} onChange={(e) => setFromMonth(e.target.value)} style={styles.select}>
+        {/* Date Range: From / To */}
+        <div>
+          <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">
+            Billing Month Range
+          </label>
+          <div className="flex items-center gap-1.5">
+            <select
+              value={fromMonth}
+              onChange={(e) => setFromMonth(e.target.value)}
+              className="px-2 py-2 rounded-xl border border-slate-200 bg-slate-50 text-xs font-medium flex-1"
+            >
               {Object.keys(monthsMap).map(m => <option key={m} value={m}>{m}</option>)}
             </select>
-            <input type="number" value={fromYear} onChange={(e) => setFromYear(e.target.value)} style={styles.yearInput} />
-          </div>
-          <div style={styles.pickerGroup}>
-            <span style={styles.rangeLabel}>To:</span>
-            <select value={toMonth} onChange={(e) => setToMonth(e.target.value)} style={styles.select}>
+            <input
+              type="number"
+              value={fromYear}
+              onChange={(e) => setFromYear(e.target.value)}
+              className="w-16 px-1.5 py-2 rounded-xl border border-slate-200 bg-slate-50 text-xs font-mono font-medium text-center"
+            />
+            <span className="text-slate-400 text-xs font-bold">to</span>
+            <select
+              value={toMonth}
+              onChange={(e) => setToMonth(e.target.value)}
+              className="px-2 py-2 rounded-xl border border-slate-200 bg-slate-50 text-xs font-medium flex-1"
+            >
               {Object.keys(monthsMap).map(m => <option key={m} value={m}>{m}</option>)}
             </select>
-            <input type="number" value={toYear} onChange={(e) => setToYear(e.target.value)} style={styles.yearInput} />
+            <input
+              type="number"
+              value={toYear}
+              onChange={(e) => setToYear(e.target.value)}
+              className="w-16 px-1.5 py-2 rounded-xl border border-slate-200 bg-slate-50 text-xs font-mono font-medium text-center"
+            />
           </div>
         </div>
       </div>
 
-      <div style={styles.card}>
-        <div style={styles.tableWrapper}>
-          <table style={styles.table}>
+      {/* TABLE CARD */}
+      <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
+        <div className="p-4 bg-slate-50/70 border-b border-slate-200/80 flex items-center justify-between text-xs font-bold text-slate-600">
+          <span>Billing Records ({finalDisplayList.length})</span>
+          <span className="text-slate-400 font-normal">Sorted newest first</span>
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="w-full text-left border-collapse text-xs">
             <thead>
-              <tr style={styles.thRow}>
-                <th style={styles.th}>ID</th>
-                <th style={styles.th}>Student Name</th>
-                <th style={styles.th}>Course</th>
-                <th style={styles.th}>Billing Month</th>
-                <th style={styles.th}>Fee</th>
-                <th style={styles.th}>Paid</th>
-                <th style={styles.th}>Waived</th>
-                <th style={styles.th}>Balance</th>
-                <th style={styles.th}>Status</th>
+              <tr className="bg-slate-50 border-b border-slate-200 text-slate-600 uppercase font-bold tracking-wider text-[11px]">
+                <th className="py-3 px-4">Student</th>
+                <th className="py-3 px-4">Course</th>
+                <th className="py-3 px-4">Billing Month</th>
+                <th className="py-3 px-4 text-right">Fee</th>
+                <th className="py-3 px-4 text-right">Paid</th>
+                <th className="py-3 px-4 text-right">Waived</th>
+                <th className="py-3 px-4 text-right">Balance</th>
+                <th className="py-3 px-4 text-center">Status</th>
               </tr>
             </thead>
-            <tbody>
-              {finalDisplayList.length > 0 ? finalDisplayList.map((item, idx) => (
-                <tr key={`${item.studentId}_${idx}`} style={styles.tr}>
-                  <td style={styles.idCell}>{item.studentId}</td>
-                  <td style={styles.nameCell}>{item.name}</td>
-                  <td style={styles.courseCell}>{item.courseName}</td>
-                  <td style={styles.dateCell}>{item.month} {item.year}</td>
-                  <td style={styles.feeCell}>PKR {item.agreedFee.toLocaleString()}</td>
-                  <td style={styles.paidCell}>{item.paid > 0 ? `PKR ${item.paid.toLocaleString()}` : '—'}</td>
-                  <td style={{ ...styles.paidCell, color: '#64748b' }}>{item.waived > 0 ? `PKR ${item.waived.toLocaleString()}` : '—'}</td>
-                  <td style={{ ...styles.balanceCell, color: item.balance > 0 ? '#EF4444' : '#10B981' }}>
-                    {item.balance > 0 ? `PKR ${item.balance.toLocaleString()}` : 'Cleared'}
-                  </td>
-                  <td>
-                    <span style={{ ...styles.badge, backgroundColor: item.bg, color: item.color }}>
-                      {item.label}
-                    </span>
+            <tbody className="divide-y divide-slate-100">
+              {finalDisplayList.length > 0 ? (
+                finalDisplayList.map((item, idx) => {
+                  let badgeClass = "bg-rose-50 text-rose-700 border-rose-200";
+                  if (item.statusType === 'paid') badgeClass = "bg-emerald-50 text-emerald-700 border-emerald-200";
+                  else if (item.statusType === 'partial') badgeClass = "bg-amber-50 text-amber-700 border-amber-200";
+
+                  return (
+                    <tr key={`${item.studentId}_${idx}`} className="hover:bg-slate-50/70 transition-colors">
+                      <td className="py-3.5 px-4">
+                        <div className="font-bold text-slate-900">{item.name}</div>
+                        <div className="text-[11px] font-mono text-blue-600 font-medium">{item.studentId}</div>
+                      </td>
+                      <td className="py-3.5 px-4 font-medium text-slate-700">{item.courseName}</td>
+                      <td className="py-3.5 px-4 font-mono font-semibold text-slate-800">
+                        {item.month} {item.year}
+                      </td>
+                      <td className="py-3.5 px-4 text-right font-mono text-slate-600">
+                        PKR {Number(item.agreedFee).toLocaleString()}
+                      </td>
+                      <td className="py-3.5 px-4 text-right font-mono font-bold text-emerald-700">
+                        {item.paid > 0 ? `PKR ${Number(item.paid).toLocaleString()}` : '—'}
+                      </td>
+                      <td className="py-3.5 px-4 text-right font-mono text-slate-400">
+                        {item.waived > 0 ? `PKR ${Number(item.waived).toLocaleString()}` : '—'}
+                      </td>
+                      <td className={`py-3.5 px-4 text-right font-mono font-black ${
+                        item.balance > 0 ? 'text-rose-600' : 'text-emerald-700'
+                      }`}>
+                        {item.balance > 0 ? `PKR ${Number(item.balance).toLocaleString()}` : 'Cleared'}
+                      </td>
+                      <td className="py-3.5 px-4 text-center">
+                        <span className={`inline-block px-2.5 py-1 rounded-full text-[10px] font-bold border uppercase tracking-wider ${badgeClass}`}>
+                          {item.label}
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                })
+              ) : (
+                <tr>
+                  <td colSpan="8" className="py-12 text-center text-slate-400 text-xs">
+                    No fee records found matching your filters.
                   </td>
                 </tr>
-              )) : (
-                <tr><td colSpan="9" style={styles.empty}>No records found.</td></tr>
               )}
             </tbody>
           </table>
@@ -304,39 +376,6 @@ const FeeStatus = () => {
       </div>
     </div>
   );
-};
-
-const styles = {
-  container: { fontFamily: 'Inter, sans-serif', width: '100%' },
-  header: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' },
-  headerActions: { display: 'flex', gap: '10px' },
-  title: { fontSize: '24px', fontWeight: '800', color: '#0f172a' },
-  subtitle: { color: '#64748b', fontSize: '13px' },
-  btnExport: { backgroundColor: '#10b981', color: '#fff', border: 'none', padding: '10px 18px', borderRadius: '10px', fontWeight: '700', cursor: 'pointer' },
-  btnReset: { backgroundColor: '#f1f5f9', color: '#475569', border: '1px solid #e2e8f0', padding: '10px 18px', borderRadius: '10px', fontWeight: '600', cursor: 'pointer' },
-  filterSection: { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', backgroundColor: '#fff', padding: '16px', borderRadius: '14px', border: '1px solid #e2e8f0', marginBottom: '20px' },
-  miniLabel: { display: 'block', fontSize: '11px', fontWeight: '800', color: '#94a3b8', textTransform: 'uppercase', marginBottom: '6px' },
-  searchInput: { padding: '10px 14px', borderRadius: '8px', border: '1px solid #cbd5e1', width: '180px', outline: 'none', fontSize: '14px' },
-  rangePickers: { display: 'flex', gap: '24px', flexWrap: 'wrap' },
-  pickerGroup: { display: 'flex', gap: '8px', alignItems: 'center' },
-  rangeLabel: { fontSize: '12px', fontWeight: '700', color: '#475569' },
-  select: { padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1', backgroundColor: '#f8fafc', fontSize: '14px', outline: 'none', minWidth: '120px' },
-  yearInput: { padding: '10px', borderRadius: '8px', border: '1px solid #cbd5e1', width: '80px', textAlign: 'center', fontSize: '14px', outline: 'none' },
-  card: { background: '#fff', borderRadius: '16px', border: '1px solid #e2e8f0', overflow: 'hidden', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)' },
-  tableWrapper: { overflowX: 'auto' },
-  table: { width: '100%', borderCollapse: 'collapse', textAlign: 'left' },
-  thRow: { background: '#f8fafc', borderBottom: '1px solid #e2e8f0' },
-  th: { padding: '14px 20px', color: '#64748b', fontSize: '11px', fontWeight: '800', textTransform: 'uppercase' },
-  tr: { borderBottom: '1px solid #f1f5f9' },
-  idCell: { padding: '16px 20px', color: '#3b82f6', fontWeight: '700', fontSize: '13px' },
-  nameCell: { padding: '16px 20px', fontWeight: '600', color: '#1e293b', fontSize: '14px' },
-  courseCell: { padding: '16px 20px', color: '#475569', fontSize: '13px' },
-  dateCell: { padding: '16px 20px', color: '#0f172a', fontWeight: '700', fontSize: '13px' },
-  feeCell: { padding: '16px 20px', fontSize: '14px' },
-  paidCell: { padding: '16px 20px', color: '#10b981', fontWeight: '700', fontSize: '14px' },
-  balanceCell: { padding: '16px 20px', fontWeight: '800', fontSize: '14px' },
-  badge: { padding: '5px 12px', borderRadius: '20px', fontSize: '10px', fontWeight: '800', display: 'inline-block' },
-  empty: { textAlign: 'center', padding: '50px', color: '#94a3b8' }
 };
 
 export default FeeStatus;

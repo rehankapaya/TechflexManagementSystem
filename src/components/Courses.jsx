@@ -2,13 +2,23 @@ import React, { useState, useEffect } from 'react';
 import { db } from '../firebase.js';
 import { ref, set, push, onValue, remove, update } from 'firebase/database';
 import toast from 'react-hot-toast';
+import {
+  BookOpen,
+  Plus,
+  Pencil,
+  Trash2,
+  Clock,
+  CreditCard,
+  Layers,
+  CheckCircle2,
+  X
+} from 'lucide-react';
 
 const Courses = () => {
   const [courses, setCourses] = useState([]);
   const [formData, setFormData] = useState({ name: '', base_fee: '', duration: '' });
   const [isEditing, setIsEditing] = useState(null);
   const [loading, setLoading] = useState(false);
-  const [status, setStatus] = useState({ type: '', msg: '' });
 
   useEffect(() => {
     const coursesRef = ref(db, 'courses');
@@ -26,13 +36,6 @@ const Courses = () => {
     });
     return () => unsubscribe();
   }, []);
-
-  useEffect(() => {
-    if (status.msg) {
-      const timer = setTimeout(() => setStatus({ type: '', msg: '' }), 5000);
-      return () => clearTimeout(timer);
-    }
-  }, [status]);
 
   const handleChange = (e) => {
     const value = (e.target.name === 'duration' || e.target.name === 'base_fee')
@@ -85,62 +88,100 @@ const Courses = () => {
   };
 
   return (
-    <div style={styles.container}>
-      <header style={styles.header}>
-        <h2 style={styles.title}>Course Catalog 🎓</h2>
-        <p style={styles.subtitle}>Structure your curriculum and manage tuition fees.</p>
+    <div className="space-y-6 font-sans animate-fade-in">
+      {/* HEADER */}
+      <header className="pb-2 border-b border-slate-200/80">
+        <div className="flex items-center gap-2">
+          <BookOpen className="text-blue-600" size={24} />
+          <h1 className="text-2xl md:text-3xl font-extrabold text-slate-900 tracking-tight">Course Catalog</h1>
+        </div>
+        <p className="text-sm text-slate-500 mt-1 font-medium">Curriculum definitions, duration schedules & baseline tuition fees</p>
       </header>
 
-      {status.msg && (
-        <div style={{
-          ...styles.statusBanner,
-          backgroundColor: status.type === 'success' ? '#F0FDF4' : '#FEF2F2',
-          color: status.type === 'success' ? '#166534' : '#991B1B',
-          borderColor: status.type === 'success' ? '#BBF7D0' : '#FCA5A5'
-        }}>
-          {status.type === 'success' ? '✅ ' : '⚠️ '} {status.msg}
-        </div>
-      )}
+      {/* STACKED / GRID LAYOUT */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+        {/* CREATE / EDIT COURSE FORM (5 cols) */}
+        <div className="lg:col-span-5 bg-white p-6 rounded-2xl border border-slate-200/80 shadow-xs">
+          <div className="flex items-center justify-between pb-3 mb-5 border-b border-slate-100">
+            <h2 className="text-base font-bold text-slate-900 tracking-tight flex items-center gap-2">
+              {isEditing ? <Pencil size={18} className="text-amber-600" /> : <Plus size={18} className="text-blue-600" />}
+              <span>{isEditing ? 'Edit Course Details' : 'Create New Course'}</span>
+            </h2>
+            {isEditing && (
+              <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200">
+                Editing
+              </span>
+            )}
+          </div>
 
-      <div style={styles.layoutStack}>
-        {/* FORM SECTION (TOP) */}
-        <div style={styles.card}>
-          <h3 style={styles.cardTitle}>{isEditing ? '📝 Edit Course' : '➕ Create New Course'}</h3>
-          <form onSubmit={handleSubmit} style={styles.form}>
-            <div style={styles.inputGroup}>
-              <label style={styles.label}>Course Name</label>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div>
+              <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wider">
+                Course Title
+              </label>
               <input
-                type="text" name="name" value={formData.name}
-                onChange={handleChange} placeholder="e.g. Graphic Design"
-                required style={styles.input}
+                type="text"
+                name="name"
+                value={formData.name}
+                onChange={handleChange}
+                placeholder="e.g. Full Stack Web Development"
+                required
+                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-xs font-semibold focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
               />
             </div>
 
-            <div className="form-row" style={styles.inputRow}>
-              <div style={styles.inputGroup}>
-                <label style={styles.label}>Base Fee (PKR)</label>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wider">
+                  Base Fee (PKR)
+                </label>
                 <input
-                  type="number" name="base_fee" value={formData.base_fee}
-                  onChange={handleChange} placeholder="5000"
-                  required style={styles.input}
+                  type="number"
+                  name="base_fee"
+                  value={formData.base_fee}
+                  onChange={handleChange}
+                  placeholder="5000"
+                  required
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-xs font-mono font-bold text-emerald-700 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
                 />
               </div>
-              <div style={styles.inputGroup}>
-                <label style={styles.label}>Duration (Months)</label>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wider">
+                  Duration (Months)
+                </label>
                 <input
-                  type="number" name="duration" value={formData.duration}
-                  onChange={handleChange} placeholder="3"
-                  min="1" required style={styles.input}
+                  type="number"
+                  name="duration"
+                  value={formData.duration}
+                  onChange={handleChange}
+                  placeholder="3"
+                  min="1"
+                  required
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-xs font-mono font-medium focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
                 />
               </div>
             </div>
 
-            <div style={styles.buttonGroup}>
-              <button type="submit" disabled={loading} style={styles.submitBtn}>
-                {loading ? 'Processing...' : (isEditing ? 'Update Course' : 'Create Course')}
+            <div className="flex gap-2.5 pt-2">
+              <button
+                type="submit"
+                disabled={loading}
+                className="flex-1 py-3 px-4 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold transition-all shadow-xs flex items-center justify-center gap-2 disabled:opacity-60"
+              >
+                <CheckCircle2 size={16} />
+                <span>{loading ? 'Processing...' : (isEditing ? 'Update Course' : 'Create Course')}</span>
               </button>
+
               {isEditing && (
-                <button type="button" onClick={() => { setIsEditing(null); setFormData({ name: '', base_fee: '', duration: '' }) }} style={styles.cancelBtn}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsEditing(null);
+                    setFormData({ name: '', base_fee: '', duration: '' });
+                  }}
+                  className="px-4 py-3 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-700 text-xs font-bold transition-all"
+                >
                   Cancel
                 </button>
               )}
@@ -148,44 +189,64 @@ const Courses = () => {
           </form>
         </div>
 
-        {/* TABLE SECTION (BOTTOM) */}
-        <div style={styles.tableCard}>
-          <div style={styles.tableHeader}>
-            <h3 style={styles.cardTitle}>Active Courses</h3>
-            <span style={styles.countBadge}>{courses.length} Courses Found</span>
+        {/* ACTIVE COURSES TABLE (7 cols) */}
+        <div className="lg:col-span-7 bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
+          <div className="p-4 bg-slate-50/70 border-b border-slate-200/80 flex items-center justify-between text-xs font-bold text-slate-600">
+            <span>Active Curriculum ({courses.length})</span>
+            <span className="text-xs font-mono font-bold text-blue-600 bg-blue-50 px-2.5 py-0.5 rounded-md">
+              {courses.length} Courses
+            </span>
           </div>
-          <div style={styles.tableWrapper}>
-            <table style={styles.table}>
+
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse text-xs">
               <thead>
-                <tr>
-                  <th style={styles.th}>Course Name</th>
-                  <th style={styles.th}>Duration</th>
-                  <th style={styles.th}>Base Fee</th>
-                  <th style={styles.th}>Actions</th>
+                <tr className="bg-slate-50 border-b border-slate-200 text-slate-600 uppercase font-bold tracking-wider text-[11px]">
+                  <th className="py-3 px-4">Course Name</th>
+                  <th className="py-3 px-4">Duration</th>
+                  <th className="py-3 px-4 text-right">Base Tuition</th>
+                  <th className="py-3 px-4 text-center">Actions</th>
                 </tr>
               </thead>
-              <tbody>
-                {courses.length > 0 ? courses.map((course) => (
-                  <tr key={course.id} style={styles.tr}>
-                    <td style={styles.td}>
-                      <span style={styles.courseNameText}>{course.name}</span>
-                    </td>
-                    <td style={styles.td}>
-                      <span style={styles.durationBadge}>{course.duration} Mo</span>
-                    </td>
-                    <td style={styles.td}>
-                      <span style={styles.feeText}>PKR {course.base_fee.toLocaleString()}</span>
-                    </td>
-                    <td style={styles.td}>
-                      <div style={styles.actionContainer}>
-                        <button onClick={() => startEdit(course)} style={styles.editIconBtn} title="Edit">✏️</button>
-                        <button onClick={() => handleDelete(course.id)} style={styles.deleteIconBtn} title="Delete">🗑️</button>
-                      </div>
-                    </td>
-                  </tr>
-                )) : (
+              <tbody className="divide-y divide-slate-100">
+                {courses.length > 0 ? (
+                  courses.map((course) => (
+                    <tr key={course.id} className="hover:bg-slate-50/70 transition-colors">
+                      <td className="py-3.5 px-4 font-bold text-slate-900">{course.name}</td>
+                      <td className="py-3.5 px-4">
+                        <span className="inline-flex items-center gap-1 bg-slate-100 text-slate-700 px-2.5 py-1 rounded-md text-[11px] font-mono font-semibold">
+                          <Clock size={12} className="text-slate-400" />
+                          <span>{course.duration} Months</span>
+                        </span>
+                      </td>
+                      <td className="py-3.5 px-4 text-right font-mono font-bold text-emerald-700">
+                        PKR {Number(course.base_fee).toLocaleString()}
+                      </td>
+                      <td className="py-3.5 px-4 text-center">
+                        <div className="inline-flex items-center gap-1">
+                          <button
+                            onClick={() => startEdit(course)}
+                            className="p-1.5 rounded-lg text-blue-600 hover:bg-blue-50 transition-colors"
+                            title="Edit Course"
+                          >
+                            <Pencil size={15} />
+                          </button>
+                          <button
+                            onClick={() => handleDelete(course.id)}
+                            className="p-1.5 rounded-lg text-rose-600 hover:bg-rose-50 transition-colors"
+                            title="Delete Course"
+                          >
+                            <Trash2 size={15} />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                ) : (
                   <tr>
-                    <td colSpan="4" style={styles.emptyTd}>No courses found in the system.</td>
+                    <td colSpan="4" className="py-12 text-center text-slate-400 text-xs">
+                      No courses found in the catalog.
+                    </td>
                   </tr>
                 )}
               </tbody>
@@ -193,60 +254,8 @@ const Courses = () => {
           </div>
         </div>
       </div>
-
-      <style>{`
-        @media (max-width: 768px) {
-          .form-row {
-            flex-direction: column !important;
-            gap: 16px !important;
-          }
-        }
-      `}</style>
     </div>
   );
-};
-
-const styles = {
-  container: { width: '100%' },
-  header: { marginBottom: '24px' },
-  title: { fontSize: '24px', fontWeight: '700', color: '#1E293B', margin: '0 0 4px 0' },
-  subtitle: { color: '#64748B', fontSize: '14px' },
-  statusBanner: { padding: '12px 18px', borderRadius: '10px', marginBottom: '20px', border: '1px solid', fontSize: '14px', fontWeight: '500' },
-
-  // Adjusted for stacked layout
-  layoutStack: { display: 'flex', flexDirection: 'column', gap: '30px' },
-
-  // Form Card - constrained width so it doesn't look huge on desktop
-  card: { background: '#fff', padding: '28px', borderRadius: '16px', border: '1px solid #E2E8F0', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)', maxWidth: '600px', width: '100%' },
-  cardTitle: { fontSize: '16px', fontWeight: '700', color: '#1E293B', margin: 0 },
-  form: { display: 'flex', flexDirection: 'column', gap: '20px', marginTop: '20px' },
-  inputGroup: { display: 'flex', flexDirection: 'column', gap: '8px', flex: 1 },
-  inputRow: { display: 'flex', gap: '15px' },
-  label: { fontSize: '13px', fontWeight: '600', color: '#475569' },
-  input: { padding: '12px 16px', borderRadius: '10px', border: '1px solid #E2E8F0', backgroundColor: '#F8FAFC', outline: 'none', fontSize: '14px', transition: 'border-color 0.2s' },
-
-  buttonGroup: { display: 'flex', gap: '10px', marginTop: '5px' },
-  submitBtn: { flex: 2, padding: '12px', background: '#3B82F6', color: '#fff', border: 'none', borderRadius: '10px', fontWeight: '600', cursor: 'pointer', transition: 'opacity 0.2s' },
-  cancelBtn: { flex: 1, padding: '12px', background: '#F1F5F9', color: '#475569', border: 'none', borderRadius: '10px', fontWeight: '600', cursor: 'pointer' },
-
-  // Table Card - takes full width
-  tableCard: { background: '#fff', borderRadius: '16px', border: '1px solid #E2E8F0', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)', overflow: 'hidden', width: '100%' },
-  tableHeader: { padding: '20px 24px', borderBottom: '1px solid #E2E8F0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#fff' },
-  countBadge: { background: '#EFF6FF', color: '#3B82F6', padding: '4px 12px', borderRadius: '20px', fontSize: '12px', fontWeight: '700' },
-  tableWrapper: { overflowX: 'auto' },
-  table: { width: '100%', borderCollapse: 'collapse', textAlign: 'left', minWidth: '600px' },
-  th: { padding: '16px 24px', background: '#F8FAFC', fontSize: '12px', fontWeight: '700', color: '#64748B', borderBottom: '1px solid #E2E8F0', textTransform: 'uppercase', letterSpacing: '0.05em' },
-  tr: { borderBottom: '1px solid #F1F5F9', transition: 'background 0.2s' },
-  td: { padding: '18px 24px', fontSize: '14px', verticalAlign: 'middle' },
-  courseNameText: { fontWeight: '600', color: '#1E293B' },
-  durationBadge: { background: '#F1F5F9', color: '#475569', padding: '4px 10px', borderRadius: '6px', fontSize: '12px', fontWeight: '600' },
-  feeText: { color: '#10B981', fontWeight: '700' },
-
-  actionContainer: { display: 'flex', gap: '10px' },
-  editIconBtn: { background: '#EFF6FF', border: 'none', borderRadius: '8px', padding: '8px', cursor: 'pointer', transition: '0.2s' },
-  deleteIconBtn: { background: '#FEF2F2', border: 'none', borderRadius: '8px', padding: '8px', cursor: 'pointer', transition: '0.2s' },
-
-  emptyTd: { padding: '60px', textAlign: 'center', color: '#94A3B8', fontSize: '15px' }
 };
 
 export default Courses;

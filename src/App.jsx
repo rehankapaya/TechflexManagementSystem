@@ -59,13 +59,15 @@ function App() {
               }
             />
             <Route
-              path="analtyics"
+              path="analytics"
               element={
                 <ProtectedRoute requiredRole="admin">
                   <MonthlyAnalytics />
                 </ProtectedRoute>
               }
             />
+            {/* Backward compatibility for previous typo */}
+            <Route path="analtyics" element={<Navigate to="/dashboard/analytics" replace />} />
             <Route
               path="courses"
               element={

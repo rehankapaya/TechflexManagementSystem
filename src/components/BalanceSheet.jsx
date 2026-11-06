@@ -2,6 +2,16 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { db } from '../firebase';
 import { ref, onValue } from 'firebase/database';
 import * as XLSX from 'xlsx';
+import { MONTHS_SHORT, normalizeMonth } from '../utils/monthUtils';
+import {
+  FileSpreadsheet,
+  Download,
+  ChevronDown,
+  ChevronRight,
+  TrendingUp,
+  TrendingDown,
+  DollarSign
+} from 'lucide-react';
 
 const BalanceSheet = () => {
   const [fees, setFees] = useState({});
@@ -11,7 +21,7 @@ const BalanceSheet = () => {
   const [loading, setLoading] = useState(true);
   const [expandedYears, setExpandedYears] = useState({});
 
-  const monthsFull = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  const monthsFull = MONTHS_SHORT;
 
   useEffect(() => {
     const unsubFees = onValue(ref(db, 'fee_transactions'), snap => setFees(snap.val() || {}));
@@ -19,16 +29,16 @@ const BalanceSheet = () => {
     const unsubExpenses = onValue(ref(db, 'expenses'), snap => setExpenses(snap.val() || {}));
     const unsubSalaries = onValue(ref(db, 'staff_salary'), snap => setSalaries(snap.val() || {}));
     
-    // Simulate loading
-    setTimeout(() => setLoading(false), 800);
+    const timer = setTimeout(() => setLoading(false), 600);
 
     return () => {
+      clearTimeout(timer);
       unsubFees(); unsubStudents(); unsubExpenses(); unsubSalaries();
     };
   }, []);
 
   const aggregatedData = useMemo(() => {
-    const result = {}; // { '2024': { 'Jan': { courseFees: 0, admFees: 0, expenses: 0, salaries: 0 }, ... } }
+    const result = {};
 
     const initYear = (y) => {
       if (!result[y]) {
@@ -44,12 +54,14 @@ const BalanceSheet = () => {
       for (let cId in fees[sId]) {
         for (let tKey in fees[sId][cId]) {
           const parts = tKey.split('_');
-          if (parts.length === 2) {
-            const mStr = parts[0];
-            const yStr = parts[1];
-            initYear(yStr);
-            if (result[yStr][mStr]) {
-              result[yStr][mStr].courseFees += Number(fees[sId][cId][tKey].paid || 0);
+          if (parts.length >= 2) {
+            const mStr = normalizeMonth(parts[0]);
+            const yStr = parts[parts.length - 1];
+            if (mStr && yStr) {
+              initYear(yStr);
+              if (result[yStr][mStr]) {
+                result[yStr][mStr].courseFees += Number(fees[sId][cId][tKey].paid || 0);
+              }
             }
           }
         }
@@ -60,7 +72,7 @@ const BalanceSheet = () => {
     Object.values(students).forEach(student => {
       if (student.createdAt && student.admission_fee) {
         const d = new Date(student.createdAt);
-        if (!isNaN(d)) {
+        if (!isNaN(d.getTime())) {
           const mStr = monthsFull[d.getMonth()];
           const yStr = d.getFullYear().toString();
           initYear(yStr);
@@ -73,7 +85,7 @@ const BalanceSheet = () => {
     Object.values(expenses).forEach(exp => {
       if (exp.date) {
         const d = new Date(exp.date);
-        if (!isNaN(d)) {
+        if (!isNaN(d.getTime())) {
           const mStr = monthsFull[d.getMonth()];
           const yStr = d.getFullYear().toString();
           initYear(yStr);
@@ -85,11 +97,13 @@ const BalanceSheet = () => {
     // 4. Process Salaries
     Object.values(salaries).forEach(sal => {
       if (sal.salaryYear && sal.salaryMonth) {
-        const mStr = monthsFull[Number(sal.salaryMonth) - 1];
+        const mStr = normalizeMonth(sal.salaryMonth);
         const yStr = sal.salaryYear.toString();
         if (mStr) {
           initYear(yStr);
-          result[yStr][mStr].salaries += Number(sal.amount || 0);
+          if (result[yStr][mStr]) {
+            result[yStr][mStr].salaries += Number(sal.amount || 0);
+          }
         }
       }
     });
@@ -98,13 +112,21 @@ const BalanceSheet = () => {
   }, [fees, students, expenses, salaries, monthsFull]);
 
   if (loading) {
-    return <div style={{ textAlign: 'center', padding: '40px', color: '#64748B' }}>Loading Balance Sheet Data...</div>;
+    return (
+      <div className="bg-white border border-slate-200/80 rounded-2xl p-8 text-center text-slate-400 text-sm">
+        Loading Annual Balance Sheet Data...
+      </div>
+    );
   }
 
-  const sortedYears = Object.keys(aggregatedData).sort((a, b) => b - a); // Newest year first
+  const sortedYears = Object.keys(aggregatedData).sort((a, b) => b - a);
 
   if (sortedYears.length === 0) {
-    return <div style={{ padding: '20px', background: '#fff', borderRadius: '15px' }}>No financial data available yet.</div>;
+    return (
+      <div className="bg-white border border-slate-200/80 rounded-2xl p-8 text-center text-slate-400 text-sm">
+        No balance sheet data available yet.
+      </div>
+    );
   }
 
   const toggleYear = (year) => {
@@ -148,7 +170,6 @@ const BalanceSheet = () => {
       const yearTotalCost = yearTotalExp + yearTotalSal;
       const yearNet = yearTotalIncome - yearTotalCost;
 
-      // Add Year Total Row
       exportData.push({
         "Month / Year": `Fiscal Year ${year} TOTAL`,
         "Course Fees": yearTotalCourse,
@@ -160,7 +181,6 @@ const BalanceSheet = () => {
         "Net Balance": yearNet
       });
 
-      // Add Monthly Rows
       monthsFull.forEach(m => {
         const inc = yearData[m].courseFees + yearData[m].admFees;
         const out = yearData[m].salaries + yearData[m].expenses;
@@ -176,13 +196,11 @@ const BalanceSheet = () => {
         });
       });
       
-      // Empty row for spacing
       exportData.push({});
     });
 
     if (exportData.length === 0) return;
 
-    // Add All-Time Grand Total Row
     exportData.push({
       "Month / Year": `ALL-TIME GRAND TOTAL`,
       "Course Fees": grandTotalCourse,
@@ -201,120 +219,156 @@ const BalanceSheet = () => {
   };
 
   return (
-    <div style={{ marginTop: '40px' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', borderBottom: '2px solid #E2E8F0', paddingBottom: '10px' }}>
-        <h2 style={{ color: '#1E293B', margin: 0 }}>
-          Annual Balance Sheet 📑
-        </h2>
-        <button 
+    <div className="bg-white border border-slate-200/80 rounded-2xl shadow-sm overflow-hidden">
+      <div className="p-5 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="flex items-center gap-2.5">
+          <div className="w-9 h-9 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
+            <FileSpreadsheet size={20} />
+          </div>
+          <div>
+            <h3 className="font-bold text-slate-800 text-base">Annual Balance Sheet</h3>
+            <p className="text-xs text-slate-400">Multi-year audit of fee collections, expenses & net margin</p>
+          </div>
+        </div>
+
+        <button
           onClick={exportBalanceSheet}
-          style={{ background: '#4A90E2', color: 'white', border: 'none', padding: '8px 16px', borderRadius: '5px', cursor: 'pointer', fontWeight: 'bold' }}
+          className="flex items-center gap-2 px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold transition-colors cursor-pointer self-start sm:self-auto"
         >
-          Export Balance Sheet
+          <Download size={14} className="text-blue-600" />
+          <span>Export Balance Sheet</span>
         </button>
       </div>
 
-      <div style={{ background: '#fff', borderRadius: '15px', boxShadow: '0 4px 12px rgba(0,0,0,0.05)', border: '1px solid #E2E8F0', marginBottom: '30px', overflow: 'hidden' }}>
-        <div style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14px' }}>
-            <thead>
-              <tr style={{ background: '#F1F5F9', borderBottom: '2px solid #CBD5E1' }}>
-                <th style={{ ...thStyle, textAlign: 'left' }}>Month / Year</th>
-                <th style={thStyle}>Course Fees</th>
-                <th style={thStyle}>Admission Fees</th>
-                <th style={{ ...thStyle, color: '#10B981' }}>Total Inflows</th>
-                <th style={thStyle}>Staff Salaries</th>
-                <th style={thStyle}>Other Expenses</th>
-                <th style={{ ...thStyle, color: '#EF4444' }}>Total Outflows</th>
-                <th style={{ ...thStyle, borderLeft: '2px solid #E2E8F0', background: '#E2E8F0', color: '#1E293B' }}>Net Balance</th>
-              </tr>
-            </thead>
-            <tbody>
-              {sortedYears.map(year => {
-        const yearData = aggregatedData[year];
-        let yearTotalCourse = 0, yearTotalAdm = 0, yearTotalExp = 0, yearTotalSal = 0;
-
-        // Calculate Year Totals
-        monthsFull.forEach(m => {
-          yearTotalCourse += yearData[m].courseFees;
-          yearTotalAdm += yearData[m].admFees;
-          yearTotalExp += yearData[m].expenses;
-          yearTotalSal += yearData[m].salaries;
-        });
-
-        const yearTotalIncome = yearTotalCourse + yearTotalAdm;
-        const yearTotalCost = yearTotalExp + yearTotalSal;
-        const yearNet = yearTotalIncome - yearTotalCost;
-
-        const isExpanded = expandedYears[year] !== false;
-
-        return (
-          <React.Fragment key={year}>
-            {/* YEAR TOTAL ROW (ACCORDION HEADER) */}
-            <tr 
-              onClick={() => toggleYear(year)}
-              style={{ background: '#F8FAFC', cursor: 'pointer', borderTop: '2px solid #CBD5E1', borderBottom: isExpanded ? '1px solid #E2E8F0' : '2px solid #CBD5E1', transition: 'background 0.2s' }}
-              title="Click to expand/collapse months"
-              onMouseEnter={(e) => e.currentTarget.style.background = '#F1F5F9'}
-              onMouseLeave={(e) => e.currentTarget.style.background = '#F8FAFC'}
-            >
-              <td style={{ ...tdLabelStyle, color: '#0F172A', fontWeight: 'bold' }}>
-                <span style={{ display: 'inline-block', width: '20px', fontSize: '10px' }}>{isExpanded ? '▼' : '▶'}</span>
-                Fiscal Year {year}
-              </td>
-              <td style={{ ...tdStyle, fontWeight: 'bold' }}>{yearTotalCourse.toLocaleString()}</td>
-              <td style={{ ...tdStyle, fontWeight: 'bold' }}>{yearTotalAdm.toLocaleString()}</td>
-              <td style={{ ...tdStyle, color: '#10B981', fontWeight: 'bold' }}>{yearTotalIncome.toLocaleString()}</td>
-              <td style={{ ...tdStyle, fontWeight: 'bold' }}>{yearTotalSal.toLocaleString()}</td>
-              <td style={{ ...tdStyle, fontWeight: 'bold' }}>{yearTotalExp.toLocaleString()}</td>
-              <td style={{ ...tdStyle, color: '#EF4444', fontWeight: 'bold' }}>{yearTotalCost.toLocaleString()}</td>
-              <td style={{ ...tdTotalStyle, background: '#DBEAFE', color: yearNet >= 0 ? '#059669' : '#DC2626' }}>{yearNet.toLocaleString()}</td>
+      <div className="overflow-x-auto">
+        <table className="w-full text-left text-sm">
+          <thead className="bg-slate-50/80 text-slate-500 text-xs font-semibold uppercase tracking-wider border-b border-slate-200">
+            <tr>
+              <th className="px-5 py-3.5">Month / Year</th>
+              <th className="px-4 py-3.5 text-right">Course Fees</th>
+              <th className="px-4 py-3.5 text-right">Admission Fees</th>
+              <th className="px-4 py-3.5 text-right text-emerald-600 font-bold">Total Inflows</th>
+              <th className="px-4 py-3.5 text-right">Salaries</th>
+              <th className="px-4 py-3.5 text-right">Expenses</th>
+              <th className="px-4 py-3.5 text-right text-rose-600 font-bold">Total Outflows</th>
+              <th className="px-5 py-3.5 text-right bg-slate-100/70 border-l border-slate-200 text-slate-800 font-bold">Net Balance</th>
             </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-100">
+            {sortedYears.map(year => {
+              const yearData = aggregatedData[year];
+              let yearTotalCourse = 0, yearTotalAdm = 0, yearTotalExp = 0, yearTotalSal = 0;
 
-            {/* MONTH ROWS */}
-            {isExpanded && monthsFull.map(m => {
+              monthsFull.forEach(m => {
+                yearTotalCourse += yearData[m].courseFees;
+                yearTotalAdm += yearData[m].admFees;
+                yearTotalExp += yearData[m].expenses;
+                yearTotalSal += yearData[m].salaries;
+              });
+
+              const yearTotalIncome = yearTotalCourse + yearTotalAdm;
+              const yearTotalCost = yearTotalExp + yearTotalSal;
+              const yearNet = yearTotalIncome - yearTotalCost;
+              const isExpanded = expandedYears[year] !== false;
+
+              return (
+                <React.Fragment key={year}>
+                  {/* YEAR ACCORDION HEADER ROW */}
+                  <tr
+                    onClick={() => toggleYear(year)}
+                    className="bg-slate-50/90 hover:bg-slate-100/90 transition-colors cursor-pointer border-t-2 border-slate-200 font-bold text-slate-800"
+                    title="Click to toggle monthly rows"
+                  >
+                    <td className="px-5 py-3.5 flex items-center gap-2">
+                      <span className="text-slate-400">
+                        {isExpanded ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+                      </span>
+                      <span>Fiscal Year {year}</span>
+                    </td>
+                    <td className="px-4 py-3.5 text-right font-mono text-slate-700">
+                      PKR {yearTotalCourse.toLocaleString()}
+                    </td>
+                    <td className="px-4 py-3.5 text-right font-mono text-slate-700">
+                      PKR {yearTotalAdm.toLocaleString()}
+                    </td>
+                    <td className="px-4 py-3.5 text-right font-mono text-emerald-700">
+                      PKR {yearTotalIncome.toLocaleString()}
+                    </td>
+                    <td className="px-4 py-3.5 text-right font-mono text-slate-700">
+                      PKR {yearTotalSal.toLocaleString()}
+                    </td>
+                    <td className="px-4 py-3.5 text-right font-mono text-slate-700">
+                      PKR {yearTotalExp.toLocaleString()}
+                    </td>
+                    <td className="px-4 py-3.5 text-right font-mono text-rose-700">
+                      PKR {yearTotalCost.toLocaleString()}
+                    </td>
+                    <td className={`px-5 py-3.5 text-right font-mono border-l border-slate-200 ${
+                      yearNet >= 0 ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'
+                    }`}>
+                      PKR {yearNet.toLocaleString()}
+                    </td>
+                  </tr>
+
+                  {/* MONTH DETAIL ROWS */}
+                  {isExpanded && monthsFull.map(m => {
                     const inc = yearData[m].courseFees + yearData[m].admFees;
                     const out = yearData[m].salaries + yearData[m].expenses;
                     const net = inc - out;
+
                     return (
-                      <tr key={m} style={{ borderBottom: '1px solid #F1F5F9' }}>
-                        <td style={tdLabelStyle}>{m}</td>
-                        <td style={tdStyle}>{yearData[m].courseFees.toLocaleString()}</td>
-                        <td style={tdStyle}>{yearData[m].admFees.toLocaleString()}</td>
-                        <td style={{ ...tdStyle, color: '#10B981', fontWeight: '500' }}>{inc.toLocaleString()}</td>
-                        <td style={tdStyle}>{yearData[m].salaries.toLocaleString()}</td>
-                        <td style={tdStyle}>{yearData[m].expenses.toLocaleString()}</td>
-                        <td style={{ ...tdStyle, color: '#EF4444', fontWeight: '500' }}>{out.toLocaleString()}</td>
-                        <td style={{ ...tdTotalStyle, color: net >= 0 ? '#059669' : '#DC2626', background: 'transparent' }}>{net.toLocaleString()}</td>
+                      <tr key={m} className="hover:bg-slate-50/50 transition-colors text-xs text-slate-600">
+                        <td className="px-5 py-2.5 pl-11 font-medium text-slate-700">{m}</td>
+                        <td className="px-4 py-2.5 text-right font-mono">{yearData[m].courseFees.toLocaleString()}</td>
+                        <td className="px-4 py-2.5 text-right font-mono">{yearData[m].admFees.toLocaleString()}</td>
+                        <td className="px-4 py-2.5 text-right font-mono font-semibold text-emerald-600">{inc.toLocaleString()}</td>
+                        <td className="px-4 py-2.5 text-right font-mono">{yearData[m].salaries.toLocaleString()}</td>
+                        <td className="px-4 py-2.5 text-right font-mono">{yearData[m].expenses.toLocaleString()}</td>
+                        <td className="px-4 py-2.5 text-right font-mono font-semibold text-rose-600">{out.toLocaleString()}</td>
+                        <td className={`px-5 py-2.5 text-right font-mono font-bold border-l border-slate-200 ${
+                          net >= 0 ? 'text-emerald-600' : 'text-rose-600'
+                        }`}>
+                          {net.toLocaleString()}
+                        </td>
                       </tr>
                     );
                   })}
-          </React.Fragment>
-        );
-      })}
-              {/* GRAND TOTAL ROW */}
-              <tr style={{ background: '#1E293B', color: 'white', borderTop: '4px solid #0F172A' }}>
-                <td style={{ ...tdLabelStyle, color: 'white', fontWeight: 'bold', fontSize: '15px' }}>ALL-TIME GRAND TOTAL</td>
-                <td style={{ ...tdStyle, color: 'white', fontWeight: 'bold' }}>{grandTotalCourse.toLocaleString()}</td>
-                <td style={{ ...tdStyle, color: 'white', fontWeight: 'bold' }}>{grandTotalAdm.toLocaleString()}</td>
-                <td style={{ ...tdStyle, color: '#34D399', fontWeight: 'bold' }}>{grandTotalIncome.toLocaleString()}</td>
-                <td style={{ ...tdStyle, color: 'white', fontWeight: 'bold' }}>{grandTotalSal.toLocaleString()}</td>
-                <td style={{ ...tdStyle, color: 'white', fontWeight: 'bold' }}>{grandTotalExp.toLocaleString()}</td>
-                <td style={{ ...tdStyle, color: '#F87171', fontWeight: 'bold' }}>{grandTotalCost.toLocaleString()}</td>
-                <td style={{ ...tdTotalStyle, background: '#0F172A', color: grandNet >= 0 ? '#10B981' : '#EF4444', fontSize: '16px' }}>{grandNet.toLocaleString()}</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
+                </React.Fragment>
+              );
+            })}
+
+            {/* ALL-TIME GRAND TOTAL ROW */}
+            <tr className="bg-slate-900 text-white font-bold border-t-2 border-slate-900">
+              <td className="px-5 py-4 text-sm tracking-wide">ALL-TIME GRAND TOTAL</td>
+              <td className="px-4 py-4 text-right font-mono text-xs text-slate-300">
+                PKR {grandTotalCourse.toLocaleString()}
+              </td>
+              <td className="px-4 py-4 text-right font-mono text-xs text-slate-300">
+                PKR {grandTotalAdm.toLocaleString()}
+              </td>
+              <td className="px-4 py-4 text-right font-mono text-sm text-emerald-400">
+                PKR {grandTotalIncome.toLocaleString()}
+              </td>
+              <td className="px-4 py-4 text-right font-mono text-xs text-slate-300">
+                PKR {grandTotalSal.toLocaleString()}
+              </td>
+              <td className="px-4 py-4 text-right font-mono text-xs text-slate-300">
+                PKR {grandTotalExp.toLocaleString()}
+              </td>
+              <td className="px-4 py-4 text-right font-mono text-sm text-rose-400">
+                PKR {grandTotalCost.toLocaleString()}
+              </td>
+              <td className={`px-5 py-4 text-right font-mono text-base border-l border-slate-800 ${
+                grandNet >= 0 ? 'text-emerald-400 bg-slate-950' : 'text-rose-400 bg-slate-950'
+              }`}>
+                PKR {grandNet.toLocaleString()}
+              </td>
+            </tr>
+          </tbody>
+        </table>
       </div>
     </div>
   );
 };
-
-const thStyle = { padding: '12px', textAlign: 'right', color: '#475569', fontWeight: 'bold', fontSize: '13px' };
-const tdStyle = { padding: '12px', textAlign: 'right', color: '#64748B', whiteSpace: 'nowrap' };
-const tdLabelStyle = { padding: '12px 20px', textAlign: 'left', color: '#475569', fontWeight: '500' };
-const tdTotalStyle = { padding: '12px', textAlign: 'right', borderLeft: '2px solid #E2E8F0', background: '#F8FAFC', fontWeight: 'bold', color: '#1E293B', whiteSpace: 'nowrap' };
-const sectionHeaderStyle = { background: '#F1F5F9', padding: '8px 20px', fontWeight: 'bold', color: '#64748B', fontSize: '12px', letterSpacing: '1px' };
 
 export default BalanceSheet;

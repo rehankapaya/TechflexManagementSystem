@@ -1,4 +1,5 @@
 import ExcelJS from 'exceljs';
+import { normalizeMonthKey } from './monthUtils';
 import { saveAs } from 'file-saver';
 
 export const generateTechflexRecord = async (studentsData, coursesData, feesData, expensesData, currentYearFilter) => {
@@ -129,6 +130,10 @@ export const generateTechflexRecord = async (studentsData, coursesData, feesData
         if (yearsList.includes(admYear)) {
             if (student.gender && genderYear[student.gender] !== undefined) genderYear[student.gender][admYear] += 1;
             if (student.laptop_status && laptopYear[student.laptop_status] !== undefined) laptopYear[student.laptop_status][admYear] += 1;
+            if (student.admission_fee) {
+                if (!revenueByYearMonth[admYear]) revenueByYearMonth[admYear] = {};
+                revenueByYearMonth[admYear][admMonth] = (revenueByYearMonth[admYear][admMonth] || 0) + Number(student.admission_fee);
+            }
         }
 
         if (student.enrolled_courses) {
@@ -204,7 +209,16 @@ export const generateTechflexRecord = async (studentsData, coursesData, feesData
                     let lastPayment = 0;
                     
                     monthsFull.forEach(m => {
-                        const rec = feeHistory[`${dbMonthLabels[m]}_${yr}`];
+                        const targetKey = `${dbMonthLabels[m]}_${yr}`;
+                        let rec = feeHistory[targetKey];
+                        if (!rec) {
+                            for (let tKey in feeHistory) {
+                                if (normalizeMonthKey(tKey) === targetKey) {
+                                    rec = feeHistory[tKey];
+                                    break;
+                                }
+                            }
+                        }
                         if (rec) {
                             rowData[monthLabels[m]] = Number(rec.paid || 0);
                             totalPaid += Number(rec.paid || 0);
@@ -217,11 +231,6 @@ export const generateTechflexRecord = async (studentsData, coursesData, feesData
                             revenueByYearMonth[yr][m] = (revenueByYearMonth[yr][m] || 0) + Number(rec.paid || 0);
                         }
                     });
-
-                    if (student.admission_fee && yr == admYear) {
-                         if (!revenueByYearMonth[admYear]) revenueByYearMonth[admYear] = {};
-                         revenueByYearMonth[admYear][admMonth] = (revenueByYearMonth[admYear][admMonth] || 0) + Number(student.admission_fee);
-                    }
 
                     rowData.paymentDate = lastPayment ? fmtDate(lastPayment) : 'N/A';
 

@@ -3,6 +3,21 @@ import { db } from '../firebase';
 import { useAuth } from '../contexts/AuthContext';
 import { ref, push, set, onValue, remove } from 'firebase/database';
 import toast from 'react-hot-toast';
+import { MONTHS_FULL, normalizeMonth } from '../utils/monthUtils';
+import {
+  Banknote,
+  Users,
+  Plus,
+  Pencil,
+  Trash2,
+  X,
+  Calendar,
+  DollarSign,
+  CheckCircle2,
+  Contact,
+  UserCheck,
+  UserX
+} from 'lucide-react';
 
 const StaffSalary = () => {
   const { currentUser, isAdmin } = useAuth();
@@ -17,7 +32,7 @@ const StaffSalary = () => {
   const [editFormData, setEditFormData] = useState(null);
 
   // Filters
-  const [filterMonth, setFilterMonth] = useState(new Date().getMonth() + 1); // 1-12
+  const [filterMonth, setFilterMonth] = useState(new Date().getMonth() + 1);
   const [filterYear, setFilterYear] = useState(new Date().getFullYear());
 
   const today = new Date().toISOString().split('T')[0];
@@ -30,7 +45,7 @@ const StaffSalary = () => {
     description: '',
   });
 
-  const monthsFull = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+  const monthsFull = MONTHS_FULL;
   const currentYear = new Date().getFullYear();
   const years = Array.from(new Set([
     currentYear,
@@ -38,14 +53,19 @@ const StaffSalary = () => {
   ])).filter(y => !isNaN(y)).sort((a, b) => a - b);
 
   useEffect(() => {
-    onValue(ref(db, 'staff_salary'), (snap) => {
+    const unsubSalaries = onValue(ref(db, 'staff_salary'), (snap) => {
       const data = snap.val();
       setSalaries(data ? Object.keys(data).map(id => ({ id, ...data[id] })) : []);
     });
-    onValue(ref(db, 'staff_directory'), (snap) => {
+    const unsubDirectory = onValue(ref(db, 'staff_directory'), (snap) => {
       const data = snap.val();
       setStaffDirectory(data ? Object.keys(data).map(id => ({ id, ...data[id] })) : []);
     });
+
+    return () => {
+      unsubSalaries();
+      unsubDirectory();
+    };
   }, []);
 
   const handleChange = (e) => setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -141,7 +161,7 @@ const StaffSalary = () => {
 
   const handleUpdateSalary = async (e) => {
     e.preventDefault();
-    if (!editFormData.staffId || !editFormData.amount) return;
+    if (!editFormData.amount) return;
     setLoading(true);
     try {
       const selectedStaff = staffDirectory.find(s => s.id === editFormData.staffId);
@@ -152,280 +172,496 @@ const StaffSalary = () => {
         amount: Number(editFormData.amount),
         salaryMonth: parseInt(editFormData.salaryMonth),
         salaryYear: parseInt(editFormData.salaryYear),
-        description: editFormData.description,
+        description: editFormData.description || '',
         addedBy: currentUser.name || currentUser.email,
         timestamp: new Date().toISOString()
       };
 
       await set(ref(db, `staff_salary/${editFormData.id}`), payload);
-      toast.success("Salary record updated");
+      toast.success("Salary updated successfully");
       setShowEditSalaryModal(false);
       setEditFormData(null);
     } catch (err) {
-      toast.error("Error updating salary record");
+      toast.error("Error updating salary");
     } finally {
       setLoading(false);
     }
   };
 
-  const handleDelete = async (id) => {
+  const handleDeleteSalary = async (id) => {
     if (window.confirm("Delete this salary record?")) {
       await remove(ref(db, `staff_salary/${id}`));
-      toast.success("Record deleted");
+      toast.success("Salary record deleted");
     }
   };
 
   const filteredSalaries = salaries.filter(s => {
-    return parseInt(s.salaryMonth) === parseInt(filterMonth) && parseInt(s.salaryYear) === parseInt(filterYear);
+    let sMonth = s.salaryMonth;
+    if (typeof sMonth === 'string' && isNaN(parseInt(sMonth))) {
+      sMonth = normalizeMonth(sMonth);
+    } else {
+      sMonth = parseInt(sMonth);
+    }
+    const targetMonth = parseInt(filterMonth);
+    const matchesMonth = sMonth === targetMonth || sMonth === monthsFull[targetMonth - 1];
+    const matchesYear = parseInt(s.salaryYear) === parseInt(filterYear);
+    return matchesMonth && matchesYear;
   }).sort((a, b) => new Date(b.date) - new Date(a.date));
 
-  const totalSalary = filteredSalaries.reduce((acc, curr) => acc + (curr.amount || 0), 0);
+  const totalMonthlySalary = filteredSalaries.reduce((sum, item) => sum + (Number(item.amount) || 0), 0);
 
   return (
-    <div style={styles.container}>
-      <header style={styles.header}>
-        <div style={styles.titleArea}>
-          <h2 style={styles.title}>Staff Salary 🧑‍💼</h2>
-          <p style={styles.subtitle}>Record and manage staff payroll</p>
+    <div className="space-y-6 font-sans animate-fade-in">
+      {/* HEADER & SUMMARY CARD */}
+      <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-slate-200/80">
+        <div>
+          <div className="flex items-center gap-2">
+            <Banknote className="text-blue-600" size={24} />
+            <h1 className="text-2xl md:text-3xl font-extrabold text-slate-900 tracking-tight">Staff Salary Disbursements</h1>
+          </div>
+          <p className="text-sm text-slate-500 mt-1 font-medium">Faculty compensation, staff payroll ledgers & staff directory</p>
         </div>
-        <div style={styles.totalCard}>
-          <div style={styles.totalLabel}>Total Paid ({monthsFull[filterMonth - 1]} {filterYear})</div>
-          <div style={styles.totalAmount}>PKR {totalSalary.toLocaleString()}</div>
+
+        <div className="p-4 rounded-2xl bg-blue-600 text-white shadow-lg shadow-blue-600/20 flex items-center gap-4 min-w-[200px]">
+          <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center font-bold">
+            <DollarSign size={20} />
+          </div>
+          <div>
+            <span className="text-[10px] font-bold uppercase tracking-wider text-blue-100 block">
+              {monthsFull[filterMonth - 1]} Payroll
+            </span>
+            <div className="text-2xl font-black font-mono">
+              PKR {totalMonthlySalary.toLocaleString()}
+            </div>
+          </div>
         </div>
       </header>
 
-      <div style={styles.mainGrid}>
-        {/* LEFT COLUMN: FORM */}
-        <div style={styles.leftCol}>
-          <div style={styles.card}>
-            <h3 style={styles.cardTitle}>Add Salary Record</h3>
-            <form onSubmit={handleSubmit} style={styles.form}>
-              <div style={styles.formGroup}>
-                <label style={styles.label}>Payment Date</label>
-                <input type="date" name="date" value={formData.date} onChange={handleChange} required style={styles.input} />
+      {/* MAIN TWO-COLUMN GRID */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+        {/* LEFT COLUMN: PAYROLL ENTRY & DIRECTORY BUTTON (5 cols) */}
+        <div className="lg:col-span-5 space-y-6">
+          <div className="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-xs">
+            <div className="flex items-center justify-between pb-3 mb-5 border-b border-slate-100">
+              <h2 className="text-base font-bold text-slate-900 tracking-tight flex items-center gap-2">
+                <Plus size={18} className="text-blue-600" />
+                <span>Disburse Salary</span>
+              </h2>
+              <button
+                type="button"
+                onClick={() => setShowStaffModal(true)}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-700 text-xs font-bold transition-all"
+              >
+                <Contact size={14} className="text-blue-600" />
+                <span>Staff Directory</span>
+              </button>
+            </div>
+
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wider">
+                  Payment Date
+                </label>
+                <input
+                  type="date"
+                  name="date"
+                  value={formData.date}
+                  onChange={handleChange}
+                  required
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-xs font-medium focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
+                />
               </div>
 
-              <div style={styles.formGroup}>
-                <label style={styles.label}>Staff Name</label>
-                <div style={{ display: 'flex', gap: '8px' }}>
-                  <select name="staffId" value={formData.staffId} onChange={handleChange} required style={{ ...styles.select, flex: 1, minWidth: 0 }}>
-                    <option value="">Select Staff...</option>
-                    {staffDirectory.filter(s => s.status === 'active').map(s => (
-                      <option key={s.id} value={s.id}>{s.name} ({s.role || 'Staff'})</option>
-                    ))}
+              <div>
+                <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wider">
+                  Select Staff Member
+                </label>
+                <select
+                  name="staffId"
+                  value={formData.staffId}
+                  onChange={handleChange}
+                  required
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-xs font-semibold focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
+                >
+                  <option value="">-- Choose Staff --</option>
+                  {staffDirectory.filter(s => s.status === 'active').map(s => (
+                    <option key={s.id} value={s.id}>{s.name} ({s.role || 'Staff'})</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wider">
+                    For Month
+                  </label>
+                  <select
+                    name="salaryMonth"
+                    value={formData.salaryMonth}
+                    onChange={handleChange}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 text-xs font-medium focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                  >
+                    {monthsFull.map((m, i) => <option key={m} value={i + 1}>{m}</option>)}
                   </select>
-                  <button type="button" onClick={() => setShowStaffModal(true)} style={{ ...styles.btnPrimary, margin: 0, padding: '0 12px', fontSize: '13px', background: '#475569', whiteSpace: 'nowrap' }}>
-                    Manage
-                  </button>
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wider">
+                    For Year
+                  </label>
+                  <input
+                    type="number"
+                    name="salaryYear"
+                    value={formData.salaryYear}
+                    onChange={handleChange}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 text-xs font-mono font-medium focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                  />
                 </div>
               </div>
 
-              <div style={styles.formGroup}>
-                <label style={styles.label}>Salary For (Month)</label>
-                <select name="salaryMonth" value={formData.salaryMonth} onChange={handleChange} required style={styles.select}>
-                  {monthsFull.map((m, i) => <option key={m} value={i + 1}>{m}</option>)}
-                </select>
+              <div>
+                <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wider">
+                  Amount Disbursed (PKR)
+                </label>
+                <input
+                  type="number"
+                  name="amount"
+                  placeholder="0.00"
+                  value={formData.amount}
+                  onChange={handleChange}
+                  required
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-xs font-mono font-bold text-emerald-700 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
+                />
               </div>
 
-              <div style={styles.formGroup}>
-                <label style={styles.label}>Salary For (Year)</label>
-                <select name="salaryYear" value={formData.salaryYear} onChange={handleChange} required style={styles.select}>
-                  {years.map(y => <option key={y} value={y}>{y}</option>)}
-                </select>
+              <div>
+                <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wider">
+                  Description / Remarks
+                </label>
+                <input
+                  type="text"
+                  name="description"
+                  placeholder="e.g. Monthly salary with bonus"
+                  value={formData.description}
+                  onChange={handleChange}
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-xs font-medium focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
+                />
               </div>
 
-              <div style={styles.formGroup}>
-                <label style={styles.label}>Amount Paid (PKR)</label>
-                <input type="number" name="amount" placeholder="0" value={formData.amount} onChange={handleChange} required style={styles.input} />
-              </div>
-
-              <div style={styles.formGroup}>
-                <label style={styles.label}>Description / Notes (Optional)</label>
-                <input type="text" name="description" placeholder="e.g. Advance paid, Bonus included" value={formData.description} onChange={handleChange} style={styles.input} />
-              </div>
-
-              <button type="submit" disabled={loading} style={styles.btnPrimary}>
-                {loading ? "Saving..." : "Add Salary"}
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full py-3 px-4 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold transition-all shadow-xs flex items-center justify-center gap-2 disabled:opacity-60"
+              >
+                <CheckCircle2 size={16} />
+                <span>{loading ? "Saving..." : "Record Salary Payment"}</span>
               </button>
             </form>
           </div>
         </div>
 
-        {/* RIGHT COLUMN: LIST */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '25px', overflow: 'hidden' }}>
-          <div style={styles.card}>
-            <div style={styles.listHeader}>
-              <h3 style={styles.cardTitle}>Salary Records</h3>
-              <div style={styles.filters}>
-                <select value={filterMonth} onChange={e => setFilterMonth(e.target.value)} style={styles.selectSmall}>
-                  {monthsFull.map((m, i) => <option key={m} value={i + 1}>{m}</option>)}
-                </select>
-                <select value={filterYear} onChange={e => setFilterYear(e.target.value)} style={styles.selectSmall}>
-                  {years.map(y => <option key={y} value={y}>{y}</option>)}
-                </select>
-              </div>
+        {/* RIGHT COLUMN: SALARIES HISTORY TABLE (7 cols) */}
+        <div className="lg:col-span-7 bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
+          <div className="p-4 bg-slate-50/70 border-b border-slate-200/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-bold text-slate-700">Salary Disbursements</span>
+              <span className="font-mono text-xs font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-md">
+                {filteredSalaries.length} Records
+              </span>
             </div>
+            <div className="flex items-center gap-2">
+              <select
+                value={filterMonth}
+                onChange={e => setFilterMonth(e.target.value)}
+                className="px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white text-xs font-medium"
+              >
+                {monthsFull.map((m, i) => <option key={m} value={i + 1}>{m}</option>)}
+              </select>
+              <select
+                value={filterYear}
+                onChange={e => setFilterYear(e.target.value)}
+                className="px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white text-xs font-mono font-medium"
+              >
+                {years.map(y => <option key={y} value={y}>{y}</option>)}
+              </select>
+            </div>
+          </div>
 
-            <div style={styles.tableWrapper}>
-              <table style={styles.table}>
-                <thead>
-                  <tr style={styles.thRow}>
-                    <th style={styles.th}>Staff Name</th>
-                    <th style={styles.th}>Payment Date</th>
-                    <th style={styles.th}>Salary For</th>
-                    <th style={styles.th}>Amount</th>
-                    <th style={styles.th}>Notes</th>
-                    {isAdmin && <th style={styles.th}>Action</th>}
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredSalaries.length === 0 ? (
-                    <tr><td colSpan={isAdmin ? "6" : "5"} style={styles.emptyCell}>No salary records for this period.</td></tr>
-                  ) : (
-                    filteredSalaries.map(s => (
-                      <tr key={s.id} style={styles.tr}>
-                        <td style={styles.tdStaffName}>{s.staffName}</td>
-                        <td style={styles.tdDate}>{new Date(s.date).toLocaleDateString('en-GB')}</td>
-                        <td style={styles.tdCategory}>
-                          <span style={styles.badge}>
-                            {monthsFull[s.salaryMonth - 1]} {s.salaryYear}
-                          </span>
-                        </td>
-                        <td style={styles.tdAmount}>PKR {s.amount.toLocaleString()}</td>
-                        <td style={styles.td}>{s.description || '-'}</td>
-                        {isAdmin && (
-                          <td style={styles.td}>
-                            <button onClick={() => handleEditSalary(s)} style={{ ...styles.btnDelete, color: '#3B82F6', marginRight: '10px' }}>✏️</button>
-                            <button onClick={() => handleDelete(s.id)} style={styles.btnDelete}>🗑️</button>
-                          </td>
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse text-xs">
+              <thead>
+                <tr className="bg-slate-50 border-b border-slate-200 text-slate-600 uppercase font-bold tracking-wider text-[11px]">
+                  <th className="py-3 px-4">Staff Member</th>
+                  <th className="py-3 px-4">Billing Period</th>
+                  <th className="py-3 px-4 text-right">Amount</th>
+                  <th className="py-3 px-4">Paid On</th>
+                  {isAdmin && <th className="py-3 px-4 text-center">Actions</th>}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {filteredSalaries.length > 0 ? (
+                  filteredSalaries.map(s => (
+                    <tr key={s.id} className="hover:bg-slate-50/70 transition-colors">
+                      <td className="py-3.5 px-4 font-bold text-slate-900">
+                        {s.staffName}
+                        {s.description && (
+                          <div className="text-[11px] font-normal text-slate-500 mt-0.5">{s.description}</div>
                         )}
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
+                      </td>
+                      <td className="py-3.5 px-4 font-mono font-medium text-slate-700">
+                        {typeof s.salaryMonth === 'number' ? monthsFull[s.salaryMonth - 1] : s.salaryMonth} {s.salaryYear}
+                      </td>
+                      <td className="py-3.5 px-4 text-right font-mono font-bold text-emerald-700">
+                        PKR {Number(s.amount).toLocaleString()}
+                      </td>
+                      <td className="py-3.5 px-4 font-mono text-slate-500 text-[11px]">
+                        {new Date(s.date).toLocaleDateString('en-GB')}
+                      </td>
+                      {isAdmin && (
+                        <td className="py-3.5 px-4 text-center">
+                          <div className="inline-flex items-center gap-1">
+                            <button
+                              onClick={() => handleEditSalary(s)}
+                              className="p-1.5 rounded-lg text-blue-600 hover:bg-blue-50 transition-colors"
+                              title="Edit Salary"
+                            >
+                              <Pencil size={14} />
+                            </button>
+                            <button
+                              onClick={() => handleDeleteSalary(s.id)}
+                              className="p-1.5 rounded-lg text-rose-600 hover:bg-rose-50 transition-colors"
+                              title="Delete Salary"
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                          </div>
+                        </td>
+                      )}
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan={isAdmin ? 5 : 4} className="py-12 text-center text-slate-400 text-xs">
+                      No salary records found for {monthsFull[filterMonth - 1]} {filterYear}.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
           </div>
         </div>
       </div>
 
+      {/* EDIT SALARY MODAL */}
       {showEditSalaryModal && editFormData && (
-        <div style={styles.modalOverlay}>
-          <div style={styles.modalContent}>
-            <div style={styles.modalHeader}>
-              <h3 style={styles.cardTitle}>Edit Salary Record</h3>
-              <button onClick={() => setShowEditSalaryModal(false)} style={styles.btnClose}>✕</button>
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-2xl p-6 w-full max-w-md space-y-5 animate-in fade-in zoom-in-95">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <h3 className="text-base font-bold text-slate-900 tracking-tight">Edit Salary Record</h3>
+              <button
+                onClick={() => setShowEditSalaryModal(false)}
+                className="p-1.5 text-slate-400 hover:text-slate-700 rounded-lg"
+              >
+                <X size={18} />
+              </button>
             </div>
-            <form onSubmit={handleUpdateSalary} style={styles.form}>
-              <div style={styles.formGroup}>
-                <label style={styles.label}>Payment Date</label>
-                <input type="date" value={editFormData.date} onChange={e => setEditFormData({ ...editFormData, date: e.target.value })} required style={styles.input} />
+
+            <form onSubmit={handleUpdateSalary} className="space-y-4">
+              <div>
+                <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wider">
+                  Payment Date
+                </label>
+                <input
+                  type="date"
+                  value={editFormData.date}
+                  onChange={e => setEditFormData({ ...editFormData, date: e.target.value })}
+                  required
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-xs font-medium"
+                />
               </div>
-              <div style={styles.formGroup}>
-                <label style={styles.label}>Staff Name</label>
-                <select value={editFormData.staffId} onChange={e => setEditFormData({ ...editFormData, staffId: e.target.value })} required style={styles.select}>
-                  <option value="">Select Staff...</option>
-                  {staffDirectory.filter(s => s.status === 'active' || s.id === editFormData.staffId).map(s => (
+
+              <div>
+                <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wider">
+                  Staff Member
+                </label>
+                <select
+                  value={editFormData.staffId}
+                  onChange={e => setEditFormData({ ...editFormData, staffId: e.target.value })}
+                  required
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-xs font-semibold"
+                >
+                  <option value="">-- Choose Staff --</option>
+                  {staffDirectory.map(s => (
                     <option key={s.id} value={s.id}>{s.name} ({s.role || 'Staff'})</option>
                   ))}
                 </select>
               </div>
-              <div style={styles.formGroup}>
-                <label style={styles.label}>Salary For (Month)</label>
-                <select value={editFormData.salaryMonth} onChange={e => setEditFormData({ ...editFormData, salaryMonth: e.target.value })} required style={styles.select}>
-                  {monthsFull.map((m, i) => <option key={m} value={i + 1}>{m}</option>)}
-                </select>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wider">
+                    For Month
+                  </label>
+                  <select
+                    value={editFormData.salaryMonth}
+                    onChange={e => setEditFormData({ ...editFormData, salaryMonth: e.target.value })}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 text-xs font-medium"
+                  >
+                    {monthsFull.map((m, i) => <option key={m} value={i + 1}>{m}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wider">
+                    For Year
+                  </label>
+                  <input
+                    type="number"
+                    value={editFormData.salaryYear}
+                    onChange={e => setEditFormData({ ...editFormData, salaryYear: e.target.value })}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 text-xs font-mono font-medium"
+                  />
+                </div>
               </div>
-              <div style={styles.formGroup}>
-                <label style={styles.label}>Salary For (Year)</label>
-                <select value={editFormData.salaryYear} onChange={e => setEditFormData({ ...editFormData, salaryYear: e.target.value })} required style={styles.select}>
-                  {years.map(y => <option key={y} value={y}>{y}</option>)}
-                </select>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wider">
+                  Amount (PKR)
+                </label>
+                <input
+                  type="number"
+                  value={editFormData.amount}
+                  onChange={e => setEditFormData({ ...editFormData, amount: e.target.value })}
+                  required
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-xs font-mono font-bold text-emerald-700"
+                />
               </div>
-              <div style={styles.formGroup}>
-                <label style={styles.label}>Amount Paid (PKR)</label>
-                <input type="number" value={editFormData.amount} onChange={e => setEditFormData({ ...editFormData, amount: e.target.value })} required style={styles.input} />
+
+              <div>
+                <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wider">
+                  Description / Remarks
+                </label>
+                <input
+                  type="text"
+                  value={editFormData.description}
+                  onChange={e => setEditFormData({ ...editFormData, description: e.target.value })}
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-xs font-medium"
+                />
               </div>
-              <div style={styles.formGroup}>
-                <label style={styles.label}>Description / Notes (Optional)</label>
-                <input type="text" value={editFormData.description} onChange={e => setEditFormData({ ...editFormData, description: e.target.value })} style={styles.input} />
+
+              <div className="flex gap-2.5 pt-2">
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="flex-1 py-3 px-4 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-xs flex items-center justify-center gap-2"
+                >
+                  <CheckCircle2 size={16} />
+                  <span>{loading ? "Updating..." : "Update Salary"}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowEditSalaryModal(false)}
+                  className="px-4 py-3 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-700 text-xs font-bold"
+                >
+                  Cancel
+                </button>
               </div>
-              <button type="submit" disabled={loading} style={styles.btnPrimary}>
-                {loading ? "Updating..." : "Update Salary"}
-              </button>
             </form>
           </div>
         </div>
       )}
 
+      {/* MANAGE STAFF DIRECTORY MODAL */}
       {showStaffModal && (
-        <div style={styles.modalOverlay}>
-          <div style={styles.modalContent}>
-            <div style={styles.modalHeader}>
-              <h3 style={styles.cardTitle}>Manage Staff Directory</h3>
-              <button onClick={() => setShowStaffModal(false)} style={styles.btnClose}>✕</button>
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-2xl p-6 w-full max-w-lg space-y-5 animate-in fade-in zoom-in-95">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <h3 className="text-base font-bold text-slate-900 tracking-tight flex items-center gap-2">
+                <Users size={18} className="text-blue-600" />
+                <span>Staff Directory</span>
+              </h3>
+              <button
+                onClick={() => setShowStaffModal(false)}
+                className="p-1.5 text-slate-400 hover:text-slate-700 rounded-lg"
+              >
+                <X size={18} />
+              </button>
             </div>
 
-            <form onSubmit={handleAddStaff} style={{ display: 'flex', gap: '10px', marginBottom: '20px' }}>
+            {/* Add or Edit Staff Member */}
+            <form onSubmit={handleAddStaff} className="flex gap-2.5">
               <input
                 type="text"
-                placeholder="Name..."
+                placeholder="Full Name..."
                 value={newStaffName}
                 onChange={(e) => setNewStaffName(e.target.value)}
                 required
-                style={{ ...styles.input, flex: 1 }}
+                className="flex-1 px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 text-xs font-medium focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20"
               />
               <input
                 type="text"
-                placeholder="Role (e.g. Teacher, Guard)"
+                placeholder="Role (e.g. Teacher, Admin)..."
                 value={newStaffRole}
                 onChange={(e) => setNewStaffRole(e.target.value)}
-                style={{ ...styles.input, flex: 1 }}
+                className="flex-1 px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 text-xs font-medium focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20"
               />
-              <button type="submit" style={{ ...styles.btnPrimary, margin: 0 }}>{editingStaffId ? "Update" : "Add"}</button>
+              <button
+                type="submit"
+                className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-xs"
+              >
+                {editingStaffId ? "Update" : "Add"}
+              </button>
               {editingStaffId && (
-                <button type="button" onClick={() => { setEditingStaffId(null); setNewStaffName(''); setNewStaffRole(''); }} style={{ ...styles.btnPrimary, background: '#94A3B8', margin: 0 }}>Cancel</button>
+                <button
+                  type="button"
+                  onClick={() => { setEditingStaffId(null); setNewStaffName(''); setNewStaffRole(''); }}
+                  className="px-3 py-2 rounded-xl border border-slate-200 bg-slate-100 text-slate-600 text-xs font-bold"
+                >
+                  Cancel
+                </button>
               )}
             </form>
 
-            <div style={{ maxHeight: '300px', overflowY: 'auto' }}>
-              {staffDirectory.length === 0 ? (
-                <p style={styles.emptyCell}>No staff in directory.</p>
+            {/* Staff Directory List */}
+            <div className="max-h-72 overflow-y-auto rounded-xl border border-slate-200 divide-y divide-slate-100">
+              {staffDirectory.length > 0 ? (
+                staffDirectory.map(staff => (
+                  <div key={staff.id} className="p-3 flex items-center justify-between gap-3 text-xs hover:bg-slate-50/70">
+                    <div>
+                      <span className="font-bold text-slate-900">{staff.name}</span>
+                      <span className="text-[11px] text-slate-400 font-normal ml-2">({staff.role || 'Staff'})</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => handleToggleStaffStatus(staff.id, staff.status)}
+                        className={`px-2 py-0.5 rounded-md text-[10px] font-bold border ${
+                          staff.status === 'active'
+                            ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                            : 'bg-slate-100 text-slate-600 border-slate-200'
+                        }`}
+                      >
+                        {staff.status === 'active' ? 'Active' : 'Inactive'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleEditStaff(staff)}
+                        className="p-1 rounded-md text-blue-600 hover:bg-blue-50"
+                        title="Edit Staff"
+                      >
+                        <Pencil size={13} />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteStaff(staff.id)}
+                        className="p-1 rounded-md text-rose-600 hover:bg-rose-50"
+                        title="Delete Staff"
+                      >
+                        <Trash2 size={13} />
+                      </button>
+                    </div>
+                  </div>
+                ))
               ) : (
-                <table style={styles.table}>
-                  <tbody>
-                    {staffDirectory.map(staff => (
-                      <tr key={staff.id} style={styles.tr}>
-                        <td style={styles.tdStaffName}>
-                          {staff.name} <span style={{ fontSize: '11px', color: '#94A3B8', fontWeight: 'normal' }}>({staff.role || 'Staff'})</span>
-                        </td>
-                        <td style={styles.td}>
-                          <span style={{
-                            ...styles.badge,
-                            background: staff.status === 'active' ? '#DCFCE7' : '#F1F5F9',
-                            color: staff.status === 'active' ? '#16A34A' : '#64748B'
-                          }}>
-                            {staff.status}
-                          </span>
-                        </td>
-                        <td style={{ ...styles.td, textAlign: 'right', display: 'flex', gap: '5px', justifyContent: 'flex-end' }}>
-                          <button
-                            onClick={() => handleToggleStaffStatus(staff.id, staff.status)}
-                            style={{
-                              ...styles.btnToggle,
-                              background: staff.status === 'active' ? '#FEE2E2' : '#DCFCE7',
-                              color: staff.status === 'active' ? '#EF4444' : '#16A34A'
-                            }}
-                          >
-                            {staff.status === 'active' ? 'Mark Inactive' : 'Mark Active'}
-                          </button>
-                          <button onClick={() => handleEditStaff(staff)} style={{ ...styles.btnToggle, background: '#E0E7FF', color: '#4F46E5' }}>✏️</button>
-                          <button onClick={() => handleDeleteStaff(staff.id)} style={{ ...styles.btnToggle, background: '#FEE2E2', color: '#EF4444' }}>🗑️</button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                <div className="p-8 text-center text-slate-400 text-xs">No staff members in directory.</div>
               )}
             </div>
           </div>
@@ -433,59 +669,6 @@ const StaffSalary = () => {
       )}
     </div>
   );
-};
-
-const styles = {
-  container: { width: '100%', animation: 'fadeIn 0.5s ease-out' },
-  header: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px', flexWrap: 'wrap', gap: '20px' },
-  titleArea: { flex: 1 },
-  title: { fontSize: '24px', fontWeight: '800', color: '#1E293B', margin: 0 },
-  subtitle: { color: '#64748B', fontSize: '14px', marginTop: '4px' },
-
-  totalCard: { background: '#8B5CF6', padding: '15px 25px', borderRadius: '16px', color: '#fff', boxShadow: '0 10px 15px -3px rgba(139, 92, 246, 0.3)' },
-  totalLabel: { fontSize: '12px', fontWeight: '600', textTransform: 'uppercase', letterSpacing: '1px', opacity: 0.9 },
-  totalAmount: { fontSize: '24px', fontWeight: '800', marginTop: '4px' },
-
-  mainGrid: { display: 'grid', gridTemplateColumns: '320px 1fr', gap: '25px', alignItems: 'start' },
-  leftCol: { display: 'flex', flexDirection: 'column', gap: '25px' },
-
-  card: { background: '#fff', padding: '24px', borderRadius: '20px', border: '1px solid #E2E8F0', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.05)' },
-  cardTitle: { margin: '0 0 20px 0', fontSize: '16px', fontWeight: '700', color: '#1E293B' },
-
-  form: { display: 'flex', flexDirection: 'column', gap: '15px' },
-  formGroup: { display: 'flex', flexDirection: 'column', gap: '6px' },
-  label: { fontSize: '12px', fontWeight: '600', color: '#64748B' },
-  input: { padding: '12px 14px', borderRadius: '10px', border: '1px solid #E2E8F0', outline: 'none', fontSize: '14px', transition: 'border 0.2s', background: '#F8FAFC' },
-  select: { padding: '12px 14px', borderRadius: '10px', border: '1px solid #E2E8F0', outline: 'none', fontSize: '14px', background: '#F8FAFC' },
-  btnPrimary: { background: '#8B5CF6', color: '#fff', border: 'none', padding: '12px', borderRadius: '10px', fontWeight: '700', cursor: 'pointer', marginTop: '10px', transition: 'background 0.2s' },
-
-  listHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' },
-  filters: { display: 'flex', gap: '10px' },
-  selectSmall: { padding: '8px 12px', borderRadius: '8px', border: '1px solid #E2E8F0', fontSize: '13px', outline: 'none' },
-
-  tableWrapper: { overflowX: 'auto' },
-  table: { width: '100%', borderCollapse: 'collapse', textAlign: 'left' },
-  thRow: { background: '#F8FAFC', borderBottom: '1px solid #E2E8F0' },
-  th: { padding: '12px 15px', color: '#64748B', fontSize: '12px', fontWeight: '700', textTransform: 'uppercase' },
-  tr: { borderBottom: '1px solid #F1F5F9', transition: 'background 0.2s', ':hover': { background: '#F8FAFC' } },
-  td: { padding: '14px 15px', fontSize: '14px', color: '#1E293B' },
-  tdStaffName: { padding: '14px 15px', fontSize: '14px', fontWeight: '600', color: '#334155' },
-  tdDate: { padding: '14px 15px', fontSize: '13px', color: '#64748B', fontWeight: '500' },
-  tdCategory: { padding: '14px 15px' },
-  badge: { fontSize: '11px', fontWeight: '700', padding: '4px 10px', borderRadius: '20px', display: 'inline-block', background: '#EDE9FE', color: '#5B21B6' },
-  tdAmount: { padding: '14px 15px', fontSize: '14px', fontWeight: '700', color: '#8B5CF6' },
-  btnDelete: { background: 'transparent', border: 'none', cursor: 'pointer', opacity: 0.6, transition: 'opacity 0.2s' },
-  emptyCell: { padding: '30px', textAlign: 'center', color: '#94A3B8', fontSize: '14px' },
-
-  modalOverlay: { position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 },
-  modalContent: { background: '#fff', padding: '25px', borderRadius: '16px', width: '90%', maxWidth: '500px', boxShadow: '0 10px 25px rgba(0,0,0,0.2)' },
-  modalHeader: { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' },
-  btnClose: { background: 'none', border: 'none', fontSize: '20px', cursor: 'pointer', color: '#64748B' },
-  btnToggle: { padding: '6px 12px', borderRadius: '6px', border: 'none', fontSize: '12px', fontWeight: '600', cursor: 'pointer' },
-
-  '@media (max-width: 1024px)': {
-    mainGrid: { gridTemplateColumns: '1fr' }
-  }
 };
 
 export default StaffSalary;
