@@ -40,9 +40,18 @@ const Fees = () => {
   const [editingTransaction, setEditingTransaction] = useState(null);
 
   // Form State Defaults
+  const getTodayDateStr = () => {
+    const d = new Date();
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
   const initialFormState = {
     month: getCanonicalShortMonth(),
     year: new Date().getFullYear().toString(),
+    pay_date: getTodayDateStr(),
     payable: 0,
     paid: 0,
     waived: 0
@@ -85,7 +94,7 @@ const Fees = () => {
   const handleStudentSelect = (student) => {
     setSelectedStudent(student);
     setSelectedCourseId('');
-    setFormData(prev => ({ ...prev, payable: 0, paid: 0, waived: 0 }));
+    setFormData(prev => ({ ...prev, payable: 0, paid: 0, waived: 0, pay_date: getTodayDateStr() }));
     setSearchTerm("");
     setEditingTransaction(null);
   };
@@ -98,7 +107,8 @@ const Fees = () => {
         ...prev,
         payable: courseData.agreed_monthly_fee,
         paid: courseData.agreed_monthly_fee,
-        waived: 0
+        waived: 0,
+        pay_date: prev.pay_date || getTodayDateStr()
       }));
     }
     setEditingTransaction(null);
@@ -106,9 +116,14 @@ const Fees = () => {
 
   const handleEdit = (transaction) => {
     setEditingTransaction(transaction);
+    const resolvedPayDate = transaction.pay_date
+      || transaction.payment_date
+      || (transaction.timestamp ? new Date(transaction.timestamp).toISOString().split('T')[0] : getTodayDateStr());
+
     setFormData({
       month: transaction.month || transaction.month_key.split('_')[0],
       year: transaction.year || transaction.month_key.split('_')[1],
+      pay_date: resolvedPayDate,
       payable: transaction.payable,
       paid: transaction.paid,
       waived: transaction.waived
@@ -134,10 +149,13 @@ const Fees = () => {
   const handlePaymentSubmit = async (e) => {
     e.preventDefault();
     if (!selectedStudent || !selectedCourseId) return toast.error("Select student and course");
+    if (!formData.pay_date) return toast.error("Please select the fee pay date");
 
     setLoading(true);
     const monthKey = `${formData.month}_${formData.year}`;
     const balance = Number(formData.payable) - Number(formData.paid) - Number(formData.waived);
+    const nowIso = new Date().toISOString();
+    const nowTimestamp = Date.now();
 
     const transaction = {
       student_id: selectedStudent.id,
@@ -148,19 +166,28 @@ const Fees = () => {
       month_key: monthKey,
       month: formData.month,
       year: formData.year,
+      pay_date: formData.pay_date,
+      payment_date: formData.pay_date,
+      record_added_date: editingTransaction?.record_added_date || nowIso,
+      record_added_at: editingTransaction?.record_added_at || nowTimestamp,
+      timestamp: editingTransaction?.timestamp || nowTimestamp,
       payable: Number(formData.payable),
       paid: Number(formData.paid),
       waived: Number(formData.waived),
       balance: balance,
-      addedBy: currentUser.displayName || 'Staff',
-      timestamp: Date.now()
+      addedBy: editingTransaction?.addedBy || currentUser.displayName || 'Staff'
     };
+
+    if (editingTransaction) {
+      transaction.updated_at = nowTimestamp;
+      transaction.updated_by = currentUser.displayName || 'Admin';
+    }
 
     try {
       if (!isAdmin) {
         await push(ref(db, 'pending_fee_approvals'), transaction);
         toast.success("Transaction sent to Admin for approval.");
-        setFormData(prev => ({ ...prev, paid: prev.payable, waived: 0 }));
+        setFormData(prev => ({ ...prev, paid: prev.payable, waived: 0, pay_date: getTodayDateStr() }));
       } else if (editingTransaction) {
         if (editingTransaction.month_key !== monthKey) {
           await remove(ref(db, `fee_transactions/${selectedStudent.id}/${selectedCourseId}/${editingTransaction.id}`));
@@ -168,11 +195,11 @@ const Fees = () => {
         await update(ref(db, `fee_transactions/${selectedStudent.id}/${selectedCourseId}/${monthKey}`), transaction);
         toast.success("Transaction updated successfully.");
         setEditingTransaction(null);
-        setFormData(prev => ({ ...prev, paid: prev.payable, waived: 0 }));
+        setFormData(prev => ({ ...prev, paid: prev.payable, waived: 0, pay_date: getTodayDateStr() }));
       } else {
         await update(ref(db, `fee_transactions/${selectedStudent.id}/${selectedCourseId}/${monthKey}`), transaction);
         toast.success("Payment recorded.");
-        setFormData(prev => ({ ...prev, paid: prev.payable, waived: 0 }));
+        setFormData(prev => ({ ...prev, paid: prev.payable, waived: 0, pay_date: getTodayDateStr() }));
       }
     } catch (err) {
       toast.error(err.message);
@@ -189,6 +216,8 @@ const Fees = () => {
       const rows = await parseExcelUpload(file);
       let successCount = 0;
       const updates = {};
+      const nowIso = new Date().toISOString();
+      const defaultPayDate = getTodayDateStr();
 
       for (const row of rows) {
         const sId = row['Student ID'];
@@ -198,6 +227,7 @@ const Fees = () => {
         const payable = row['Payable'];
         const paid = row['Paid'];
         const waived = row['Waived'];
+        const payDateRaw = row['Pay Date'] || row['Payment Date'] || row['Date'] || defaultPayDate;
 
         if (sId && cName && m && y && payable !== undefined && paid !== undefined) {
           const normMonth = normalizeMonth(m);
@@ -221,6 +251,10 @@ const Fees = () => {
                 month_key: monthKey,
                 month: normMonth,
                 year: y.toString(),
+                pay_date: payDateRaw,
+                payment_date: payDateRaw,
+                record_added_date: nowIso,
+                record_added_at: Date.now(),
                 payable: Number(payable),
                 paid: Number(paid),
                 waived: Number(waived || 0),
@@ -432,6 +466,28 @@ const Fees = () => {
                       </div>
                     </div>
 
+                    {/* Fee Pay Date */}
+                    <div>
+                      <div className="flex items-center justify-between mb-1.5">
+                        <label className="text-xs font-bold text-slate-600 uppercase tracking-wider flex items-center gap-1.5">
+                          <Calendar size={13} className="text-blue-600" />
+                          <span>Fee Pay Date</span>
+                          <span className="text-rose-500">*</span>
+                        </label>
+                        <span className="text-[10px] text-slate-400 font-medium">Actual date payment received</span>
+                      </div>
+                      <input
+                        type="date"
+                        value={formData.pay_date}
+                        onChange={e => setFormData({ ...formData, pay_date: e.target.value })}
+                        required
+                        className="w-full px-3.5 py-2 rounded-xl border border-slate-200 bg-slate-50 text-xs font-medium text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
+                      />
+                      <div className="text-[10px] text-slate-400 mt-1 px-0.5">
+                        System entry date will automatically record as today (<span className="font-medium text-slate-500">{new Date().toLocaleDateString('en-GB')}</span>)
+                      </div>
+                    </div>
+
                     {/* Payable & Paid */}
                     <div className="grid grid-cols-2 gap-3">
                       <div>
@@ -597,6 +653,7 @@ const Fees = () => {
                       <th className="py-2.5 px-3">Student</th>
                       <th className="py-2.5 px-3">Course</th>
                       <th className="py-2.5 px-3">Month</th>
+                      <th className="py-2.5 px-3">Pay Date</th>
                       <th className="py-2.5 px-3 text-right">Paid / Waived</th>
                       <th className="py-2.5 px-3 text-center">Actions</th>
                     </tr>
@@ -607,6 +664,12 @@ const Fees = () => {
                         <td className="py-2.5 px-3 font-semibold text-slate-900">{f.student_name}</td>
                         <td className="py-2.5 px-3 text-slate-600">{f.course_name}</td>
                         <td className="py-2.5 px-3 font-mono font-bold text-slate-700">{f.month_key}</td>
+                        <td className="py-2.5 px-3 font-mono text-[11px]">
+                          <div className="font-bold text-slate-800">{f.pay_date || '—'}</div>
+                          <div className="text-[10px] text-slate-400 font-sans">
+                            Added: {f.timestamp ? new Date(f.timestamp).toLocaleDateString('en-GB') : '—'}
+                          </div>
+                        </td>
                         <td className="py-2.5 px-3 text-right font-mono">
                           <span className="font-bold text-emerald-700">PKR {f.paid}</span>
                           {f.waived > 0 && <span className="text-rose-600 text-[10px] block">Waived: PKR {f.waived}</span>}
@@ -657,6 +720,7 @@ const Fees = () => {
                   <thead>
                     <tr className="bg-slate-50 border-b border-slate-200 text-slate-600 uppercase font-bold tracking-wider text-[11px]">
                       <th className="py-3 px-3.5">Month / Year</th>
+                      <th className="py-3 px-3.5">Fee Pay Date</th>
                       <th className="py-3 px-3.5 text-right">Payable</th>
                       <th className="py-3 px-3.5 text-right">Paid</th>
                       <th className="py-3 px-3.5 text-right">Waived</th>
@@ -670,6 +734,16 @@ const Fees = () => {
                         <tr key={h.id} className="hover:bg-slate-50/70 transition-colors">
                           <td className="py-3 px-3.5 font-bold text-slate-800">
                             {h.month_key ? h.month_key.replace('_', ' ') : h.id.replace('_', ' ')}
+                          </td>
+                          <td className="py-3 px-3.5">
+                            <div className="font-semibold text-slate-800 font-mono text-xs">
+                              {h.pay_date || h.payment_date || (h.timestamp ? new Date(h.timestamp).toISOString().split('T')[0] : '—')}
+                            </div>
+                            <div className="text-[10px] text-slate-400">
+                              Entry: {h.record_added_date 
+                                ? new Date(h.record_added_date).toLocaleDateString('en-GB') 
+                                : (h.timestamp ? new Date(h.timestamp).toLocaleDateString('en-GB') : '—')}
+                            </div>
                           </td>
                           <td className="py-3 px-3.5 text-right font-mono text-slate-600">
                             PKR {Number(h.payable || 0).toLocaleString()}
@@ -709,7 +783,7 @@ const Fees = () => {
                       ))
                     ) : (
                       <tr>
-                        <td colSpan={isAdmin ? 6 : 5} className="py-8 text-center text-slate-400 text-xs">
+                        <td colSpan={isAdmin ? 7 : 6} className="py-8 text-center text-slate-400 text-xs">
                           No transaction records found for this course.
                         </td>
                       </tr>

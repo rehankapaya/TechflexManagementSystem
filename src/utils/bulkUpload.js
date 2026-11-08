@@ -38,10 +38,11 @@ export const downloadFeeSample = async () => {
     { header: 'Year', key: 'year', width: 15 },
     { header: 'Payable', key: 'payable', width: 15 },
     { header: 'Paid', key: 'paid', width: 15 },
-    { header: 'Waived', key: 'waived', width: 15 }
+    { header: 'Waived', key: 'waived', width: 15 },
+    { header: 'Pay Date', key: 'payDate', width: 15 }
   ];
 
-  ws.addRow({ studentId: 'STU-001', courseName: 'Graphic Designing', month: 'Jan', year: '2024', payable: 2500, paid: 2500, waived: 0 });
+  ws.addRow({ studentId: 'STU-001', courseName: 'Graphic Designing', month: 'Jan', year: '2024', payable: 2500, paid: 2500, waived: 0, payDate: '2024-01-15' });
   
   // Format header
   ws.getRow(1).font = { bold: true };

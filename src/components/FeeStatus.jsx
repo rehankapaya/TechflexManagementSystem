@@ -88,7 +88,7 @@ const FeeStatus = () => {
   const getSingleMonthStatus = (studentId, courseId, monthKey, agreedFee) => {
     const record = resolveFeeRecord(studentId, courseId, monthKey, feesData);
     if (!record) {
-      return { label: 'Unpaid', statusType: 'unpaid', paid: 0, waived: 0, balance: Number(agreedFee || 0) };
+      return { label: 'Unpaid', statusType: 'unpaid', paid: 0, waived: 0, balance: Number(agreedFee || 0), payDate: null };
     }
 
     const paid = Number(record.paid ?? record.amount_paid ?? record.amount ?? 0);
@@ -100,13 +100,17 @@ const FeeStatus = () => {
       ? storedBalance
       : Math.max(0, feeAmount - totalSettled);
 
+    const payDate = record.pay_date 
+      || record.payment_date 
+      || (record.timestamp ? new Date(record.timestamp).toISOString().split('T')[0] : null);
+
     if (computedBalance <= 0 || totalSettled >= feeAmount) {
-      return { label: 'Paid', statusType: 'paid', paid, waived, balance: 0 };
+      return { label: 'Paid', statusType: 'paid', paid, waived, balance: 0, payDate };
     }
     if (totalSettled > 0) {
-      return { label: 'Partial', statusType: 'partial', paid, waived, balance: computedBalance };
+      return { label: 'Partial', statusType: 'partial', paid, waived, balance: computedBalance, payDate };
     }
-    return { label: 'Unpaid', statusType: 'unpaid', paid: 0, waived: 0, balance: feeAmount };
+    return { label: 'Unpaid', statusType: 'unpaid', paid: 0, waived: 0, balance: feeAmount, payDate: null };
   };
 
   let finalDisplayList = [];
@@ -175,7 +179,7 @@ const FeeStatus = () => {
   finalDisplayList.sort((a, b) => b.sortValue - a.sortValue);
 
   const exportToExcel = () => {
-    const headers = ["ID", "Student Name", "Status", "Course", "Month", "Year", "Monthly Fee", "Paid", "Waived", "Balance", "Fee Status"];
+    const headers = ["ID", "Student Name", "Status", "Course", "Month", "Year", "Pay Date", "Monthly Fee", "Paid", "Waived", "Balance", "Fee Status"];
     const rows = finalDisplayList.map(item => [
       item.studentId,
       `"${item.name}"`,
@@ -183,6 +187,7 @@ const FeeStatus = () => {
       `"${item.courseName}"`,
       item.month,
       item.year,
+      item.payDate || "—",
       item.agreedFee,
       item.paid,
       item.waived,
@@ -349,7 +354,12 @@ const FeeStatus = () => {
                       </td>
                       <td className="py-3.5 px-4 font-medium text-slate-700">{item.courseName}</td>
                       <td className="py-3.5 px-4 font-mono font-semibold text-slate-800">
-                        {item.month} {item.year}
+                        <div>{item.month} {item.year}</div>
+                        {item.payDate && (
+                          <div className="text-[10px] text-slate-400 font-sans font-normal">
+                            Paid: <span className="font-mono text-slate-600">{item.payDate}</span>
+                          </div>
+                        )}
                       </td>
                       <td className="py-3.5 px-4 text-right font-mono text-slate-600">
                         PKR {Number(item.agreedFee).toLocaleString()}
