@@ -26,9 +26,13 @@ import {
   DollarSign,
   ChevronDown,
   Eye,
-  MessageSquare
+  MessageSquare,
+  Smartphone,
+  MessageCircle
 } from 'lucide-react';
 import { parseLocalDateMidday } from '../utils/monthUtils';
+import ContactSyncModal from './ContactSyncModal';
+import { syncStudentToGoogleContacts, normalizePhoneNumber } from '../services/contactSyncService';
 
 const Students = () => {
   const { currentUser, isAdmin } = useAuth();
@@ -45,6 +49,7 @@ const Students = () => {
   const [laptopFilter, setLaptopFilter] = useState('all');
   const [searchParams] = useSearchParams();
   const [viewingStudent, setViewingStudent] = useState(null);
+  const [showContactSyncModal, setShowContactSyncModal] = useState(false);
 
   useEffect(() => {
     const q = searchParams.get('search') || searchParams.get('id');
@@ -183,6 +188,7 @@ const Students = () => {
 
         await set(ref(db, `students/${isEditing}`), updatedStudent);
         toast.success('Student profile updated!');
+        syncStudentToGoogleContacts(updatedStudent).catch(() => {});
         setIsEditing(null);
       } else {
         const selectedCourse = courses.find(c => c.id === formData.courseId);
@@ -226,6 +232,13 @@ const Students = () => {
         if (isAdmin) {
           await set(push(ref(db, 'students')), payloadWithMeta);
           toast.success(`Enrolled: ${customId}`);
+
+          // Automatic background sync to mobile contacts & WhatsApp (Option A)
+          syncStudentToGoogleContacts(payloadWithMeta).then(res => {
+            if (res?.success) {
+              toast.success(`📲 Contact synced to phone: ${customId} ${formData.name.trim()} TECHFLEX`, { duration: 4000 });
+            }
+          }).catch(err => console.warn('Background contact sync skipped:', err));
         } else {
           await set(push(ref(db, 'pending_approvals')), { ...payloadWithMeta, status: 'pending' });
           toast.success(`Request Sent: ${customId}`);
@@ -249,6 +262,13 @@ const Students = () => {
       await set(push(ref(db, 'students')), cleanData);
       await remove(ref(db, `pending_approvals/${reqId}`));
       toast.success(`Approved: ${cleanData.student_id}`);
+
+      // Automatic background sync to mobile contacts & WhatsApp (Option A)
+      syncStudentToGoogleContacts(cleanData).then(res => {
+        if (res?.success) {
+          toast.success(`📲 Contact synced to phone: ${cleanData.student_id} ${cleanData.name.trim()} TECHFLEX`, { duration: 4000 });
+        }
+      }).catch(err => console.warn('Background contact sync skipped:', err));
     } catch (err) {
       toast.error(err.message);
     }
@@ -352,6 +372,15 @@ const Students = () => {
               </>
             )}
           </div>
+
+          <button
+            onClick={() => setShowContactSyncModal(true)}
+            className="flex items-center gap-2 px-3.5 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-sm font-semibold transition-all shadow-sm cursor-pointer"
+            title="Sync Student Contacts to Phone & WhatsApp (STU-012 Name TECHFLEX)"
+          >
+            <Smartphone size={16} className="text-emerald-400" />
+            <span>Phone Sync</span>
+          </button>
 
           <button
             onClick={downloadExcel}
@@ -717,6 +746,19 @@ const Students = () => {
                             </div>
                             <div className="flex items-center gap-2 text-xs text-slate-400 mt-0.5">
                               <span className="flex items-center gap-1"><Phone size={11} /> {s.contact || 'No phone'}</span>
+                              {s.contact && (
+                                <a
+                                  href={`https://wa.me/${normalizePhoneNumber(s.contact).replace('+', '')}`}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="inline-flex items-center gap-0.5 text-[10px] font-bold text-emerald-600 hover:text-emerald-700 bg-emerald-50 hover:bg-emerald-100 px-1.5 py-0.5 rounded transition-colors"
+                                  title="Chat on WhatsApp"
+                                  onClick={(e) => e.stopPropagation()}
+                                >
+                                  <MessageCircle size={10} />
+                                  <span>WhatsApp</span>
+                                </a>
+                              )}
                               <span>•</span>
                               <span className="flex items-center gap-1"><Laptop size={11} /> {s.laptop_status === 'Has Laptop' ? 'Laptop ✓' : 'Ins. Laptop'}</span>
                             </div>
@@ -774,6 +816,18 @@ const Students = () => {
 
                       <td className="px-5 py-4 text-right">
                         <div className="flex items-center justify-end gap-1.5">
+                          <button
+                            onClick={async (e) => {
+                              e.stopPropagation();
+                              const res = await syncStudentToGoogleContacts(s);
+                              if (res?.success) toast.success(`Synced ${s.student_id} to phone contacts!`);
+                              else toast.error(res?.message || 'Sync failed');
+                            }}
+                            className="p-1.5 text-slate-500 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors cursor-pointer"
+                            title="Sync Contact to Mobile Phonebook"
+                          >
+                            <Smartphone size={16} />
+                          </button>
                           <button
                             onClick={() => setViewingStudent(s)}
                             className="p-1.5 text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors cursor-pointer"
@@ -1083,16 +1137,29 @@ const Students = () => {
                   <p className="text-sm font-bold font-mono text-slate-800 mt-0.5">{viewingStudent.contact || 'No phone recorded'}</p>
                 </div>
                 {viewingStudent.contact && (
-                  <button
-                    onClick={() => {
-                      const digits = viewingStudent.contact.replace(/[^0-9]/g, '');
-                      const waPhone = digits.startsWith('0') ? '92' + digits.slice(1) : digits;
-                      window.open(`https://wa.me/${waPhone}`, '_blank');
-                    }}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold transition-colors cursor-pointer shadow-sm"
-                  >
-                    <MessageSquare size={13} /> Open WhatsApp
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={async () => {
+                        const res = await syncStudentToGoogleContacts(viewingStudent);
+                        if (res?.success) toast.success(`Synced ${viewingStudent.student_id} to phone contacts!`);
+                        else toast.error(res?.message || 'Sync failed');
+                      }}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold transition-colors cursor-pointer shadow-sm"
+                      title="Sync this contact to Google Contacts & Phonebook"
+                    >
+                      <Smartphone size={13} /> Sync to Phone
+                    </button>
+                    <button
+                      onClick={() => {
+                        const digits = viewingStudent.contact.replace(/[^0-9]/g, '');
+                        const waPhone = digits.startsWith('0') ? '92' + digits.slice(1) : digits;
+                        window.open(`https://wa.me/${waPhone}`, '_blank');
+                      }}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold transition-colors cursor-pointer shadow-sm"
+                    >
+                      <MessageSquare size={13} /> Open WhatsApp
+                    </button>
+                  </div>
                 )}
               </div>
 
@@ -1164,6 +1231,12 @@ const Students = () => {
           </div>
         </div>
       )}
+      {/* PHONE & WHATSAPP CONTACT SYNC MODAL */}
+      <ContactSyncModal
+        isOpen={showContactSyncModal}
+        onClose={() => setShowContactSyncModal(false)}
+        students={students}
+      />
     </div>
   );
 };
