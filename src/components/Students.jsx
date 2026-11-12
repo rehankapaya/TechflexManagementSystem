@@ -2,7 +2,7 @@ import { useSearchParams } from 'react-router-dom';
 import React, { useState, useEffect } from 'react';
 import { db } from '../firebase.js';
 import { useAuth } from '../contexts/AuthContext';
-import { ref, set, push, onValue, remove } from 'firebase/database';
+import { ref, set, push, onValue, remove, update } from 'firebase/database';
 import * as XLSX from 'xlsx';
 import toast from 'react-hot-toast';
 import {
@@ -28,11 +28,16 @@ import {
   Eye,
   MessageSquare,
   Smartphone,
-  MessageCircle
+  MessageCircle,
+  Camera,
+  Upload,
+  Crop
 } from 'lucide-react';
 import { parseLocalDateMidday } from '../utils/monthUtils';
 import ContactSyncModal from './ContactSyncModal';
+import ImageCropModal from './ImageCropModal';
 import { syncStudentToGoogleContacts, normalizePhoneNumber } from '../services/contactSyncService';
+import { processProfileImage } from '../utils/imageUtils';
 
 const Students = () => {
   const { currentUser, isAdmin } = useAuth();
@@ -75,11 +80,74 @@ const Students = () => {
 
   const today = new Date().toISOString().split('T')[0];
 
+  const [showSecondaryContact, setShowSecondaryContact] = useState(false);
   const [formData, setFormData] = useState({
-    name: '', contact: '', gender: '', courseId: '', laptop_status: '',
+    name: '', contact: '', secondary_contact: '', gender: '', courseId: '', laptop_status: '',
     agreed_monthly_fee: '', admission_fee: '', createdAt: today,
-    class_type: '', timeslot: ''
+    class_type: '', timeslot: '', profile_image: ''
   });
+
+  const [cropModalData, setCropModalData] = useState({
+    isOpen: false,
+    imageSrc: '',
+    target: null // 'form' or studentId string
+  });
+
+  const handleSelectImageToCrop = (e, target = 'form') => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      toast.error("Please select a valid image file");
+      e.target.value = '';
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      setCropModalData({
+        isOpen: true,
+        imageSrc: event.target.result,
+        target: target
+      });
+    };
+    reader.readAsDataURL(file);
+    e.target.value = '';
+  };
+
+  const handleCropComplete = async (croppedBase64) => {
+    if (!croppedBase64) return;
+
+    if (cropModalData.target === 'form') {
+      setFormData(prev => ({ ...prev, profile_image: croppedBase64 }));
+      toast.success("Profile photo cropped & selected");
+    } else if (typeof cropModalData.target === 'string') {
+      const studentId = cropModalData.target;
+      try {
+        const toastId = toast.loading("Saving photo...");
+        await update(ref(db, `students/${studentId}`), { profile_image: croppedBase64 });
+        setViewingStudent(prev => prev ? { ...prev, profile_image: croppedBase64 } : prev);
+        toast.success("Profile photo updated!", { id: toastId });
+      } catch (err) {
+        toast.error(err.message || "Failed to update photo");
+      }
+    }
+
+    setCropModalData({ isOpen: false, imageSrc: '', target: null });
+  };
+
+  const handleDirectPhotoRemove = async (studentId) => {
+    if (!studentId) return;
+    if (window.confirm("Remove profile photo for this student?")) {
+      try {
+        await update(ref(db, `students/${studentId}`), { profile_image: null });
+        setViewingStudent(prev => prev ? { ...prev, profile_image: null } : prev);
+        toast.success("Profile photo removed");
+      } catch (err) {
+        toast.error(err.message || "Failed to remove photo");
+      }
+    }
+  };
 
   const getTimeslotOptions = (classType) => {
     if (classType === 'Regular (1 Hour)') {
@@ -108,6 +176,7 @@ const Students = () => {
       "Name": s.name,
       "Gender": s.gender,
       "Contact": s.contact,
+      "Secondary Contact": s.secondary_contact || "N/A",
       "Admission Fee": s.admission_fee || 0,
       "Admission Date": s.createdAt ? s.createdAt.split('T')[0] : "N/A",
       "Added By": s.addedBy || "N/A"
@@ -174,7 +243,10 @@ const Students = () => {
           contact: formData.contact,
           gender: formData.gender,
           laptop_status: formData.laptop_status,
+          admission_fee: Number(formData.admission_fee ?? currentStudent?.admission_fee ?? 0),
           createdAt: admissionDateTime,
+          ...(formData.secondary_contact ? { secondary_contact: formData.secondary_contact } : {}),
+          ...(formData.profile_image ? { profile_image: formData.profile_image } : {}),
           enrolled_courses: {
             ...currentStudent.enrolled_courses,
             [courseId]: {
@@ -185,6 +257,14 @@ const Students = () => {
             }
           }
         };
+
+        if (!formData.secondary_contact && updatedStudent.secondary_contact) {
+          delete updatedStudent.secondary_contact;
+        }
+
+        if (!formData.profile_image && updatedStudent.profile_image) {
+          delete updatedStudent.profile_image;
+        }
 
         await set(ref(db, `students/${isEditing}`), updatedStudent);
         toast.success('Student profile updated!');
@@ -216,6 +296,8 @@ const Students = () => {
           addedBy: currentUser.name || currentUser.email,
           createdAt: admissionDateTime,
           status: 'active',
+          ...(formData.secondary_contact ? { secondary_contact: formData.secondary_contact } : {}),
+          ...(formData.profile_image ? { profile_image: formData.profile_image } : {}),
           enrolled_courses: {
             [formData.courseId]: {
               course_name: selectedCourse?.name || 'Unknown',
@@ -244,7 +326,8 @@ const Students = () => {
           toast.success(`Request Sent: ${customId}`);
         }
       }
-      setFormData({ name: '', contact: '', gender: '', courseId: '', laptop_status: '', agreed_monthly_fee: '', admission_fee: '', createdAt: today, class_type: '', timeslot: '' });
+      setFormData({ name: '', contact: '', secondary_contact: '', gender: '', courseId: '', laptop_status: '', agreed_monthly_fee: '', admission_fee: '', createdAt: today, class_type: '', timeslot: '', profile_image: '' });
+      setShowSecondaryContact(false);
       setShowQuickEnroll(false);
     } catch (err) {
       toast.error(err.message);
@@ -289,17 +372,28 @@ const Students = () => {
     const courseKey = Object.keys(student.enrolled_courses || {})[0];
     const courseData = student.enrolled_courses ? student.enrolled_courses[courseKey] : null;
     setIsEditing(student.id);
+    setShowSecondaryContact(Boolean(student.secondary_contact));
+
+    // Fetch exact admission fee from database (preserving 0 instead of defaulting to empty string)
+    const dbAdmissionFee = student.admission_fee !== undefined && student.admission_fee !== null
+      ? student.admission_fee
+      : (student.admissionFee !== undefined && student.admissionFee !== null
+        ? student.admissionFee
+        : 0);
+
     setFormData({
       name: student.name,
       contact: student.contact || '',
+      secondary_contact: student.secondary_contact || '',
       gender: student.gender || '',
       laptop_status: student.laptop_status || '',
       courseId: courseKey || '',
       agreed_monthly_fee: courseData ? courseData.agreed_monthly_fee : '',
-      admission_fee: student.admission_fee || '',
+      admission_fee: dbAdmissionFee,
       createdAt: student.createdAt ? student.createdAt.split('T')[0] : today,
       class_type: courseData ? (courseData.class_type || '') : '',
-      timeslot: courseData ? (courseData.timeslot || '') : ''
+      timeslot: courseData ? (courseData.timeslot || '') : '',
+      profile_image: student.profile_image || ''
     });
   };
 
@@ -312,6 +406,7 @@ const Students = () => {
   const filteredStudents = students.filter(s => {
     const matchesSearch = s.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       (s.contact && s.contact.includes(searchTerm)) ||
+      (s.secondary_contact && s.secondary_contact.includes(searchTerm)) ||
       (s.student_id && s.student_id.toLowerCase().includes(searchTerm.toLowerCase()));
     const matchesCourse = filterCourse === '' || Object.keys(s.enrolled_courses || {}).includes(filterCourse);
     
@@ -408,7 +503,7 @@ const Students = () => {
               <User size={18} />
               <span>Quick Student Enrollment</span>
             </div>
-            <span className="text-xs text-slate-400">All fields required for admission</span>
+            <span className="text-xs text-slate-400">Basic fields required • Photo optional</span>
           </div>
 
           <form onSubmit={handleSubmit} className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3.5">
@@ -426,7 +521,19 @@ const Students = () => {
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-slate-600 mb-1">Phone Number</label>
+              <div className="flex items-center justify-between mb-1">
+                <label className="block text-xs font-semibold text-slate-600">Primary Phone</label>
+                {!showSecondaryContact && (
+                  <button
+                    type="button"
+                    onClick={() => setShowSecondaryContact(true)}
+                    className="text-[11px] font-semibold text-blue-600 hover:text-blue-700 hover:underline cursor-pointer flex items-center gap-0.5"
+                  >
+                    <Plus size={11} />
+                    <span>2nd Number</span>
+                  </button>
+                )}
+              </div>
               <input
                 type="text"
                 name="contact"
@@ -437,6 +544,36 @@ const Students = () => {
                 className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
               />
             </div>
+
+            {showSecondaryContact && (
+              <div className="animate-in fade-in slide-in-from-top-1">
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-xs font-semibold text-slate-600">
+                    2nd / Parent Phone <span className="text-slate-400 font-normal">(Optional)</span>
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowSecondaryContact(false);
+                      setFormData(prev => ({ ...prev, secondary_contact: '' }));
+                    }}
+                    className="text-[11px] text-rose-500 hover:text-rose-700 hover:underline cursor-pointer flex items-center gap-0.5"
+                    title="Remove secondary phone"
+                  >
+                    <X size={11} />
+                    <span>Remove</span>
+                  </button>
+                </div>
+                <input
+                  type="text"
+                  name="secondary_contact"
+                  placeholder="03007654321 (Parent/Alt)"
+                  value={formData.secondary_contact}
+                  onChange={handleChange}
+                  className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
+                />
+              </div>
+            )}
 
             <div>
               <label className="block text-xs font-semibold text-slate-600 mb-1">Gender</label>
@@ -553,7 +690,74 @@ const Students = () => {
               />
             </div>
 
-            <div className="sm:col-span-2 md:col-span-1 lg:col-span-2 flex items-end">
+            {/* OPTIONAL PROFILE PHOTO */}
+            <div className="sm:col-span-2 md:col-span-2 lg:col-span-3 p-2.5 bg-slate-50 border border-dashed border-slate-200 rounded-xl flex items-center gap-3">
+              <div className="relative shrink-0">
+                {formData.profile_image ? (
+                  <div className="relative group">
+                    <img
+                      src={formData.profile_image}
+                      alt="Student Preview"
+                      className="w-12 h-12 rounded-xl object-cover border-2 border-blue-500 shadow-xs"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setFormData(prev => ({ ...prev, profile_image: '' }))}
+                      className="absolute -top-1.5 -right-1.5 bg-rose-500 hover:bg-rose-600 text-white p-0.5 rounded-full shadow-md transition-colors cursor-pointer"
+                      title="Remove photo"
+                    >
+                      <X size={11} />
+                    </button>
+                  </div>
+                ) : (
+                  <div className="w-12 h-12 rounded-xl border border-slate-200 bg-white flex flex-col items-center justify-center text-slate-400">
+                    <Camera size={18} className="opacity-50" />
+                    <span className="text-[8px] font-medium text-slate-400 mt-0.5">Photo</span>
+                  </div>
+                )}
+              </div>
+
+              <div className="flex-1 min-w-0">
+                <div className="flex flex-wrap items-center gap-2">
+                  <label className="inline-flex items-center gap-1.5 px-2.5 py-1.5 bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 rounded-lg text-xs font-semibold cursor-pointer shadow-xs transition-colors">
+                    <Upload size={12} className="text-blue-600" />
+                    <span>{formData.profile_image ? 'Change Photo' : 'Upload & Crop Photo'}</span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => handleSelectImageToCrop(e, 'form')}
+                      className="hidden"
+                    />
+                  </label>
+                  {formData.profile_image && (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => setCropModalData({ isOpen: true, imageSrc: formData.profile_image, target: 'form' })}
+                        className="inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 hover:underline cursor-pointer font-medium"
+                        title="Re-crop into square"
+                      >
+                        <Crop size={12} />
+                        <span>Adjust Crop</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setFormData(prev => ({ ...prev, profile_image: '' }))}
+                        className="text-xs text-rose-600 hover:underline cursor-pointer"
+                      >
+                        Remove
+                      </button>
+                    </>
+                  )}
+                  <span className="text-[10px] text-slate-400 hidden sm:inline">• Optional (crop anytime)</span>
+                </div>
+                <p className="text-[10px] text-slate-400 truncate mt-0.5">
+                  Interactive square crop with zoom & rotate. Saved as Base64 in database.
+                </p>
+              </div>
+            </div>
+
+            <div className="sm:col-span-2 md:col-span-1 lg:col-span-1 flex items-end">
               <button
                 type="submit"
                 disabled={loading}
@@ -589,8 +793,28 @@ const Students = () => {
               <tbody className="divide-y divide-amber-100">
                 {pendingStudents.map(s => (
                   <tr key={s.id} className="hover:bg-amber-50/30 transition-colors">
-                    <td className="px-4 py-2.5 font-medium text-slate-800">{s.name}</td>
-                    <td className="px-4 py-2.5 text-slate-600">{s.contact}</td>
+                    <td className="px-4 py-2.5 font-medium text-slate-800">
+                      <div className="flex items-center gap-2.5">
+                        {s.profile_image ? (
+                          <img
+                            src={s.profile_image}
+                            alt={s.name}
+                            className="w-7 h-7 rounded-lg object-cover border border-amber-200 shrink-0"
+                          />
+                        ) : (
+                          <div className="w-7 h-7 rounded-lg bg-amber-100 text-amber-700 flex items-center justify-center font-bold text-xs shrink-0">
+                            {s.name?.charAt(0) || '?'}
+                          </div>
+                        )}
+                        <span>{s.name}</span>
+                      </div>
+                    </td>
+                    <td className="px-4 py-2.5 text-slate-600">
+                      <div>{s.contact}</div>
+                      {s.secondary_contact && (
+                        <div className="text-[11px] text-slate-400">Parent: {s.secondary_contact}</div>
+                      )}
+                    </td>
                     <td className="px-4 py-2.5">
                       {Object.values(s.enrolled_courses || {}).map((c, i) => (
                         <span key={i} className="inline-block px-2 py-0.5 bg-amber-100 text-amber-800 rounded-md text-xs font-medium mr-1">
@@ -726,13 +950,27 @@ const Students = () => {
 
                       <td className="px-5 py-4">
                         <div className="flex items-center gap-3">
-                          <div className={`w-9 h-9 rounded-xl flex items-center justify-center text-xs font-bold shadow-sm ${
-                            s.gender === 'Female'
-                              ? 'bg-gradient-to-br from-pink-500 to-rose-600 text-white'
-                              : 'bg-gradient-to-br from-blue-500 to-indigo-600 text-white'
-                          }`}>
-                            {s.name ? s.name.charAt(0).toUpperCase() : '?'}
-                          </div>
+                          {s.profile_image ? (
+                            <img
+                              src={s.profile_image}
+                              alt={s.name}
+                              onClick={() => setViewingStudent(s)}
+                              className="w-9 h-9 rounded-xl object-cover border border-slate-200/80 shadow-xs shrink-0 cursor-pointer hover:opacity-90 transition-opacity"
+                              title="Click to view profile"
+                            />
+                          ) : (
+                            <div 
+                              onClick={() => setViewingStudent(s)}
+                              className={`w-9 h-9 rounded-xl flex items-center justify-center text-xs font-bold shadow-sm shrink-0 cursor-pointer ${
+                                s.gender === 'Female'
+                                  ? 'bg-gradient-to-br from-pink-500 to-rose-600 text-white'
+                                  : 'bg-gradient-to-br from-blue-500 to-indigo-600 text-white'
+                              }`}
+                              title="Click to view profile"
+                            >
+                              {s.name ? s.name.charAt(0).toUpperCase() : '?'}
+                            </div>
+                          )}
                           <div>
                             <div 
                               onClick={() => setViewingStudent(s)}
@@ -744,7 +982,7 @@ const Students = () => {
                                 {s.gender || 'N/A'}
                               </span>
                             </div>
-                            <div className="flex items-center gap-2 text-xs text-slate-400 mt-0.5">
+                            <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-xs text-slate-400 mt-0.5">
                               <span className="flex items-center gap-1"><Phone size={11} /> {s.contact || 'No phone'}</span>
                               {s.contact && (
                                 <a
@@ -758,6 +996,26 @@ const Students = () => {
                                   <MessageCircle size={10} />
                                   <span>WhatsApp</span>
                                 </a>
+                              )}
+                              {s.secondary_contact && (
+                                <>
+                                  <span>•</span>
+                                  <span className="flex items-center gap-1 text-slate-600">
+                                    <span className="text-[10px] bg-slate-100 px-1.5 py-0.2 rounded text-slate-500 font-medium">Parent:</span>
+                                    <span className="font-mono text-[11px]">{s.secondary_contact}</span>
+                                  </span>
+                                  <a
+                                    href={`https://wa.me/${normalizePhoneNumber(s.secondary_contact).replace('+', '')}`}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="inline-flex items-center gap-0.5 text-[10px] font-bold text-emerald-600 hover:text-emerald-700 bg-emerald-50 hover:bg-emerald-100 px-1.5 py-0.5 rounded transition-colors"
+                                    title="WhatsApp Parent"
+                                    onClick={(e) => e.stopPropagation()}
+                                  >
+                                    <MessageCircle size={10} />
+                                    <span>Parent</span>
+                                  </a>
+                                </>
                               )}
                               <span>•</span>
                               <span className="flex items-center gap-1"><Laptop size={11} /> {s.laptop_status === 'Has Laptop' ? 'Laptop ✓' : 'Ins. Laptop'}</span>
@@ -903,7 +1161,19 @@ const Students = () => {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-slate-600 mb-1">Phone Number</label>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-xs font-semibold text-slate-600">Phone Number</label>
+                    {!showSecondaryContact && (
+                      <button
+                        type="button"
+                        onClick={() => setShowSecondaryContact(true)}
+                        className="text-[11px] font-semibold text-blue-600 hover:text-blue-700 hover:underline cursor-pointer flex items-center gap-0.5"
+                      >
+                        <Plus size={11} />
+                        <span>Add 2nd / Parent Number</span>
+                      </button>
+                    )}
+                  </div>
                   <input
                     type="text"
                     name="contact"
@@ -913,6 +1183,36 @@ const Students = () => {
                     className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
                   />
                 </div>
+
+                {showSecondaryContact && (
+                  <div className="animate-in fade-in slide-in-from-top-1">
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="block text-xs font-semibold text-slate-600">
+                        Secondary / Parent Phone <span className="text-slate-400 font-normal">(Optional)</span>
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowSecondaryContact(false);
+                          setFormData(prev => ({ ...prev, secondary_contact: '' }));
+                        }}
+                        className="text-[11px] text-rose-500 hover:text-rose-700 hover:underline cursor-pointer flex items-center gap-0.5"
+                        title="Remove secondary phone"
+                      >
+                        <X size={11} />
+                        <span>Remove</span>
+                      </button>
+                    </div>
+                    <input
+                      type="text"
+                      name="secondary_contact"
+                      placeholder="03007654321 (Parent/Alt)"
+                      value={formData.secondary_contact}
+                      onChange={handleChange}
+                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                    />
+                  </div>
+                )}
 
                 <div>
                   <label className="block text-xs font-semibold text-slate-600 mb-1">Gender</label>
@@ -967,6 +1267,73 @@ const Students = () => {
                     required
                     className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
                   />
+                </div>
+              </div>
+
+              {/* PROFILE PHOTO FIELD */}
+              <div className="p-3 bg-slate-50 border border-dashed border-slate-200 rounded-xl">
+                <label className="block text-xs font-semibold text-slate-600 mb-2">Student Profile Picture (Optional)</label>
+                <div className="flex items-center gap-3.5">
+                  <div className="relative shrink-0">
+                    {formData.profile_image ? (
+                      <div className="relative group">
+                        <img
+                          src={formData.profile_image}
+                          alt="Profile Preview"
+                          className="w-14 h-14 rounded-xl object-cover border-2 border-blue-500 shadow-sm"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setFormData(prev => ({ ...prev, profile_image: '' }))}
+                          className="absolute -top-1.5 -right-1.5 bg-rose-500 hover:bg-rose-600 text-white p-0.5 rounded-full shadow-md transition-colors cursor-pointer"
+                          title="Remove photo"
+                        >
+                          <X size={11} />
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="w-14 h-14 rounded-xl border border-slate-200 bg-white flex flex-col items-center justify-center text-slate-400">
+                        <Camera size={20} className="opacity-50" />
+                        <span className="text-[9px] font-medium text-slate-400 mt-0.5">No Photo</span>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <label className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white hover:bg-slate-100 border border-slate-200 text-slate-700 rounded-lg text-xs font-semibold cursor-pointer shadow-xs transition-colors">
+                        <Upload size={12} className="text-blue-600" />
+                        <span>{formData.profile_image ? 'Replace & Crop' : 'Upload & Crop Photo'}</span>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={(e) => handleSelectImageToCrop(e, 'form')}
+                          className="hidden"
+                        />
+                      </label>
+                      {formData.profile_image && (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => setCropModalData({ isOpen: true, imageSrc: formData.profile_image, target: 'form' })}
+                            className="inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 hover:underline cursor-pointer font-medium"
+                            title="Re-crop into square"
+                          >
+                            <Crop size={12} />
+                            <span>Adjust Crop</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setFormData(prev => ({ ...prev, profile_image: '' }))}
+                            className="px-2.5 py-1.5 text-xs text-rose-600 hover:bg-rose-50 rounded-lg transition-colors font-medium cursor-pointer"
+                          >
+                            Remove Photo
+                          </button>
+                        </>
+                      )}
+                    </div>
+                    <p className="text-[11px] text-slate-400 mt-1">Interactive square crop with zoom & rotate. Saved as Base64 in database.</p>
+                  </div>
                 </div>
               </div>
 
@@ -1071,14 +1438,41 @@ const Students = () => {
           >
             {/* Header */}
             <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
-              <div className="flex items-center gap-3">
-                <div className={`w-11 h-11 rounded-xl flex items-center justify-center text-white font-bold text-lg shadow-sm ${
-                  viewingStudent.gender === 'Female'
-                    ? 'bg-gradient-to-br from-pink-500 to-rose-600'
-                    : 'bg-gradient-to-br from-blue-500 to-indigo-600'
-                }`}>
-                  {viewingStudent.name ? viewingStudent.name.charAt(0).toUpperCase() : 'S'}
+              <div className="flex items-center gap-3.5">
+                <div className="relative group shrink-0">
+                  {viewingStudent.profile_image ? (
+                    <img
+                      src={viewingStudent.profile_image}
+                      alt={viewingStudent.name}
+                      className="w-14 h-14 rounded-2xl object-cover border-2 border-slate-200/90 shadow-sm"
+                    />
+                  ) : (
+                    <div className={`w-14 h-14 rounded-2xl flex items-center justify-center text-white font-bold text-xl shadow-sm ${
+                      viewingStudent.gender === 'Female'
+                        ? 'bg-gradient-to-br from-pink-500 to-rose-600'
+                        : 'bg-gradient-to-br from-blue-500 to-indigo-600'
+                    }`}>
+                      {viewingStudent.name ? viewingStudent.name.charAt(0).toUpperCase() : 'S'}
+                    </div>
+                  )}
+
+                  {/* Direct 1-click photo update for Admin */}
+                  {isAdmin && (
+                    <label
+                      className="absolute -bottom-1 -right-1 p-1.5 bg-white hover:bg-blue-50 text-blue-600 border border-slate-200 rounded-lg shadow-sm cursor-pointer transition-all hover:scale-110"
+                      title={viewingStudent.profile_image ? "Change & crop profile photo" : "Upload & crop profile photo"}
+                    >
+                      <Camera size={13} />
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={(e) => handleSelectImageToCrop(e, viewingStudent.id)}
+                        className="hidden"
+                      />
+                    </label>
+                  )}
                 </div>
+
                 <div>
                   <div className="flex items-center gap-2">
                     <h3 className="font-bold text-slate-800 text-lg leading-tight">{viewingStudent.name}</h3>
@@ -1086,7 +1480,29 @@ const Students = () => {
                       {viewingStudent.student_id}
                     </span>
                   </div>
-                  <p className="text-xs text-slate-500 mt-0.5">Comprehensive Student Profile</p>
+                  <div className="flex items-center gap-2 mt-0.5">
+                    <p className="text-xs text-slate-500">Comprehensive Student Profile</p>
+                    {isAdmin && viewingStudent.profile_image && (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => setCropModalData({ isOpen: true, imageSrc: viewingStudent.profile_image, target: viewingStudent.id })}
+                          className="text-[11px] text-blue-600 hover:text-blue-800 hover:underline cursor-pointer font-medium inline-flex items-center gap-0.5"
+                          title="Re-crop photo into square"
+                        >
+                          <Crop size={10} />
+                          <span>Re-Crop</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDirectPhotoRemove(viewingStudent.id)}
+                          className="text-[11px] text-rose-500 hover:text-rose-700 hover:underline cursor-pointer font-medium"
+                        >
+                          • Remove photo
+                        </button>
+                      </>
+                    )}
+                  </div>
                 </div>
               </div>
 
@@ -1131,33 +1547,54 @@ const Students = () => {
               </div>
 
               {/* Contact Card */}
-              <div className="p-4 rounded-xl bg-slate-50 border border-slate-200/70 flex items-center justify-between">
-                <div>
-                  <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Contact Number</p>
-                  <p className="text-sm font-bold font-mono text-slate-800 mt-0.5">{viewingStudent.contact || 'No phone recorded'}</p>
+              <div className="p-4 rounded-xl bg-slate-50 border border-slate-200/70 space-y-3">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div>
+                    <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Primary Contact</p>
+                    <p className="text-sm font-bold font-mono text-slate-800 mt-0.5">{viewingStudent.contact || 'No phone recorded'}</p>
+                  </div>
+                  {viewingStudent.contact && (
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={async () => {
+                          const res = await syncStudentToGoogleContacts(viewingStudent);
+                          if (res?.success) toast.success(`Synced ${viewingStudent.student_id} to phone contacts!`);
+                          else toast.error(res?.message || 'Sync failed');
+                        }}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold transition-colors cursor-pointer shadow-sm"
+                        title="Sync this contact to Google Contacts & Phonebook"
+                      >
+                        <Smartphone size={13} /> Sync to Phone
+                      </button>
+                      <button
+                        onClick={() => {
+                          const digits = viewingStudent.contact.replace(/[^0-9]/g, '');
+                          const waPhone = digits.startsWith('0') ? '92' + digits.slice(1) : digits;
+                          window.open(`https://wa.me/${waPhone}`, '_blank');
+                        }}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold transition-colors cursor-pointer shadow-sm"
+                      >
+                        <MessageSquare size={13} /> WhatsApp
+                      </button>
+                    </div>
+                  )}
                 </div>
-                {viewingStudent.contact && (
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={async () => {
-                        const res = await syncStudentToGoogleContacts(viewingStudent);
-                        if (res?.success) toast.success(`Synced ${viewingStudent.student_id} to phone contacts!`);
-                        else toast.error(res?.message || 'Sync failed');
-                      }}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold transition-colors cursor-pointer shadow-sm"
-                      title="Sync this contact to Google Contacts & Phonebook"
-                    >
-                      <Smartphone size={13} /> Sync to Phone
-                    </button>
+
+                {viewingStudent.secondary_contact && (
+                  <div className="pt-3 border-t border-slate-200/60 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                    <div>
+                      <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Parent / Secondary Contact</p>
+                      <p className="text-sm font-bold font-mono text-slate-800 mt-0.5">{viewingStudent.secondary_contact}</p>
+                    </div>
                     <button
                       onClick={() => {
-                        const digits = viewingStudent.contact.replace(/[^0-9]/g, '');
+                        const digits = viewingStudent.secondary_contact.replace(/[^0-9]/g, '');
                         const waPhone = digits.startsWith('0') ? '92' + digits.slice(1) : digits;
                         window.open(`https://wa.me/${waPhone}`, '_blank');
                       }}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold transition-colors cursor-pointer shadow-sm"
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 rounded-lg text-xs font-bold transition-colors cursor-pointer"
                     >
-                      <MessageSquare size={13} /> Open WhatsApp
+                      <MessageSquare size={13} /> WhatsApp Parent
                     </button>
                   </div>
                 )}
@@ -1236,6 +1673,14 @@ const Students = () => {
         isOpen={showContactSyncModal}
         onClose={() => setShowContactSyncModal(false)}
         students={students}
+      />
+
+      {/* INTERACTIVE SQUARE IMAGE CROP MODAL */}
+      <ImageCropModal
+        isOpen={cropModalData.isOpen}
+        imageSrc={cropModalData.imageSrc}
+        onClose={() => setCropModalData({ isOpen: false, imageSrc: '', target: null })}
+        onCropComplete={handleCropComplete}
       />
     </div>
   );

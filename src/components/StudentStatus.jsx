@@ -294,11 +294,29 @@ const StudentStatus = () => {
                   <tr key={s.id} className="hover:bg-slate-50/50 transition-colors">
                     {/* Student Identity */}
                     <td className="py-4 px-4 align-top">
-                      <div className="font-mono text-blue-600 font-bold text-xs">{s.student_id}</div>
-                      <div className="font-bold text-slate-900 text-sm mt-0.5">{s.name}</div>
-                      {s.contact && (
-                        <div className="text-[11px] text-slate-500 mt-1 font-mono">{s.contact}</div>
-                      )}
+                      <div className="flex items-start gap-2.5">
+                        {s.profile_image ? (
+                          <img
+                            src={s.profile_image}
+                            alt={s.name}
+                            className="w-8 h-8 rounded-lg object-cover border border-slate-200 shrink-0 mt-0.5 shadow-2xs"
+                          />
+                        ) : (
+                          <div className="w-8 h-8 rounded-lg bg-slate-100 text-slate-600 flex items-center justify-center font-bold text-xs shrink-0 mt-0.5">
+                            {s.name?.charAt(0) || '?'}
+                          </div>
+                        )}
+                        <div className="min-w-0">
+                          <div className="font-mono text-blue-600 font-bold text-xs">{s.student_id}</div>
+                          <div className="font-bold text-slate-900 text-sm">{s.name}</div>
+                          {s.contact && (
+                            <div className="text-[11px] text-slate-500 font-mono">{s.contact}</div>
+                          )}
+                          {s.secondary_contact && (
+                            <div className="text-[10px] text-slate-400 font-mono">Parent: {s.secondary_contact}</div>
+                          )}
+                        </div>
+                      </div>
                     </td>
 
                     {/* Account Status */}

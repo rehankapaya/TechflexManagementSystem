@@ -50,6 +50,19 @@ const StudentRiskModal = ({ student, onClose }) => {
     window.open(`https://wa.me/${intlPhone}?text=${encodeURIComponent(message)}`, '_blank');
   };
 
+  const handleSendParentWhatsApp = () => {
+    const rawContact = student.secondary_contact || '';
+    const digits = rawContact.replace(/[^0-9]/g, '');
+    if (!digits) return;
+
+    const intlPhone = digits.startsWith('0') ? '92' + digits.slice(1) : digits;
+    const unpaidList = (student.unpaidBreakdown || []).map(u => `${u.monthLabel} (${u.courseName}): PKR ${u.balance.toLocaleString()}`).join('\n• ');
+    
+    const message = `Assalam-o-Alaikum,\n\nThis is an official communication from Techflex Computer Education regarding your ward ${student.name}'s tuition fee schedule.\n\nPending Overdue Fee(s):\n• ${unpaidList || `Total Balance: PKR ${Number(student.studentUnpaid || 0).toLocaleString()}`}\n\nKindly clear the pending dues at your earliest convenience.\n\nJazakAllah Khair,\nTechflex Management`;
+
+    window.open(`https://wa.me/${intlPhone}?text=${encodeURIComponent(message)}`, '_blank');
+  };
+
   const handleOpenDirectory = () => {
     onClose();
     navigate(`/dashboard/students?search=${encodeURIComponent(student.student_id || student.name)}&view=true`);
@@ -77,11 +90,19 @@ const StudentRiskModal = ({ student, onClose }) => {
         {/* HEADER */}
         <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
           <div className="flex items-center gap-3">
-            <div className={`w-11 h-11 rounded-xl flex items-center justify-center text-white font-bold text-lg shadow-sm ${
-              student.category === 'Critical' ? 'bg-rose-500' : student.category === 'High' ? 'bg-orange-500' : 'bg-amber-500'
-            }`}>
-              {student.name ? student.name.charAt(0).toUpperCase() : 'S'}
-            </div>
+            {student.profile_image ? (
+              <img
+                src={student.profile_image}
+                alt={student.name}
+                className="w-11 h-11 rounded-xl object-cover border border-slate-200 shadow-sm shrink-0"
+              />
+            ) : (
+              <div className={`w-11 h-11 rounded-xl flex items-center justify-center text-white font-bold text-lg shadow-sm shrink-0 ${
+                student.category === 'Critical' ? 'bg-rose-500' : student.category === 'High' ? 'bg-orange-500' : 'bg-amber-500'
+              }`}>
+                {student.name ? student.name.charAt(0).toUpperCase() : 'S'}
+              </div>
+            )}
             <div>
               <div className="flex items-center gap-2">
                 <h3 className="font-bold text-slate-800 text-lg leading-tight">{student.name}</h3>
@@ -125,6 +146,9 @@ const StudentRiskModal = ({ student, onClose }) => {
                   {student.contact || 'No phone recorded'}
                 </span>
               </div>
+              {student.secondary_contact && (
+                <p className="text-[11px] font-mono text-slate-500 mt-1 pl-5">Parent: {student.secondary_contact}</p>
+              )}
             </div>
 
             <div className="p-4 rounded-xl bg-slate-50 border border-slate-100">
@@ -282,6 +306,16 @@ const StudentRiskModal = ({ student, onClose }) => {
             >
               <MessageSquare size={14} /> Send WhatsApp Reminder
             </button>
+
+            {student.secondary_contact && (
+              <button
+                onClick={handleSendParentWhatsApp}
+                className="flex items-center gap-1.5 px-3.5 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 rounded-xl text-xs font-bold transition-colors cursor-pointer"
+                title="Send fee reminder to parent"
+              >
+                <MessageSquare size={14} /> WhatsApp Parent
+              </button>
+            )}
 
             <button
               onClick={handleOpenDirectory}

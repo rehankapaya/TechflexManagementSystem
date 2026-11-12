@@ -109,6 +109,7 @@ export const syncStudentToGoogleContacts = async (studentData, customConfig = nu
   const studentName = studentData.name || '';
   const contactName = formatContactName(studentId, studentName);
   const phone = normalizePhoneNumber(studentData.contact);
+  const secondaryPhone = studentData.secondary_contact ? normalizePhoneNumber(studentData.secondary_contact) : '';
 
   const courses = studentData.enrolled_courses
     ? Object.values(studentData.enrolled_courses).map(c => c.course_name).filter(Boolean).join(', ')
@@ -122,10 +123,12 @@ export const syncStudentToGoogleContacts = async (studentData, customConfig = nu
     student_name: studentName,
     phone: phone,
     raw_phone: studentData.contact || '',
+    secondary_phone: secondaryPhone,
+    raw_secondary_phone: studentData.secondary_contact || '',
     company: 'TECHFLEX Institute',
     course_name: courses || 'Student',
     enrolled_at: studentData.createdAt ? new Date(studentData.createdAt).toLocaleDateString('en-GB') : new Date().toLocaleDateString('en-GB'),
-    notes: `Student ID: ${studentId}\nCourse: ${courses || 'General'}\nEnrolled: ${studentData.createdAt || 'N/A'}\nTechflex Management System`
+    notes: `Student ID: ${studentId}\nCourse: ${courses || 'General'}\nPrimary Phone: ${studentData.contact || 'N/A'}${studentData.secondary_contact ? `\nParent/Secondary Phone: ${studentData.secondary_contact}` : ''}\nEnrolled: ${studentData.createdAt || 'N/A'}\nTechflex Management System`
   };
 
   try {
@@ -213,21 +216,31 @@ export const generateVCardString = (student) => {
   const name = student.name || 'Student';
   const formattedName = formatContactName(studentId, name);
   const phone = normalizePhoneNumber(student.contact);
+  const secondaryPhone = student.secondary_contact ? normalizePhoneNumber(student.secondary_contact) : '';
   const course = student.enrolled_courses
     ? Object.values(student.enrolled_courses).map(c => c.course_name).filter(Boolean).join(', ')
     : '';
 
-  return [
+  const vcardLines = [
     'BEGIN:VCARD',
     'VERSION:3.0',
     `FN:${formattedName}`,
     `N:${CONTACT_SUFFIX};${studentId} ${name};;;`,
-    `TEL;TYPE=CELL,VOICE:${phone}`,
+    `TEL;TYPE=CELL,VOICE:${phone}`
+  ];
+
+  if (secondaryPhone) {
+    vcardLines.push(`TEL;TYPE=HOME,VOICE:${secondaryPhone}`);
+  }
+
+  vcardLines.push(
     'ORG:TECHFLEX Institute',
     `TITLE:${course || 'Student'}`,
-    `NOTE:Student ID: ${studentId} | Course: ${course} | Techflex Management System`,
+    `NOTE:Student ID: ${studentId} | Course: ${course} | Primary: ${student.contact || ''}${student.secondary_contact ? ` | Parent: ${student.secondary_contact}` : ''} | Techflex Management System`,
     'END:VCARD'
-  ].join('\r\n');
+  );
+
+  return vcardLines.join('\r\n');
 };
 
 /**
@@ -305,6 +318,15 @@ function doPost(e) {
           type: "mobile"
         }
       ];
+    }
+    
+    var secondaryPhone = data.secondary_phone || data.raw_secondary_phone || "";
+    if (secondaryPhone) {
+      if (!contactResource.phoneNumbers) contactResource.phoneNumbers = [];
+      contactResource.phoneNumbers.push({
+        value: secondaryPhone,
+        type: "home"
+      });
     }
     
     contactResource.organizations = [
