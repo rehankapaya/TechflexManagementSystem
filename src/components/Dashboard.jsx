@@ -28,7 +28,9 @@ import {
   Banknote,
   BrainCircuit,
   Megaphone,
-  Clock
+  Clock,
+  Menu,
+  Download
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -37,10 +39,43 @@ const Dashboard = () => {
   const location = useLocation();
   const navigate = useNavigate();
 
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
+    return typeof window !== 'undefined' ? window.innerWidth < 768 : false;
+  });
   const [showProfileDropdown, setShowProfileDropdown] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [error, setError] = useState(null);
+  const [deferredPrompt, setDeferredPrompt] = useState(null);
+  const [canInstall, setCanInstall] = useState(false);
+
+  useEffect(() => {
+    const handleCollapse = () => {
+      if (window.innerWidth < 768) setSidebarCollapsed(true);
+    };
+    window.addEventListener('collapse-sidebar', handleCollapse);
+    return () => window.removeEventListener('collapse-sidebar', handleCollapse);
+  }, []);
+
+  useEffect(() => {
+    const handleBeforeInstall = (e) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+      setCanInstall(true);
+    };
+
+    window.addEventListener('beforeinstallprompt', handleBeforeInstall);
+    return () => window.removeEventListener('beforeinstallprompt', handleBeforeInstall);
+  }, []);
+
+  const handleInstallClick = async () => {
+    if (!deferredPrompt) return;
+    deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
+    if (outcome === 'accepted') {
+      setCanInstall(false);
+    }
+    setDeferredPrompt(null);
+  };
 
   useEffect(() => {
     if (error) {
@@ -67,14 +102,25 @@ const Dashboard = () => {
 
   return (
     <div className="flex h-screen bg-slate-50 overflow-hidden font-sans">
+      {/* Mobile backdrop */}
+      {!sidebarCollapsed && (
+        <div
+          onClick={() => setSidebarCollapsed(true)}
+          className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-20 md:hidden"
+        />
+      )}
+
       {/* SIDEBAR */}
       <aside
-        className={`bg-[#0F172A] text-slate-300 flex flex-col transition-all duration-300 ease-in-out relative z-20 shadow-xl ${sidebarCollapsed ? 'w-20' : 'w-64'
-          }`}
+        className={`bg-[#0F172A] text-slate-300 flex flex-col transition-all duration-300 ease-in-out z-30 shadow-xl ${
+          sidebarCollapsed
+            ? 'w-0 -translate-x-full md:translate-x-0 md:w-20 overflow-hidden'
+            : 'fixed md:relative inset-y-0 left-0 w-64'
+        }`}
       >
         <div className="p-6 flex items-center gap-3 border-b border-slate-800/50">
-          <div className="w-10 h-10 bg-[#3B82F6] rounded-xl flex items-center justify-center shadow-lg shadow-blue-500/20">
-            <GraduationCap className="text-white w-6 h-6" />
+          <div className="w-10 h-10 rounded-xl overflow-hidden shadow-lg shadow-blue-500/20 bg-slate-900 flex items-center justify-center border border-slate-700/50 shrink-0">
+            <img src="/official-logo.jpg" alt="TechFlex Logo" className="w-full h-full object-cover" />
           </div>
           {!sidebarCollapsed && (
             <span className="text-white font-bold text-xl tracking-tight">TechFlex</span>
@@ -198,19 +244,35 @@ const Dashboard = () => {
 
       {/* MAIN CONTENT */}
       <div className="flex-1 flex flex-col min-w-0">
-        <header className="h-20 bg-white border-b border-slate-200 flex items-center justify-end px-8 z-10">
-          {/* <div className="relative w-full max-w-md">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-            <input 
-              type="text" 
-              placeholder="Search data, students, or records..." 
-              className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-[#3B82F6] outline-none transition-all text-sm"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
-          </div> */}
+        <header className="h-16 sm:h-20 bg-white border-b border-slate-200 flex items-center justify-between px-4 sm:px-8 z-10">
+          <div className="flex items-center gap-2 sm:gap-3">
+            <button
+              onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+              className="p-2 text-slate-600 hover:bg-slate-100 rounded-lg transition-colors md:hidden"
+              title="Toggle Menu"
+            >
+              <Menu size={22} />
+            </button>
+            <div className="flex items-center gap-2 md:hidden">
+              <div className="w-8 h-8 rounded-lg overflow-hidden shadow-sm flex items-center justify-center bg-slate-900 border border-slate-200 shrink-0">
+                <img src="/official-logo.jpg" alt="TechFlex Logo" className="w-full h-full object-cover" />
+              </div>
+              <span className="text-slate-800 font-bold text-lg tracking-tight">TechFlex</span>
+            </div>
+          </div>
 
-          <div className="flex items-center gap-6">
+          <div className="flex items-center gap-3 sm:gap-6">
+            {canInstall && (
+              <button
+                onClick={handleInstallClick}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold shadow-sm transition-all"
+                title="Install TechFlex as an app"
+              >
+                <Download size={14} />
+                <span className="hidden sm:inline">Install App</span>
+                <span className="sm:hidden">Install</span>
+              </button>
+            )}
             {/* <div className="flex items-center gap-4 text-slate-500">
               <button className="relative p-2 hover:bg-slate-100 rounded-lg transition-colors">
                 <Bell size={20} />
@@ -288,9 +350,15 @@ const Dashboard = () => {
   );
 };
 
-const SidebarLink = ({ to, icon, label, collapsed, active }) => (
+const SidebarLink = ({ to, icon, label, collapsed, active, onClick }) => (
   <Link
     to={to}
+    onClick={(e) => {
+      if (onClick) onClick(e);
+      if (typeof window !== 'undefined' && window.innerWidth < 768) {
+        window.dispatchEvent(new CustomEvent('collapse-sidebar'));
+      }
+    }}
     className={`flex items-center gap-4 px-4 py-3 rounded-xl transition-all duration-200 group mb-1 ${active
       ? 'bg-[#3B82F6] text-white shadow-lg shadow-blue-500/30'
       : 'hover:bg-slate-800/50 text-slate-400 hover:text-white'

@@ -82,8 +82,8 @@ const Login = () => {
 
           {/* Header */}
           <div className="mb-10">
-            <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-lg bg-[#3B82F6]/10">
-              <ShieldCheck className="h-6 w-6 text-[#3B82F6]" />
+            <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl overflow-hidden shadow-md border border-slate-100">
+              <img src="/official-logo.jpg" alt="TechFlex Logo" className="w-full h-full object-cover" />
             </div>
             <h1 className="text-2xl font-semibold text-[#0F172A]">
               Sign in to your account
