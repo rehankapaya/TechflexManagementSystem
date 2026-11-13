@@ -94,10 +94,10 @@ const StudentRiskModal = ({ student, onClose }) => {
               <img
                 src={student.profile_image}
                 alt={student.name}
-                className="w-11 h-11 rounded-xl object-cover border border-slate-200 shadow-sm shrink-0"
+                className="w-16 h-16 rounded-2xl object-cover border-2 border-slate-200/90 shadow-md shrink-0"
               />
             ) : (
-              <div className={`w-11 h-11 rounded-xl flex items-center justify-center text-white font-bold text-lg shadow-sm shrink-0 ${
+              <div className={`w-16 h-16 rounded-2xl flex items-center justify-center text-white font-bold text-2xl shadow-md shrink-0 ${
                 student.category === 'Critical' ? 'bg-rose-500' : student.category === 'High' ? 'bg-orange-500' : 'bg-amber-500'
               }`}>
                 {student.name ? student.name.charAt(0).toUpperCase() : 'S'}

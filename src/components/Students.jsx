@@ -31,7 +31,8 @@ import {
   MessageCircle,
   Camera,
   Upload,
-  Crop
+  Crop,
+  ZoomIn
 } from 'lucide-react';
 import { parseLocalDateMidday } from '../utils/monthUtils';
 import ContactSyncModal from './ContactSyncModal';
@@ -54,6 +55,7 @@ const Students = () => {
   const [laptopFilter, setLaptopFilter] = useState('all');
   const [searchParams] = useSearchParams();
   const [viewingStudent, setViewingStudent] = useState(null);
+  const [enlargedPhoto, setEnlargedPhoto] = useState(null);
   const [showContactSyncModal, setShowContactSyncModal] = useState(false);
 
   useEffect(() => {
@@ -1611,73 +1613,12 @@ const Students = () => {
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}
-            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
-              <div className="flex items-center gap-3.5">
-                <div className="relative group shrink-0">
-                  {viewingStudent.profile_image ? (
-                    <img
-                      src={viewingStudent.profile_image}
-                      alt={viewingStudent.name}
-                      className="w-14 h-14 rounded-2xl object-cover border-2 border-slate-200/90 shadow-sm"
-                    />
-                  ) : (
-                    <div className={`w-14 h-14 rounded-2xl flex items-center justify-center text-white font-bold text-xl shadow-sm ${
-                      viewingStudent.gender === 'Female'
-                        ? 'bg-gradient-to-br from-pink-500 to-rose-600'
-                        : 'bg-gradient-to-br from-blue-500 to-indigo-600'
-                    }`}>
-                      {viewingStudent.name ? viewingStudent.name.charAt(0).toUpperCase() : 'S'}
-                    </div>
-                  )}
-
-                  {/* Direct 1-click photo update for Admin */}
-                  {isAdmin && (
-                    <label
-                      className="absolute -bottom-1 -right-1 p-1.5 bg-white hover:bg-blue-50 text-blue-600 border border-slate-200 rounded-lg shadow-sm cursor-pointer transition-all hover:scale-110"
-                      title={viewingStudent.profile_image ? "Change & crop profile photo" : "Upload & crop profile photo"}
-                    >
-                      <Camera size={13} />
-                      <input
-                        type="file"
-                        accept="image/*"
-                        onChange={(e) => handleSelectImageToCrop(e, viewingStudent.id)}
-                        className="hidden"
-                      />
-                    </label>
-                  )}
-                </div>
-
-                <div>
-                  <div className="flex items-center gap-2">
-                    <h3 className="font-bold text-slate-800 text-lg leading-tight">{viewingStudent.name}</h3>
-                    <span className="px-2 py-0.5 rounded-md text-xs font-mono font-semibold bg-slate-100 text-slate-700 border border-slate-200">
-                      {viewingStudent.student_id}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-2 mt-0.5">
-                    <p className="text-xs text-slate-500">Comprehensive Student Profile</p>
-                    {isAdmin && viewingStudent.profile_image && (
-                      <>
-                        <button
-                          type="button"
-                          onClick={() => setCropModalData({ isOpen: true, imageSrc: viewingStudent.profile_image, target: viewingStudent.id })}
-                          className="text-[11px] text-blue-600 hover:text-blue-800 hover:underline cursor-pointer font-medium inline-flex items-center gap-0.5"
-                          title="Re-crop photo into square"
-                        >
-                          <Crop size={10} />
-                          <span>Re-Crop</span>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleDirectPhotoRemove(viewingStudent.id)}
-                          className="text-[11px] text-rose-500 hover:text-rose-700 hover:underline cursor-pointer font-medium"
-                        >
-                          • Remove photo
-                        </button>
-                      </>
-                    )}
-                  </div>
-                </div>
+            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/80">
+              <div className="flex items-center gap-2">
+                <span className="px-2.5 py-1 rounded-lg text-xs font-mono font-bold bg-blue-100 text-blue-700 border border-blue-200">
+                  {viewingStudent.student_id}
+                </span>
+                <span className="text-xs font-semibold text-slate-500">Student Profile Dossier</span>
               </div>
 
               <div className="flex items-center gap-2">
@@ -1699,24 +1640,132 @@ const Students = () => {
             </div>
 
             {/* Body */}
-            <div className="flex-1 overflow-y-auto p-6 space-y-6 custom-scrollbar">
-              {/* Quick Info Grid */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
-                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Gender</p>
-                  <p className="text-xs font-semibold text-slate-800">{viewingStudent.gender || 'N/A'}</p>
-                </div>
-                <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
-                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Laptop Status</p>
-                  <p className="text-xs font-semibold text-slate-800">{viewingStudent.laptop_status || 'N/A'}</p>
-                </div>
-                <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
-                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Admission Fee</p>
-                  <p className="text-xs font-semibold text-slate-800">PKR {Number(viewingStudent.admission_fee || 0).toLocaleString()}</p>
-                </div>
-                <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
-                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Admission Date</p>
-                  <p className="text-xs font-semibold text-slate-800">{formatDate(viewingStudent.createdAt)}</p>
+            <div className="flex-1 overflow-y-auto p-6 space-y-5 custom-scrollbar">
+              {/* PROMINENT STUDENT IDENTITY & PHOTO HERO CARD */}
+              <div className="bg-gradient-to-br from-slate-50 via-blue-50/20 to-slate-50 border border-slate-200/80 rounded-2xl p-5 shadow-xs">
+                <div className="flex flex-col sm:flex-row items-center sm:items-start gap-5">
+                  {/* Student Photo Showcase (Large & Highly Visible) */}
+                  <div className="flex flex-col items-center shrink-0">
+                    <div className="relative group">
+                      {viewingStudent.profile_image ? (
+                        <div 
+                          onClick={() => setEnlargedPhoto(viewingStudent.profile_image)}
+                          className="w-28 h-28 sm:w-32 sm:h-32 rounded-2xl overflow-hidden border-3 border-white shadow-lg shadow-blue-500/10 cursor-pointer relative group transition-transform hover:scale-[1.02]"
+                          title="Click to view full size photo"
+                        >
+                          <img
+                            src={viewingStudent.profile_image}
+                            alt={viewingStudent.name}
+                            className="w-full h-full object-cover"
+                          />
+                          {/* Hover Overlay with Zoom Icon */}
+                          <div className="absolute inset-0 bg-slate-950/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white gap-1 text-xs font-semibold backdrop-blur-2xs">
+                            <ZoomIn size={18} />
+                            <span>Enlarge</span>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className={`w-28 h-28 sm:w-32 sm:h-32 rounded-2xl flex flex-col items-center justify-center text-white shadow-lg ${
+                          viewingStudent.gender === 'Female'
+                            ? 'bg-gradient-to-br from-pink-500 to-rose-600'
+                            : 'bg-gradient-to-br from-blue-500 to-indigo-600'
+                        }`}>
+                          <span className="font-bold text-4xl">
+                            {viewingStudent.name ? viewingStudent.name.charAt(0).toUpperCase() : 'S'}
+                          </span>
+                          <span className="text-[10px] opacity-80 mt-1 font-medium">No Photo</span>
+                        </div>
+                      )}
+
+                      {/* Floating Camera Button on Photo */}
+                      {isAdmin && (
+                        <label
+                          className="absolute -bottom-2 -right-2 p-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl shadow-md border-2 border-white cursor-pointer transition-all hover:scale-110"
+                          title={viewingStudent.profile_image ? "Change & crop profile photo" : "Upload & crop profile photo"}
+                        >
+                          <Camera size={15} />
+                          <input
+                            type="file"
+                            accept="image/*"
+                            onChange={(e) => handleSelectImageToCrop(e, viewingStudent.id)}
+                            className="hidden"
+                          />
+                        </label>
+                      )}
+                    </div>
+
+                    {/* Photo Action Controls under Photo */}
+                    {isAdmin && (
+                      <div className="flex items-center gap-2 mt-3">
+                        {viewingStudent.profile_image ? (
+                          <>
+                            <button
+                              type="button"
+                              onClick={() => setCropModalData({ isOpen: true, imageSrc: viewingStudent.profile_image, target: viewingStudent.id })}
+                              className="inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 hover:bg-blue-50 px-2 py-1 rounded-lg font-medium transition-colors cursor-pointer"
+                              title="Re-crop student photo into square"
+                            >
+                              <Crop size={12} />
+                              <span>Crop</span>
+                            </button>
+                            <span className="text-slate-300">•</span>
+                            <button
+                              type="button"
+                              onClick={() => handleDirectPhotoRemove(viewingStudent.id)}
+                              className="inline-flex items-center gap-1 text-xs text-rose-500 hover:text-rose-700 hover:bg-rose-50 px-2 py-1 rounded-lg font-medium transition-colors cursor-pointer"
+                              title="Remove photo"
+                            >
+                              <Trash2 size={12} />
+                              <span>Remove</span>
+                            </button>
+                          </>
+                        ) : (
+                          <label
+                            className="inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 hover:bg-blue-50 px-2.5 py-1 rounded-lg font-medium transition-colors cursor-pointer border border-blue-200"
+                          >
+                            <Upload size={12} />
+                            <span>Upload Photo</span>
+                            <input
+                              type="file"
+                              accept="image/*"
+                              onChange={(e) => handleSelectImageToCrop(e, viewingStudent.id)}
+                              className="hidden"
+                            />
+                          </label>
+                        )}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Student Key Information Beside the Photo */}
+                  <div className="flex-1 text-center sm:text-left min-w-0">
+                    <h2 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight leading-tight">
+                      {viewingStudent.name}
+                    </h2>
+                    
+                    <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2 mt-2">
+                      <span className="font-mono text-xs font-bold px-2 py-0.5 rounded-md bg-blue-50 text-blue-700 border border-blue-200">
+                        {viewingStudent.student_id}
+                      </span>
+                      <span className="text-xs px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 font-medium">
+                        {viewingStudent.gender || 'Gender: N/A'}
+                      </span>
+                      <span className="text-xs px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 font-medium">
+                        {viewingStudent.laptop_status || 'Laptop: N/A'}
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2.5 mt-4 pt-3 border-t border-slate-200/60 text-xs">
+                      <div className="bg-white/80 p-2.5 rounded-xl border border-slate-200/60">
+                        <span className="text-slate-400 text-[10px] uppercase font-bold tracking-wider block">Admission Date</span>
+                        <span className="font-semibold text-slate-800">{formatDate(viewingStudent.createdAt)}</span>
+                      </div>
+                      <div className="bg-white/80 p-2.5 rounded-xl border border-slate-200/60">
+                        <span className="text-slate-400 text-[10px] uppercase font-bold tracking-wider block">Admission Fee</span>
+                        <span className="font-bold text-slate-900">PKR {Number(viewingStudent.admission_fee || 0).toLocaleString()}</span>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
 
@@ -1856,6 +1905,35 @@ const Students = () => {
         onClose={() => setCropModalData({ isOpen: false, imageSrc: '', target: null })}
         onCropComplete={handleCropComplete}
       />
+
+      {/* FULL PHOTO LIGHTBOX PREVIEW */}
+      {enlargedPhoto && (
+        <div 
+          className="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-[120] flex items-center justify-center p-4 animate-in fade-in duration-150"
+          onClick={() => setEnlargedPhoto(null)}
+        >
+          <div 
+            className="relative max-w-md w-full bg-slate-900 rounded-3xl p-3 shadow-2xl border border-white/10 flex flex-col items-center animate-in zoom-in-95"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="w-full flex items-center justify-between pb-2 px-2 text-white/90">
+              <span className="text-xs font-semibold">{viewingStudent?.name || 'Student Photo'}</span>
+              <button
+                onClick={() => setEnlargedPhoto(null)}
+                className="p-1.5 rounded-lg hover:bg-white/10 text-white/70 hover:text-white transition-colors cursor-pointer"
+                title="Close"
+              >
+                <X size={18} />
+              </button>
+            </div>
+            <img
+              src={enlargedPhoto}
+              alt="Enlarged Student Profile"
+              className="w-full max-h-[70vh] object-contain rounded-2xl bg-black"
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 };
