@@ -646,7 +646,49 @@ const Fees = () => {
                 </span>
               </div>
 
-              <div className="overflow-x-auto rounded-xl border border-amber-200/80 bg-white">
+              {/* MOBILE PENDING CARDS (< md) */}
+              <div className="block md:hidden divide-y divide-amber-100 rounded-xl border border-amber-200/80 bg-white overflow-hidden">
+                {pendingFees.map(f => (
+                  <div key={`mob_pending_${f.id}`} className="p-3.5 space-y-2 bg-amber-50/20">
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <div className="font-bold text-slate-900 text-sm">{f.student_name}</div>
+                        <div className="text-xs text-slate-500">{f.course_name}</div>
+                      </div>
+                      <span className="font-mono text-xs font-bold text-amber-900 bg-amber-100 px-2 py-0.5 rounded">
+                        {f.month_key}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center justify-between text-xs pt-1">
+                      <div>
+                        <span className="text-slate-400">Paid: </span>
+                        <strong className="text-emerald-700 font-mono">PKR {f.paid}</strong>
+                        {f.waived > 0 && <span className="text-rose-600 text-[10px] ml-1.5">(Waived: {f.waived})</span>}
+                      </div>
+                      <div className="text-[10px] text-slate-400 font-mono">{f.pay_date || '—'}</div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2 pt-2 border-t border-amber-100">
+                      <button
+                        onClick={() => approveFee(f.id, f)}
+                        className="w-full py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-xs"
+                      >
+                        Approve
+                      </button>
+                      <button
+                        onClick={() => rejectFee(f.id)}
+                        className="w-full py-2 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 font-bold text-xs"
+                      >
+                        Reject
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* DESKTOP PENDING TABLE (>= md) */}
+              <div className="hidden md:block overflow-x-auto rounded-xl border border-amber-200/80 bg-white">
                 <table className="w-full text-left border-collapse text-xs">
                   <thead>
                     <tr className="bg-amber-100/50 border-b border-amber-200 text-amber-900 font-bold uppercase tracking-wider text-[11px]">
@@ -715,7 +757,69 @@ const Fees = () => {
             </div>
 
             {selectedCourseId ? (
-              <div className="overflow-x-auto rounded-xl border border-slate-200">
+              <>
+                {/* MOBILE COURSE LEDGER CARDS (< md) */}
+                <div className="block md:hidden divide-y divide-slate-100 rounded-xl border border-slate-200 bg-white overflow-hidden">
+                  {getHistory().length > 0 ? (
+                    getHistory().map(h => (
+                      <div key={`mob_hist_${h.id}`} className="p-3.5 space-y-2.5">
+                        <div className="flex items-start justify-between">
+                          <div>
+                            <div className="font-bold text-slate-900 text-sm">
+                              {h.month_key ? h.month_key.replace('_', ' ') : h.id.replace('_', ' ')}
+                            </div>
+                            <div className="text-[11px] text-slate-400 font-mono">
+                              Paid: {h.pay_date || h.payment_date || (h.timestamp ? new Date(h.timestamp).toISOString().split('T')[0] : '—')}
+                            </div>
+                          </div>
+
+                          {isAdmin && (
+                            <div className="flex items-center gap-1">
+                              <button
+                                onClick={() => handleEdit(h)}
+                                className="p-1.5 rounded-lg text-blue-600 hover:bg-blue-50"
+                                title="Edit"
+                              >
+                                <Pencil size={14} />
+                              </button>
+                              <button
+                                onClick={() => handleDeleteFee(h.id)}
+                                className="p-1.5 rounded-lg text-rose-600 hover:bg-rose-50"
+                                title="Delete"
+                              >
+                                <Trash2 size={14} />
+                              </button>
+                            </div>
+                          )}
+                        </div>
+
+                        <div className="grid grid-cols-3 gap-2 text-center text-xs">
+                          <div className="p-2 bg-slate-50 rounded-lg">
+                            <div className="text-[10px] text-slate-400 font-medium uppercase">Payable</div>
+                            <div className="font-mono font-bold text-slate-700 mt-0.5">PKR {Number(h.payable || 0).toLocaleString()}</div>
+                          </div>
+                          <div className="p-2 bg-emerald-50/70 rounded-lg">
+                            <div className="text-[10px] text-emerald-600 font-medium uppercase">Paid</div>
+                            <div className="font-mono font-bold text-emerald-700 mt-0.5">PKR {Number(h.paid || 0).toLocaleString()}</div>
+                          </div>
+                          <div className={`p-2 rounded-lg ${h.balance > 0 ? 'bg-rose-50/70' : 'bg-slate-50'}`}>
+                            <div className={`text-[10px] font-medium uppercase ${h.balance > 0 ? 'text-rose-600' : 'text-slate-400'}`}>Balance</div>
+                            <div className={`font-mono font-black mt-0.5 ${h.balance > 0 ? 'text-rose-600' : 'text-emerald-700'}`}>
+                              {h.balance > 0 ? `PKR ${Number(h.balance).toLocaleString()}` : 'Cleared'}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="py-8 text-center text-slate-400 text-xs">
+                      No transaction records found for this course.
+                    </div>
+                  )}
+                </div>
+
+                {/* DESKTOP TABLE (>= md) */}
+                <div className="hidden md:block overflow-x-auto rounded-xl border border-slate-200">
                 <table className="w-full text-left border-collapse text-xs">
                   <thead>
                     <tr className="bg-slate-50 border-b border-slate-200 text-slate-600 uppercase font-bold tracking-wider text-[11px]">
@@ -791,6 +895,7 @@ const Fees = () => {
                   </tbody>
                 </table>
               </div>
+            </>
             ) : (
               <div className="p-12 text-center border-2 border-dashed border-slate-200 rounded-xl text-slate-400 text-xs space-y-1">
                 <CreditCard className="mx-auto text-slate-300" size={32} />

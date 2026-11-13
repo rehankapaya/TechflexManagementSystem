@@ -322,7 +322,7 @@ const Dashboard = () => {
           </div>
         </header>
 
-        <main className="flex-1 overflow-y-auto p-6">
+        <main className="flex-1 overflow-y-auto p-3 sm:p-6 pb-24 md:pb-6">
           {error && (
             <div className="mb-6 flex items-center justify-between p-4 bg-red-50 border border-red-100 text-red-700 rounded-xl animate-bounce-short">
               <div className="flex items-center gap-3">
@@ -338,13 +338,52 @@ const Dashboard = () => {
           <Outlet context={{ searchTerm }} />
         </main>
 
-        <footer className="px-8 py-4 bg-white border-t border-slate-200 flex justify-between items-center text-xs text-slate-400 font-medium">
+        <footer className="hidden md:flex px-8 py-4 bg-white border-t border-slate-200 justify-between items-center text-xs text-slate-400 font-medium">
           <span>© 2025 TechFlex Management System • v2.0.4</span>
           <div className="flex gap-4">
             <a href="#support" className="hover:text-[#3B82F6] transition-colors">Support</a>
             <a href="#privacy" className="hover:text-[#3B82F6] transition-colors">Privacy Policy</a>
           </div>
         </footer>
+
+        {/* MOBILE BOTTOM NAVIGATION BAR */}
+        <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-slate-200/80 px-2 py-1 shadow-[0_-4px_16px_rgba(0,0,0,0.06)] flex items-center justify-around pb-[max(0.4rem,env(safe-area-inset-bottom))]">
+          <BottomNavLink
+            to="/dashboard"
+            icon={<LayoutDashboard size={20} />}
+            label="Overview"
+            active={location.pathname === '/dashboard'}
+          />
+          <BottomNavLink
+            to="/dashboard/students"
+            icon={<Users size={20} />}
+            label="Students"
+            active={isActive('/dashboard/students')}
+          />
+          <BottomNavLink
+            to="/dashboard/fees"
+            icon={<CreditCard size={20} />}
+            label="Fees"
+            active={isActive('/dashboard/fees')}
+          />
+          <BottomNavLink
+            to="/dashboard/feestatus"
+            icon={<BadgeDollarSign size={20} />}
+            label="Status"
+            active={isActive('/dashboard/feestatus')}
+          />
+          <button
+            onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+            className={`flex flex-col items-center justify-center py-1 px-3 rounded-xl transition-all cursor-pointer ${
+              !sidebarCollapsed ? 'text-blue-600 font-semibold' : 'text-slate-500 hover:text-slate-700'
+            }`}
+          >
+            <div className={`p-1 rounded-lg transition-transform ${!sidebarCollapsed ? 'scale-110 bg-blue-50 text-blue-600' : ''}`}>
+              <Menu size={20} />
+            </div>
+            <span className="text-[10px] tracking-tight mt-0.5">More</span>
+          </button>
+        </nav>
       </div>
     </div>
   );
@@ -369,6 +408,22 @@ const SidebarLink = ({ to, icon, label, collapsed, active, onClick }) => (
     </div>
     {!collapsed && <span className="text-sm font-medium tracking-wide">{label}</span>}
     {active && !collapsed && <div className="ml-auto w-1.5 h-1.5 rounded-full bg-white opacity-50"></div>}
+  </Link>
+);
+
+const BottomNavLink = ({ to, icon, label, active }) => (
+  <Link
+    to={to}
+    className={`flex flex-col items-center justify-center py-1 px-3 rounded-xl transition-all ${
+      active
+        ? 'text-blue-600 font-semibold'
+        : 'text-slate-400 hover:text-slate-600'
+    }`}
+  >
+    <div className={`p-1 rounded-lg transition-transform ${active ? 'scale-110 bg-blue-50 text-blue-600' : ''}`}>
+      {icon}
+    </div>
+    <span className="text-[10px] tracking-tight mt-0.5">{label}</span>
   </Link>
 );
 

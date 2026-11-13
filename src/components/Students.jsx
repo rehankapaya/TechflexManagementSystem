@@ -911,9 +911,183 @@ const Students = () => {
         </div>
       </div>
 
-      {/* STUDENT TABLE */}
+      {/* STUDENT TABLE & MOBILE CARDS */}
       <div className="bg-white border border-slate-200/80 rounded-2xl shadow-sm overflow-hidden">
-        <div className="overflow-x-auto">
+        {/* MOBILE CARDS VIEW (< md) */}
+        <div className="block md:hidden divide-y divide-slate-100">
+          {filteredStudents.length === 0 ? (
+            <div className="px-5 py-12 text-center text-slate-400">
+              <User size={36} className="mx-auto mb-2 opacity-30" />
+              <p className="text-sm font-medium">No students match your filter criteria</p>
+            </div>
+          ) : (
+            filteredStudents.map((s) => {
+              const isStudentActive = !s.status || s.status === 'active';
+              return (
+                <div key={`mob_${s.id}`} className="p-4 space-y-3 bg-white hover:bg-slate-50/50 transition-colors">
+                  {/* Student Header */}
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex items-center gap-3">
+                      {s.profile_image ? (
+                        <img
+                          src={s.profile_image}
+                          alt={s.name}
+                          onClick={() => setViewingStudent(s)}
+                          className="w-12 h-12 rounded-2xl object-cover border border-slate-200/80 shadow-xs shrink-0 cursor-pointer"
+                        />
+                      ) : (
+                        <div
+                          onClick={() => setViewingStudent(s)}
+                          className={`w-12 h-12 rounded-2xl flex items-center justify-center text-sm font-bold shadow-sm shrink-0 cursor-pointer ${
+                            s.gender === 'Female'
+                              ? 'bg-gradient-to-br from-pink-500 to-rose-600 text-white'
+                              : 'bg-gradient-to-br from-blue-500 to-indigo-600 text-white'
+                          }`}
+                        >
+                          {s.name ? s.name.charAt(0).toUpperCase() : '?'}
+                        </div>
+                      )}
+                      <div>
+                        <div
+                          onClick={() => setViewingStudent(s)}
+                          className="font-bold text-slate-900 text-base leading-tight hover:text-blue-600 cursor-pointer"
+                        >
+                          {s.name}
+                        </div>
+                        <div className="flex flex-wrap items-center gap-1.5 mt-1">
+                          <span className="font-mono text-xs font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-md">
+                            {s.student_id}
+                          </span>
+                          <span className="text-[10px] px-1.5 py-0.5 bg-slate-100 text-slate-500 rounded font-medium">
+                            {s.gender || 'N/A'}
+                          </span>
+                          <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider ${
+                            isStudentActive ? 'bg-emerald-50 text-emerald-700 border border-emerald-200/60' : 'bg-slate-100 text-slate-500'
+                          }`}>
+                            {isStudentActive ? 'Active' : 'Inactive'}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <button
+                      onClick={() => setViewingStudent(s)}
+                      className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-colors cursor-pointer shrink-0"
+                      title="View Student"
+                    >
+                      <Eye size={18} />
+                    </button>
+                  </div>
+
+                  {/* Courses & Timeslot Badges */}
+                  <div className="bg-slate-50/80 rounded-xl p-2.5 border border-slate-100 space-y-1.5">
+                    <div className="flex flex-wrap gap-1.5">
+                      {Object.values(s.enrolled_courses || {}).map((course, idx) => (
+                        <div key={idx} className="flex flex-wrap items-center gap-1 text-xs">
+                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold bg-white text-slate-800 border border-slate-200 shadow-2xs">
+                            {course.course_name}
+                          </span>
+                          {course.timeslot && (
+                            <span className="text-[11px] text-slate-500 flex items-center gap-0.5">
+                              <Clock size={11} className="text-slate-400" /> {course.timeslot}
+                            </span>
+                          )}
+                          <span className="text-[11px] font-mono font-bold text-slate-700">
+                            PKR {Number(course.agreed_monthly_fee || 0).toLocaleString()}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+
+                    <div className="flex items-center justify-between text-[11px] text-slate-500 pt-1 border-t border-slate-200/60 font-sans">
+                      <span>Admission Fee: <strong className="font-mono text-slate-700">PKR {Number(s.admission_fee || 0).toLocaleString()}</strong></span>
+                      <span className="flex items-center gap-1"><Laptop size={11} /> {s.laptop_status === 'Has Laptop' ? 'Has Laptop' : 'Ins. Laptop'}</span>
+                    </div>
+                  </div>
+
+                  {/* Quick Contact & Action Buttons */}
+                  <div className="flex items-center justify-between pt-1 gap-2">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      {s.contact && (
+                        <>
+                          <a
+                            href={`tel:${s.contact}`}
+                            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs transition-colors"
+                          >
+                            <Phone size={12} />
+                            <span>Call</span>
+                          </a>
+                          <a
+                            href={`https://wa.me/${normalizePhoneNumber(s.contact).replace('+', '')}`}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-700 font-bold text-xs transition-colors border border-emerald-200/60"
+                          >
+                            <MessageCircle size={12} />
+                            <span>WhatsApp</span>
+                          </a>
+                        </>
+                      )}
+                      {s.secondary_contact && (
+                        <a
+                          href={`https://wa.me/${normalizePhoneNumber(s.secondary_contact).replace('+', '')}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex items-center gap-1 px-2 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 font-medium text-[11px]"
+                          title="WhatsApp Parent"
+                        >
+                          <MessageCircle size={11} />
+                          <span>Parent</span>
+                        </a>
+                      )}
+                    </div>
+
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={async (e) => {
+                          e.stopPropagation();
+                          const res = await syncStudentToGoogleContacts(s);
+                          if (res?.success) toast.success(`Synced ${s.student_id} to phone contacts!`);
+                          else toast.error(res?.message || 'Sync failed');
+                        }}
+                        className="p-2 text-slate-500 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors cursor-pointer"
+                        title="Sync Contact to Mobile"
+                      >
+                        <Smartphone size={16} />
+                      </button>
+                      {isAdmin && (
+                        <>
+                          <button
+                            onClick={() => startEdit(s)}
+                            className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors cursor-pointer"
+                            title="Edit Profile"
+                          >
+                            <Edit2 size={16} />
+                          </button>
+                          <button
+                            onClick={() => {
+                              if (window.confirm(`Delete record for ${s.name}?`)) {
+                                remove(ref(db, `students/${s.id}`));
+                                toast.success("Student removed");
+                              }
+                            }}
+                            className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
+                            title="Delete Student"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })
+          )}
+        </div>
+
+        {/* DESKTOP TABLE (>= md) */}
+        <div className="hidden md:block overflow-x-auto">
           <table className="w-full text-left text-sm">
             <thead className="bg-slate-50/80 text-slate-500 text-xs font-semibold uppercase tracking-wider border-b border-slate-200">
               <tr>

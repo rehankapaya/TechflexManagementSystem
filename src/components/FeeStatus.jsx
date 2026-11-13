@@ -25,14 +25,6 @@ const FeeStatus = () => {
   const [statusFilter, setStatusFilter] = useState('active');
   const [searchParams] = useSearchParams();
 
-  useEffect(() => {
-    const q = searchParams.get('search') || searchParams.get('studentId') || searchParams.get('id');
-    if (q) {
-      setSearchTerm(q);
-      setFromMonth('Jan');
-    }
-  }, [searchParams]);
-
   const currentMonthLabel = getCanonicalShortMonth();
   const currentYearLabel = new Date().getFullYear().toString();
 
@@ -40,6 +32,14 @@ const FeeStatus = () => {
   const [fromYear, setFromYear] = useState(currentYearLabel);
   const [toMonth, setToMonth] = useState(currentMonthLabel);
   const [toYear, setToYear] = useState(currentYearLabel);
+
+  useEffect(() => {
+    const q = searchParams.get('search') || searchParams.get('studentId') || searchParams.get('id');
+    if (q) {
+      setSearchTerm(q);
+      setFromMonth('Jan');
+    }
+  }, [searchParams]);
 
   const monthsMap = { Jan: 0, Feb: 1, Mar: 2, Apr: 3, May: 4, Jun: 5, Jul: 6, Aug: 7, Sep: 8, Oct: 9, Nov: 10, Dec: 11 };
 
@@ -325,7 +325,69 @@ const FeeStatus = () => {
           <span className="text-slate-400 font-normal">Sorted newest first</span>
         </div>
 
-        <div className="overflow-x-auto">
+        {/* MOBILE CARDS VIEW (< md) */}
+        <div className="block md:hidden divide-y divide-slate-100">
+          {finalDisplayList.length > 0 ? (
+            finalDisplayList.map((item, idx) => {
+              let badgeClass = "bg-rose-50 text-rose-700 border-rose-200";
+              if (item.statusType === 'paid') badgeClass = "bg-emerald-50 text-emerald-700 border-emerald-200";
+              else if (item.statusType === 'partial') badgeClass = "bg-amber-50 text-amber-700 border-amber-200";
+
+              return (
+                <div key={`mob_${item.studentId}_${idx}`} className="p-4 space-y-3 bg-white hover:bg-slate-50/50 transition-colors">
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <div className="font-bold text-slate-900 text-sm leading-tight">{item.name}</div>
+                      <div className="text-xs font-mono font-bold text-blue-600 mt-0.5">{item.studentId}</div>
+                    </div>
+                    <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold border uppercase tracking-wider shrink-0 ${badgeClass}`}>
+                      {item.label}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center justify-between text-xs text-slate-700 bg-slate-50/80 p-2.5 rounded-xl border border-slate-100">
+                    <span className="font-semibold text-slate-800 truncate mr-2">{item.courseName}</span>
+                    <span className="font-mono text-slate-600 font-semibold shrink-0">{item.month} {item.year}</span>
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-2 text-center pt-1">
+                    <div className="p-2 bg-slate-50 rounded-xl border border-slate-100/80">
+                      <div className="text-[10px] font-bold text-slate-400 uppercase">Fee</div>
+                      <div className="text-xs font-mono font-bold text-slate-700 mt-0.5">
+                        PKR {Number(item.agreedFee).toLocaleString()}
+                      </div>
+                    </div>
+                    <div className="p-2 bg-emerald-50/70 rounded-xl border border-emerald-100/60">
+                      <div className="text-[10px] font-bold text-emerald-600 uppercase">Paid</div>
+                      <div className="text-xs font-mono font-bold text-emerald-700 mt-0.5">
+                        {item.paid > 0 ? `PKR ${Number(item.paid).toLocaleString()}` : '—'}
+                      </div>
+                    </div>
+                    <div className={`p-2 rounded-xl border ${item.balance > 0 ? 'bg-rose-50/70 border-rose-100' : 'bg-slate-50 border-slate-100/80'}`}>
+                      <div className={`text-[10px] font-bold uppercase ${item.balance > 0 ? 'text-rose-600' : 'text-slate-400'}`}>Balance</div>
+                      <div className={`text-xs font-mono font-black mt-0.5 ${item.balance > 0 ? 'text-rose-600' : 'text-emerald-700'}`}>
+                        {item.balance > 0 ? `PKR ${Number(item.balance).toLocaleString()}` : 'Cleared'}
+                      </div>
+                    </div>
+                  </div>
+
+                  {item.payDate && (
+                    <div className="text-[11px] text-slate-400 text-right font-sans">
+                      Payment Date: <span className="font-mono text-slate-600 font-medium">{item.payDate}</span>
+                    </div>
+                  )}
+                </div>
+              );
+            })
+          ) : (
+            <div className="py-12 text-center text-slate-400 text-xs">
+              No fee records found matching your filters.
+            </div>
+          )}
+        </div>
+
+        {/* DESKTOP TABLE (>= md) */}
+        <div className="hidden md:block overflow-x-auto">
           <table className="w-full text-left border-collapse text-xs">
             <thead>
               <tr className="bg-slate-50 border-b border-slate-200 text-slate-600 uppercase font-bold tracking-wider text-[11px]">
