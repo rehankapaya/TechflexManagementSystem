@@ -199,15 +199,15 @@ const Courses = () => {
           </div>
 
           {/* MOBILE COURSES CARDS (< md) */}
-          <div className="block md:hidden divide-y divide-slate-100">
+          <div className="block md:hidden space-y-3 p-3 bg-slate-100/70 rounded-2xl">
             {courses.length > 0 ? (
               courses.map((course) => (
-                <div key={`mob_course_${course.id}`} className="p-4 space-y-2.5 bg-white hover:bg-slate-50/50 transition-colors">
+                <div key={`mob_course_${course.id}`} className="p-4 space-y-2.5 bg-white rounded-2xl border border-slate-300 shadow-[0_2px_8px_rgba(15,23,42,0.05)]">
                   <div className="flex items-start justify-between gap-2">
                     <div>
-                      <div className="font-bold text-slate-900 text-sm leading-snug">{course.name}</div>
-                      <div className="inline-flex items-center gap-1 bg-slate-100 text-slate-700 px-2 py-0.5 rounded-md text-[10px] font-mono font-semibold mt-1">
-                        <Clock size={11} className="text-slate-400" />
+                      <div className="font-extrabold text-slate-950 text-base leading-snug">{course.name}</div>
+                      <div className="inline-flex items-center gap-1 bg-slate-100 text-slate-800 px-2.5 py-0.5 rounded-md text-xs font-mono font-bold mt-1.5 border border-slate-200">
+                        <Clock size={12} className="text-slate-500" />
                         <span>{course.duration} Months</span>
                       </div>
                     </div>
@@ -215,14 +215,14 @@ const Courses = () => {
                     <div className="flex items-center gap-1">
                       <button
                         onClick={() => startEdit(course)}
-                        className="p-1.5 rounded-lg text-blue-600 hover:bg-blue-50 transition-colors cursor-pointer"
+                        className="p-1.5 rounded-lg text-blue-700 hover:bg-blue-50 bg-blue-50/50 transition-colors cursor-pointer border border-blue-200"
                         title="Edit Course"
                       >
                         <Pencil size={15} />
                       </button>
                       <button
                         onClick={() => handleDelete(course.id)}
-                        className="p-1.5 rounded-lg text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
+                        className="p-1.5 rounded-lg text-rose-700 hover:bg-rose-50 bg-rose-50/50 transition-colors cursor-pointer border border-rose-200"
                         title="Delete Course"
                       >
                         <Trash2 size={15} />
@@ -230,16 +230,16 @@ const Courses = () => {
                     </div>
                   </div>
 
-                  <div className="flex items-center justify-between pt-1 border-t border-slate-100 text-xs">
-                    <span className="text-slate-400 font-medium">Standard Tuition:</span>
-                    <span className="font-mono font-black text-sm text-emerald-700">
+                  <div className="flex items-center justify-between pt-2 border-t border-slate-200 text-xs">
+                    <span className="text-slate-600 font-semibold">Standard Tuition:</span>
+                    <span className="font-mono font-black text-sm text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded-lg border border-emerald-200">
                       PKR {Number(course.base_fee).toLocaleString()}
                     </span>
                   </div>
                 </div>
               ))
             ) : (
-              <div className="py-12 text-center text-slate-400 text-xs">
+              <div className="py-8 text-center text-slate-500 text-xs font-semibold">
                 No courses found in the catalog.
               </div>
             )}

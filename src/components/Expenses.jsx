@@ -413,20 +413,20 @@ const Expenses = () => {
             </div>
 
             {/* MOBILE EXPENSES CARDS (< md) */}
-            <div className="block md:hidden divide-y divide-slate-100">
+            <div className="block md:hidden space-y-3 p-3 bg-slate-100/70 rounded-2xl">
               {filteredExpenses.length > 0 ? (
                 filteredExpenses.map(e => (
-                  <div key={`mob_exp_${e.id}`} className="p-4 space-y-2.5 bg-white hover:bg-slate-50/50 transition-colors">
+                  <div key={`mob_exp_${e.id}`} className="p-4 space-y-2.5 bg-white rounded-2xl border border-slate-300 shadow-[0_2px_8px_rgba(15,23,42,0.05)]">
                     <div className="flex items-start justify-between gap-2">
                       <div className="flex items-center gap-2">
-                        <span className={`inline-block px-2.5 py-0.5 rounded-full text-[10px] font-bold border uppercase tracking-wider ${
+                        <span className={`inline-block px-2.5 py-0.5 rounded-full text-[10px] font-extrabold border uppercase tracking-wider ${
                           e.courseName === 'General'
-                            ? 'bg-slate-100 text-slate-700 border-slate-200'
-                            : 'bg-amber-50 text-amber-800 border-amber-200'
+                            ? 'bg-slate-100 text-slate-800 border-slate-300'
+                            : 'bg-amber-100 text-amber-900 border-amber-300'
                         }`}>
                           {e.courseName}
                         </span>
-                        <span className="font-mono text-xs text-slate-400">
+                        <span className="font-mono text-xs font-semibold text-slate-500">
                           {new Date(e.date).toLocaleDateString('en-GB')}
                         </span>
                       </div>
@@ -435,38 +435,38 @@ const Expenses = () => {
                         <div className="flex items-center gap-1">
                           <button
                             onClick={() => handleEditExpense(e)}
-                            className="p-1.5 rounded-lg text-blue-600 hover:bg-blue-50 transition-colors cursor-pointer"
+                            className="p-1.5 rounded-lg text-blue-700 hover:bg-blue-50 bg-blue-50/50 transition-colors cursor-pointer border border-blue-200"
                             title="Edit Expense"
                           >
-                            <Pencil size={15} />
+                            <Pencil size={14} />
                           </button>
                           <button
                             onClick={() => handleDelete(e.id)}
-                            className="p-1.5 rounded-lg text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
+                            className="p-1.5 rounded-lg text-rose-700 hover:bg-rose-50 bg-rose-50/50 transition-colors cursor-pointer border border-rose-200"
                             title="Delete Expense"
                           >
-                            <Trash2 size={15} />
+                            <Trash2 size={14} />
                           </button>
                         </div>
                       )}
                     </div>
 
-                    <p className="text-sm font-semibold text-slate-800 leading-snug">
+                    <p className="text-sm font-bold text-slate-900 leading-snug">
                       {e.description}
                     </p>
 
-                    <div className="flex items-center justify-between pt-1 border-t border-slate-100 text-xs">
-                      <span className="text-[11px] text-slate-400">
-                        Added by: <strong className="text-slate-600">{e.addedBy || 'Admin'}</strong>
+                    <div className="flex items-center justify-between pt-2 border-t border-slate-200 text-xs">
+                      <span className="text-[11px] text-slate-600 font-medium">
+                        Added by: <strong className="text-slate-900 font-bold">{e.addedBy || 'Admin'}</strong>
                       </span>
-                      <span className="font-mono font-black text-sm text-emerald-700">
+                      <span className="font-mono font-black text-sm text-emerald-800 bg-emerald-50 px-2 py-0.5 rounded-lg border border-emerald-200">
                         PKR {Number(e.amount).toLocaleString()}
                       </span>
                     </div>
                   </div>
                 ))
               ) : (
-                <div className="py-12 text-center text-slate-400 text-xs">
+                <div className="py-8 text-center text-slate-500 text-xs font-semibold">
                   No expenses recorded for {monthsFull[filterMonth - 1]} {filterYear}.
                 </div>
               )}

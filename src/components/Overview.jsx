@@ -165,31 +165,31 @@ const Overview = () => {
 
   const AnalyticsTable = ({ title, columns, data, rowLabelKey, rowKeys, icon: Icon = BarChart3 }) => {
     return (
-      <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs p-5 transition-all hover:shadow-md">
+      <div className="bg-white rounded-2xl border border-slate-300 md:border-slate-200/80 shadow-[0_2px_10px_rgba(15,23,42,0.06)] md:shadow-xs p-4 sm:p-5 transition-all hover:shadow-md">
         <div className="flex items-center gap-2 mb-4">
-          <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center">
+          <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-700 flex items-center justify-center font-bold">
             <Icon size={16} />
           </div>
-          <h3 className="text-sm font-bold text-slate-800 tracking-tight">{title}</h3>
+          <h3 className="text-sm font-extrabold text-slate-900 tracking-tight">{title}</h3>
         </div>
-        <div className="overflow-x-auto rounded-xl border border-slate-100">
+        <div className="overflow-x-auto rounded-xl border border-slate-300">
           <table className="w-full text-left border-collapse text-xs">
             <thead>
-              <tr className="bg-slate-50/80 border-b border-slate-200 text-slate-600 uppercase font-bold tracking-wider">
-                <th className="py-2.5 px-3.5 text-slate-700">{rowLabelKey}</th>
+              <tr className="bg-slate-100 border-b border-slate-300 text-slate-700 uppercase font-bold tracking-wider">
+                <th className="py-2.5 px-3.5 text-slate-800">{rowLabelKey}</th>
                 {columns.map(c => (
-                  <th key={c} className="py-2.5 px-3.5 text-right font-mono text-slate-700">{c}</th>
+                  <th key={c} className="py-2.5 px-3.5 text-right font-mono text-slate-800">{c}</th>
                 ))}
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
+            <tbody className="divide-y divide-slate-200">
               {rowKeys.map(rk => (
-                <tr key={rk} className="hover:bg-slate-50/60 transition-colors">
-                  <td className="py-2.5 px-3.5 font-semibold text-slate-800">{rk}</td>
+                <tr key={rk} className="hover:bg-slate-50 transition-colors">
+                  <td className="py-2.5 px-3.5 font-bold text-slate-900">{rk}</td>
                   {columns.map(c => {
                     const val = data[rk] ? data[rk][c] : 0;
                     return (
-                      <td key={c} className={`py-2.5 px-3.5 text-right font-mono font-medium ${val > 0 ? 'text-slate-900 font-semibold' : 'text-slate-400'}`}>
+                      <td key={c} className={`py-2.5 px-3.5 text-right font-mono font-medium ${val > 0 ? 'text-slate-950 font-bold' : 'text-slate-400'}`}>
                         {val}
                       </td>
                     );
@@ -204,12 +204,12 @@ const Overview = () => {
   };
 
   return (
-    <div className="space-y-8 animate-fade-in font-sans">
+    <div className="space-y-6 sm:space-y-8 animate-fade-in font-sans">
       {/* HEADER */}
-      <header className="flex flex-col md:flex-row md:items-center justify-between gap-3 pb-2">
+      <header className="flex flex-col md:flex-row md:items-center justify-between gap-3 pb-2 border-b border-slate-300/80 md:border-transparent">
         <div>
           <div className="flex items-center gap-2">
-            <h1 className="text-xl sm:text-2xl md:text-3xl font-extrabold text-slate-900 tracking-tight">
+            <h1 className="text-xl sm:text-2xl md:text-3xl font-extrabold text-slate-950 tracking-tight">
               Welcome back, {currentUser?.name || 'Admin'}
             </h1>
             <span className="inline-block animate-pulse text-xl sm:text-2xl">👋</span>
@@ -218,7 +218,7 @@ const Overview = () => {
             System performance and operational summary for today.
           </p>
         </div>
-        <div className="flex items-center gap-2 px-3 py-1.5 sm:px-4 sm:py-2 bg-white rounded-xl border border-slate-200/80 shadow-xs text-xs font-semibold text-slate-700 w-fit">
+        <div className="flex items-center gap-2 px-3 py-1.5 sm:px-4 sm:py-2 bg-white rounded-xl border border-slate-300 md:border-slate-200/80 shadow-xs text-xs font-bold text-slate-800 w-fit">
           <Calendar size={14} className="text-blue-600" />
           <span>
             {new Date().toLocaleDateString('en-US', { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' })}
@@ -233,7 +233,7 @@ const Overview = () => {
           return (
             <div
               key={idx}
-              className={`bg-white p-3.5 sm:p-5 rounded-2xl border border-slate-200/80 shadow-xs hover:shadow-md transition-all flex items-center gap-3 sm:gap-4 ${
+              className={`bg-white p-3.5 sm:p-5 rounded-2xl border border-slate-300 md:border-slate-200/80 shadow-[0_2px_10px_rgba(15,23,42,0.06)] md:shadow-xs hover:shadow-md transition-all flex items-center gap-3 sm:gap-4 ${
                 idx === 4 ? 'col-span-2 lg:col-span-1' : ''
               }`}
             >
@@ -241,10 +241,10 @@ const Overview = () => {
                 <Icon size={20} className="sm:w-[22px] sm:h-[22px]" />
               </div>
               <div className="min-w-0">
-                <span className="text-[10px] sm:text-[11px] font-bold text-slate-400 uppercase tracking-wider block truncate">
+                <span className="text-[10px] sm:text-[11px] font-bold text-slate-500 uppercase tracking-wider block truncate">
                   {card.title}
                 </span>
-                <h2 className="text-xl sm:text-2xl font-black text-slate-900 font-mono tracking-tight my-0.5">
+                <h2 className="text-xl sm:text-2xl font-black text-slate-950 font-mono tracking-tight my-0.5">
                   {loading ? '...' : card.value.toLocaleString()}
                 </h2>
                 <span className="text-[10px] sm:text-[11px] text-slate-500 font-medium block truncate">
@@ -258,44 +258,44 @@ const Overview = () => {
 
       {/* SYSTEM HEALTH & QUICK ACTIONS */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 bg-white p-6 rounded-2xl border border-slate-200/80 shadow-xs">
+        <div className="lg:col-span-2 bg-white p-4 sm:p-6 rounded-2xl border border-slate-300 md:border-slate-200/80 shadow-[0_2px_10px_rgba(15,23,42,0.06)] md:shadow-xs">
           <div className="flex items-center justify-between mb-5 pb-3 border-b border-slate-100">
             <div className="flex items-center gap-2.5">
               <Activity size={18} className="text-blue-600" />
-              <h3 className="text-base font-bold text-slate-900 tracking-tight">System Health & Live Status</h3>
+              <h3 className="text-base font-extrabold text-slate-950 tracking-tight">System Health & Live Status</h3>
             </div>
-            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200/60 uppercase tracking-wider">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping"></span>
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-emerald-100 text-emerald-800 border border-emerald-300 uppercase tracking-wider">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-600 animate-ping"></span>
               Live Status
             </span>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="flex items-start gap-3.5 p-4 rounded-xl bg-slate-50 border border-slate-100">
-              <div className="w-10 h-10 rounded-xl bg-blue-100 text-blue-600 flex items-center justify-center shrink-0">
+            <div className="flex items-start gap-3.5 p-4 rounded-xl bg-slate-100/80 border border-slate-200">
+              <div className="w-10 h-10 rounded-xl bg-blue-100 text-blue-700 flex items-center justify-center shrink-0">
                 <Zap size={18} />
               </div>
               <div>
-                <strong className="text-sm font-bold text-slate-800 block">Session Active</strong>
-                <p className="text-xs text-slate-500 mt-0.5 leading-relaxed">
+                <strong className="text-sm font-bold text-slate-900 block">Session Active</strong>
+                <p className="text-xs text-slate-600 mt-0.5 leading-relaxed">
                   Authenticated session for {currentUser?.name || 'Administrator'}
                 </p>
-                <span className="inline-block mt-2 text-[10px] font-mono font-medium text-slate-400">
+                <span className="inline-block mt-2 text-[10px] font-mono font-bold text-slate-500">
                   {new Date().toLocaleTimeString()}
                 </span>
               </div>
             </div>
 
-            <div className="flex items-start gap-3.5 p-4 rounded-xl bg-slate-50 border border-slate-100">
-              <div className="w-10 h-10 rounded-xl bg-emerald-100 text-emerald-600 flex items-center justify-center shrink-0">
+            <div className="flex items-start gap-3.5 p-4 rounded-xl bg-slate-100/80 border border-slate-200">
+              <div className="w-10 h-10 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0">
                 <ShieldCheck size={18} />
               </div>
               <div>
-                <strong className="text-sm font-bold text-slate-800 block">Security Guard</strong>
-                <p className="text-xs text-slate-500 mt-0.5 leading-relaxed">
+                <strong className="text-sm font-bold text-slate-900 block">Security Guard</strong>
+                <p className="text-xs text-slate-600 mt-0.5 leading-relaxed">
                   Firebase Realtime Database synchronization is encrypted and active.
                 </p>
-                <span className="inline-block mt-2 text-[10px] font-bold text-emerald-600">
+                <span className="inline-block mt-2 text-[10px] font-bold text-emerald-700">
                   SSL / TLS Encrypted
                 </span>
               </div>
@@ -303,13 +303,13 @@ const Overview = () => {
           </div>
         </div>
 
-        <div className="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-xs flex flex-col justify-between">
+        <div className="bg-white p-4 sm:p-6 rounded-2xl border border-slate-300 md:border-slate-200/80 shadow-[0_2px_10px_rgba(15,23,42,0.06)] md:shadow-xs flex flex-col justify-between">
           <div>
             <div className="flex items-center gap-2 mb-4 pb-3 border-b border-slate-100">
               <Sparkles size={18} className="text-blue-600" />
-              <h3 className="text-base font-bold text-slate-900 tracking-tight">Quick Navigation</h3>
+              <h3 className="text-base font-extrabold text-slate-950 tracking-tight">Quick Navigation</h3>
             </div>
-            <p className="text-xs text-slate-500 mb-4 leading-relaxed">
+            <p className="text-xs text-slate-500 mb-4 leading-relaxed font-medium">
               Fast shortcuts to primary administrative functions and logs.
             </p>
           </div>
@@ -318,7 +318,7 @@ const Overview = () => {
             {isAdmin && (
               <button
                 onClick={() => navigate('/dashboard/users')}
-                className="w-full flex items-center justify-between px-4 py-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold transition-all shadow-xs"
+                className="w-full flex items-center justify-between px-4 py-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold transition-all shadow-xs active:scale-[0.99]"
               >
                 <span>Register Staff Member</span>
                 <ArrowRight size={14} />
@@ -326,17 +326,17 @@ const Overview = () => {
             )}
             <button
               onClick={() => navigate('/dashboard/students')}
-              className="w-full flex items-center justify-between px-4 py-3 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-700 text-xs font-bold transition-all"
+              className="w-full flex items-center justify-between px-4 py-3 rounded-xl bg-slate-100/80 hover:bg-slate-200/70 border border-slate-300 text-slate-800 text-xs font-bold transition-all active:scale-[0.99]"
             >
               <span>Student Records</span>
-              <ArrowRight size={14} className="text-slate-400" />
+              <ArrowRight size={14} className="text-slate-500" />
             </button>
             <button
               onClick={() => navigate('/dashboard/analytics')}
-              className="w-full flex items-center justify-between px-4 py-3 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-700 text-xs font-bold transition-all"
+              className="w-full flex items-center justify-between px-4 py-3 rounded-xl bg-slate-100/80 hover:bg-slate-200/70 border border-slate-300 text-slate-800 text-xs font-bold transition-all active:scale-[0.99]"
             >
               <span>Revenue Analytics</span>
-              <ArrowRight size={14} className="text-slate-400" />
+              <ArrowRight size={14} className="text-slate-500" />
             </button>
           </div>
         </div>
@@ -383,29 +383,29 @@ const Overview = () => {
           />
 
           {/* TOTAL STATUS SUMMARY CARD */}
-          <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs p-5 transition-all hover:shadow-md">
+          <div className="bg-white rounded-2xl border border-slate-300 md:border-slate-200/80 shadow-[0_2px_10px_rgba(15,23,42,0.06)] md:shadow-xs p-5 transition-all hover:shadow-md">
             <div className="flex items-center gap-2 mb-4">
-              <div className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center">
+              <div className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center">
                 <UserCheck size={16} />
               </div>
-              <h3 className="text-sm font-bold text-slate-800 tracking-tight">Enrollment Status Totals</h3>
+              <h3 className="text-sm font-extrabold text-slate-900 tracking-tight">Enrollment Status Totals</h3>
             </div>
             <div className="grid grid-cols-3 gap-3 text-center">
-              <div className="p-3.5 rounded-xl bg-emerald-50/60 border border-emerald-100">
-                <span className="text-[10px] uppercase font-bold text-emerald-700 tracking-wider block">Active</span>
-                <span className="text-2xl font-black font-mono text-emerald-800 mt-1 block">
+              <div className="p-3.5 rounded-xl bg-emerald-50 border border-emerald-200">
+                <span className="text-[10px] uppercase font-bold text-emerald-800 tracking-wider block">Active</span>
+                <span className="text-2xl font-black font-mono text-emerald-900 mt-1 block">
                   {advancedStats.totalsByStatus.active}
                 </span>
               </div>
-              <div className="p-3.5 rounded-xl bg-blue-50/60 border border-blue-100">
-                <span className="text-[10px] uppercase font-bold text-blue-700 tracking-wider block">Completed</span>
-                <span className="text-2xl font-black font-mono text-blue-800 mt-1 block">
+              <div className="p-3.5 rounded-xl bg-blue-50 border border-blue-200">
+                <span className="text-[10px] uppercase font-bold text-blue-800 tracking-wider block">Completed</span>
+                <span className="text-2xl font-black font-mono text-blue-900 mt-1 block">
                   {advancedStats.totalsByStatus.coursecomplete}
                 </span>
               </div>
-              <div className="p-3.5 rounded-xl bg-rose-50/60 border border-rose-100">
-                <span className="text-[10px] uppercase font-bold text-rose-700 tracking-wider block">Dropped</span>
-                <span className="text-2xl font-black font-mono text-rose-800 mt-1 block">
+              <div className="p-3.5 rounded-xl bg-rose-50 border border-rose-200">
+                <span className="text-[10px] uppercase font-bold text-rose-800 tracking-wider block">Dropped</span>
+                <span className="text-2xl font-black font-mono text-rose-900 mt-1 block">
                   {advancedStats.totalsByStatus.dropout}
                 </span>
               </div>

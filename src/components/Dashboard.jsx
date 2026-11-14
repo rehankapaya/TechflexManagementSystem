@@ -265,15 +265,15 @@ const Dashboard = () => {
       {/* MAIN CONTENT AREA */}
       <div className="flex-1 flex flex-col min-w-0">
         {/* MOBILE TOP APP BAR (< md) */}
-        <header className="flex md:hidden h-14 bg-white/95 backdrop-blur-md border-b border-slate-200/80 items-center justify-between px-3.5 sticky top-0 z-20 shadow-2xs">
+        <header className="flex md:hidden h-14 bg-white/95 backdrop-blur-md border-b border-slate-300/90 items-center justify-between px-3.5 sticky top-0 z-20 shadow-xs">
           <div className="flex items-center gap-2.5 min-w-0">
-            <div className="w-8 h-8 rounded-xl overflow-hidden shadow-xs flex items-center justify-center bg-slate-900 border border-slate-200 shrink-0">
+            <div className="w-8 h-8 rounded-xl overflow-hidden shadow-xs flex items-center justify-center bg-slate-900 border border-slate-300 shrink-0">
               <img src="/official-logo.jpg" alt="TechFlex Logo" className="w-full h-full object-cover" />
             </div>
             <div className="flex items-center gap-1.5 min-w-0">
-              <span className="text-slate-900 font-extrabold text-base tracking-tight shrink-0">TechFlex</span>
+              <span className="text-slate-950 font-extrabold text-base tracking-tight shrink-0">TechFlex</span>
               <span className="text-slate-300 shrink-0">•</span>
-              <span className="text-xs font-bold text-blue-600 truncate bg-blue-50/80 px-2 py-0.5 rounded-md border border-blue-100">
+              <span className="text-xs font-bold text-blue-700 truncate bg-blue-100/90 px-2 py-0.5 rounded-md border border-blue-200">
                 {getCurrentPageTitle(location.pathname)}
               </span>
             </div>
@@ -293,10 +293,10 @@ const Dashboard = () => {
 
             <button
               onClick={() => setMobileHubOpen(true)}
-              className="flex items-center gap-1 p-1 rounded-xl bg-slate-100 hover:bg-slate-200 active:scale-95 transition-all cursor-pointer border border-slate-200/60"
+              className="flex items-center gap-1 p-1 rounded-xl bg-slate-100 hover:bg-slate-200 active:scale-95 transition-all cursor-pointer border border-slate-300/80 shadow-2xs"
               title="Open TechFlex App Hub"
             >
-              <div className="w-7 h-7 rounded-lg bg-[#3B82F6] flex items-center justify-center text-white font-bold text-xs shadow-2xs">
+              <div className="w-7 h-7 rounded-lg bg-[#3B82F6] flex items-center justify-center text-white font-bold text-xs shadow-inner">
                 {getInitials(currentUser?.name)}
               </div>
               <div className="w-2 h-2 rounded-full bg-emerald-500 mr-0.5 animate-pulse"></div>
@@ -360,7 +360,7 @@ const Dashboard = () => {
           </div>
         </header>
 
-        <main className="flex-1 overflow-y-auto p-3 sm:p-6 pb-24 md:pb-6 custom-scrollbar">
+        <main className="flex-1 overflow-y-auto p-3 sm:p-6 pb-24 md:pb-6 custom-scrollbar bg-slate-100/90 md:bg-slate-50">
           {error && (
             <div className="mb-6 flex items-center justify-between p-4 bg-red-50 border border-red-100 text-red-700 rounded-xl animate-bounce-short">
               <div className="flex items-center gap-3">
@@ -385,7 +385,7 @@ const Dashboard = () => {
         </footer>
 
         {/* MOBILE BOTTOM NAVIGATION BAR (< md) */}
-        <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-xl border-t border-slate-200/80 px-2 py-1.5 shadow-[0_-4px_24px_rgba(0,0,0,0.08)] flex items-center justify-around pb-[max(0.6rem,env(safe-area-inset-bottom))]">
+        <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-xl border-t border-slate-300 px-2 py-1.5 shadow-[0_-4px_24px_rgba(0,0,0,0.1)] flex items-center justify-around pb-[max(0.6rem,env(safe-area-inset-bottom))]">
           <BottomNavLink
             to="/dashboard"
             icon={<LayoutDashboard size={20} />}
@@ -734,11 +734,11 @@ const BottomNavLink = ({ to, icon, label, active }) => (
     to={to}
     className={`flex flex-col items-center justify-center py-1 px-3 rounded-xl transition-all active:scale-95 ${
       active
-        ? 'text-blue-600 font-bold'
-        : 'text-slate-400 hover:text-slate-600'
+        ? 'text-blue-700 font-extrabold'
+        : 'text-slate-500 hover:text-slate-800'
     }`}
   >
-    <div className={`p-1.5 rounded-xl transition-all ${active ? 'bg-blue-50 text-blue-600 scale-105' : ''}`}>
+    <div className={`p-1.5 rounded-xl transition-all ${active ? 'bg-blue-100 text-blue-700 scale-105 shadow-2xs' : ''}`}>
       {icon}
     </div>
     <span className="text-[10px] tracking-tight mt-0.5">{label}</span>
@@ -749,20 +749,20 @@ const MobileHubTile = ({ to, icon, bg, title, subtitle, active, onClick }) => (
   <Link
     to={to}
     onClick={onClick}
-    className={`flex items-center gap-3 p-3 rounded-2xl border transition-all active:scale-98 ${
+    className={`flex items-center gap-3 p-3 rounded-2xl border transition-all active:scale-98 shadow-xs ${
       active
-        ? 'bg-blue-50/70 border-blue-200 shadow-xs'
-        : 'bg-white hover:bg-slate-50/80 border-slate-200/80'
+        ? 'bg-blue-50/90 border-blue-400 shadow-sm'
+        : 'bg-white hover:bg-slate-50 border-slate-300/80 hover:border-slate-400'
     }`}
   >
-    <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${bg}`}>
+    <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 shadow-2xs ${bg}`}>
       {icon}
     </div>
     <div className="min-w-0">
-      <div className={`text-xs font-bold truncate leading-tight ${active ? 'text-blue-700' : 'text-slate-900'}`}>
+      <div className={`text-xs font-extrabold truncate leading-tight ${active ? 'text-blue-800' : 'text-slate-950'}`}>
         {title}
       </div>
-      <div className="text-[10px] text-slate-400 truncate mt-0.5">{subtitle}</div>
+      <div className="text-[10px] text-slate-500 truncate mt-0.5 font-medium">{subtitle}</div>
     </div>
   </Link>
 );

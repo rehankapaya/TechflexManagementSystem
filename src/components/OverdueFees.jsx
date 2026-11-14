@@ -312,82 +312,86 @@ const OverdueFees = () => {
         </div>
       </div>
 
-      {/* TABLE CARD */}
-      <div className="bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
+      {/* MOBILE OVERDUE CARDS VIEW (< md) */}
+      <div className="block md:hidden space-y-3.5">
+        {finalDisplayList.length > 0 ? (
+          finalDisplayList.map((item, idx) => (
+            <div
+              key={`mob_overdue_${item.studentId}_${idx}`}
+              className="p-4 space-y-3 bg-white rounded-2xl border border-slate-300 shadow-[0_2px_10px_rgba(15,23,42,0.06)] relative overflow-hidden"
+            >
+              <div className="absolute top-0 left-0 bottom-0 w-1.5 bg-rose-600" />
+
+              <div className="flex items-start justify-between gap-2 pl-1">
+                <div>
+                  <div className="font-extrabold text-slate-950 text-base leading-tight">{item.name}</div>
+                  <div className="text-xs font-mono font-extrabold text-blue-900 mt-1 flex items-center gap-2">
+                    <span className="bg-blue-100 px-2 py-0.5 rounded-md border border-blue-200">{item.studentId}</span>
+                    {item.phone && <span className="text-slate-600 font-sans font-semibold">• {item.phone}</span>}
+                  </div>
+                </div>
+                <span className="px-3 py-1 rounded-full text-[10px] font-mono font-black bg-rose-600 text-white shrink-0 shadow-2xs">
+                  {item.daysOverdue} Days
+                </span>
+              </div>
+
+              <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 space-y-1.5">
+                <div className="text-xs font-bold text-slate-900">{item.courseName}</div>
+                <div className="flex flex-wrap gap-1">
+                  {item.monthsList.map((m, i) => (
+                    <span key={i} className="bg-white text-slate-800 font-mono font-bold text-[10px] px-2 py-0.5 rounded border border-slate-300 shadow-2xs">
+                      {m}
+                    </span>
+                  ))}
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between pt-1">
+                <div className="p-2.5 bg-rose-50 rounded-xl border border-rose-200">
+                  <div className="text-[10px] font-extrabold text-rose-800 uppercase tracking-wider">Balance Due</div>
+                  <div className="text-base font-mono font-black text-rose-700">
+                    PKR {item.totalBalance.toLocaleString()}
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-1.5">
+                  {item.phone && (
+                    <a
+                      href={`tel:${item.phone}`}
+                      className="flex items-center gap-1 min-h-[40px] px-3 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs transition-colors shadow-2xs"
+                      title="Call Student"
+                    >
+                      <Phone size={13} />
+                      <span>Call</span>
+                    </a>
+                  )}
+                  <button
+                    onClick={() => handleWhatsApp(item.phone, item.name, item.monthsList.join(', '), item.totalBalance, item.dueDateStr)}
+                    className="flex items-center gap-1.5 min-h-[40px] px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-xs transition-colors cursor-pointer"
+                    title="Send WhatsApp Reminder"
+                  >
+                    <MessageCircle size={14} />
+                    <span>WhatsApp</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+          ))
+        ) : (
+          <div className="p-8 text-center text-slate-500 bg-white rounded-2xl border border-slate-300/80 shadow-xs">
+            No overdue fee records found. All accounts are up to date! 🎉
+          </div>
+        )}
+      </div>
+
+      {/* DESKTOP TABLE (>= md) */}
+      <div className="hidden md:block bg-white rounded-2xl border border-slate-200/80 shadow-xs overflow-hidden">
         <div className="p-4 bg-slate-50/70 border-b border-slate-200/80 flex items-center justify-between text-xs font-bold text-slate-600">
           <span>Delinquent Accounts ({finalDisplayList.length})</span>
           <span className="text-slate-400 font-normal">Sorted by highest overdue days</span>
         </div>
 
-        {/* MOBILE CARDS VIEW (< md) */}
-        <div className="block md:hidden divide-y divide-slate-100">
-          {finalDisplayList.length > 0 ? (
-            finalDisplayList.map((item, idx) => (
-              <div key={`mob_overdue_${item.studentId}_${idx}`} className="p-4 space-y-3 bg-white hover:bg-slate-50/50 transition-colors">
-                <div className="flex items-start justify-between gap-2">
-                  <div>
-                    <div className="font-bold text-slate-900 text-sm leading-tight">{item.name}</div>
-                    <div className="text-xs font-mono font-bold text-blue-600 mt-0.5 flex items-center gap-2">
-                      <span>{item.studentId}</span>
-                      {item.phone && <span className="text-slate-400 font-sans">• {item.phone}</span>}
-                    </div>
-                  </div>
-                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-mono font-bold bg-rose-50 text-rose-700 border border-rose-200 shrink-0">
-                    {item.daysOverdue} Days Overdue
-                  </span>
-                </div>
-
-                <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-100 space-y-1.5">
-                  <div className="text-xs font-semibold text-slate-800">{item.courseName}</div>
-                  <div className="flex flex-wrap gap-1">
-                    {item.monthsList.map((m, i) => (
-                      <span key={i} className="bg-white text-slate-700 font-mono text-[10px] px-2 py-0.5 rounded border border-slate-200 shadow-2xs">
-                        {m}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="flex items-center justify-between pt-1">
-                  <div>
-                    <div className="text-[10px] font-semibold text-slate-400 uppercase">Outstanding Balance</div>
-                    <div className="text-base font-mono font-black text-rose-600">
-                      PKR {item.totalBalance.toLocaleString()}
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    {item.phone && (
-                      <a
-                        href={`tel:${item.phone}`}
-                        className="flex items-center gap-1 min-h-[40px] px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs transition-colors"
-                        title="Call Student"
-                      >
-                        <Phone size={14} />
-                        <span>Call</span>
-                      </a>
-                    )}
-                    <button
-                      onClick={() => handleWhatsApp(item.phone, item.name, item.monthsList.join(', '), item.totalBalance, item.dueDateStr)}
-                      className="flex items-center gap-1.5 min-h-[40px] px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-xs transition-colors"
-                      title="Send WhatsApp Reminder"
-                    >
-                      <MessageCircle size={14} />
-                      <span>WhatsApp</span>
-                    </button>
-                  </div>
-                </div>
-              </div>
-            ))
-          ) : (
-            <div className="py-12 text-center text-slate-400 text-xs">
-              No overdue fee records found. All accounts are up to date! 🎉
-            </div>
-          )}
-        </div>
-
-        {/* DESKTOP TABLE (>= md) */}
-        <div className="hidden md:block overflow-x-auto">
+        <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse text-xs">
             <thead>
               <tr className="bg-slate-50 border-b border-slate-200 text-slate-600 uppercase font-bold tracking-wider text-[11px]">
