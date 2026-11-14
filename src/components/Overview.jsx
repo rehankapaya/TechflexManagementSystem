@@ -17,7 +17,17 @@ import {
   Calendar,
   Layers,
   Sparkles,
-  BarChart3
+  BarChart3,
+  CreditCard,
+  BadgeDollarSign,
+  AlertCircle,
+  Receipt,
+  Banknote,
+  PenSquare,
+  Clock,
+  Award,
+  UserCog,
+  FileText
 } from 'lucide-react';
 
 const Overview = () => {
@@ -163,6 +173,129 @@ const Overview = () => {
     { title: "Cashiers", value: stats.cashiers, icon: Wallet, color: "text-amber-600 bg-amber-50 border-amber-100", desc: "Financial nodes" },
   ];
 
+  const quickNavItems = [
+    {
+      id: 'fees',
+      label: 'Fee Entry',
+      to: '/dashboard/fees',
+      icon: <CreditCard size={22} className="text-blue-600" />,
+      bg: 'bg-blue-50/90',
+      border: 'border-blue-200'
+    },
+    {
+      id: 'status',
+      label: 'Fee Status',
+      to: '/dashboard/feestatus',
+      icon: <BadgeDollarSign size={22} className="text-emerald-600" />,
+      bg: 'bg-emerald-50/90',
+      border: 'border-emerald-200'
+    },
+    {
+      id: 'students',
+      label: 'Students',
+      to: '/dashboard/students',
+      icon: <Users size={22} className="text-indigo-600" />,
+      bg: 'bg-indigo-50/90',
+      border: 'border-indigo-200'
+    },
+    {
+      id: 'overdue',
+      label: 'Overdue',
+      to: '/dashboard/overdue',
+      icon: <AlertCircle size={22} className="text-rose-600" />,
+      bg: 'bg-rose-50/90',
+      border: 'border-rose-200'
+    },
+    {
+      id: 'expenses',
+      label: 'Expenses',
+      to: '/dashboard/expenses',
+      icon: <Receipt size={22} className="text-amber-600" />,
+      bg: 'bg-amber-50/90',
+      border: 'border-amber-200'
+    },
+    {
+      id: 'courses',
+      label: 'Courses',
+      to: '/dashboard/courses',
+      icon: <BookOpen size={22} className="text-teal-600" />,
+      bg: 'bg-teal-50/90',
+      border: 'border-teal-200'
+    },
+    {
+      id: 'studentstatus',
+      label: 'Status',
+      to: '/dashboard/studentstatus',
+      icon: <UserCheck size={22} className="text-violet-600" />,
+      bg: 'bg-violet-50/90',
+      border: 'border-violet-200'
+    },
+    {
+      id: 'enrollment',
+      label: 'Enrollment',
+      to: '/dashboard/courseenrollment',
+      icon: <PenSquare size={22} className="text-sky-600" />,
+      bg: 'bg-sky-50/90',
+      border: 'border-sky-200'
+    },
+    {
+      id: 'salary',
+      label: 'Staff Salary',
+      to: '/dashboard/salary',
+      icon: <Banknote size={22} className="text-emerald-600" />,
+      bg: 'bg-emerald-50/90',
+      border: 'border-emerald-200',
+      adminOnly: true
+    },
+    {
+      id: 'timeslots',
+      label: 'Timeslots',
+      to: '/dashboard/timeslot-analytics',
+      icon: <Clock size={22} className="text-cyan-600" />,
+      bg: 'bg-cyan-50/90',
+      border: 'border-cyan-200',
+      hideIfAdmin: true
+    },
+    {
+      id: 'analytics',
+      label: 'Analytics',
+      to: '/dashboard/analytics',
+      icon: <BarChart3 size={22} className="text-blue-600" />,
+      bg: 'bg-blue-50/90',
+      border: 'border-blue-200'
+    },
+    {
+      id: 'certificates',
+      label: 'Certificates',
+      to: '/dashboard/certificate',
+      icon: <Award size={22} className="text-amber-600" />,
+      bg: 'bg-amber-50/90',
+      border: 'border-amber-200'
+    },
+    {
+      id: 'users',
+      label: 'Staff Roles',
+      to: '/dashboard/users',
+      icon: <UserCog size={22} className="text-slate-700" />,
+      bg: 'bg-slate-100',
+      border: 'border-slate-300',
+      adminOnly: true
+    },
+    {
+      id: 'record',
+      label: 'Records',
+      to: '/dashboard/record',
+      icon: <FileText size={22} className="text-emerald-600" />,
+      bg: 'bg-emerald-50/90',
+      border: 'border-emerald-200',
+      hideIfAdmin: true
+    },
+  ].filter(item => {
+    if (item.adminOnly && !isAdmin) return false;
+    if (item.hideIfAdmin && isAdmin) return false;
+    return true;
+  }).slice(0, 12);
+
   const AnalyticsTable = ({ title, columns, data, rowLabelKey, rowKeys, icon: Icon = BarChart3 }) => {
     return (
       <div className="bg-white rounded-2xl border border-slate-300 md:border-slate-200/80 shadow-[0_2px_10px_rgba(15,23,42,0.06)] md:shadow-xs p-4 sm:p-5 transition-all hover:shadow-md">
@@ -204,7 +337,7 @@ const Overview = () => {
   };
 
   return (
-    <div className="space-y-6 sm:space-y-8 animate-fade-in font-sans">
+    <div className="space-y-5 sm:space-y-8 animate-fade-in font-sans">
       {/* HEADER */}
       <header className="flex flex-col md:flex-row md:items-center justify-between gap-3 pb-2 border-b border-slate-300/80 md:border-transparent">
         <div>
@@ -225,6 +358,22 @@ const Overview = () => {
           </span>
         </div>
       </header>
+
+      {/* MOBILE COMPACT LIVE STATUS PILL (< md) */}
+      <div className="flex md:hidden items-center justify-between px-3.5 py-2.5 bg-white rounded-2xl border border-slate-300 shadow-xs">
+        <div className="flex items-center gap-2">
+          <span className="relative flex h-2 w-2">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+            <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+          </span>
+          <span className="text-xs font-extrabold text-slate-900">System Live</span>
+          <span className="text-slate-300">•</span>
+          <span className="text-[11px] font-semibold text-slate-500">Encrypted DB Sync</span>
+        </div>
+        <span className="text-[10px] font-mono font-extrabold text-blue-700 bg-blue-50 px-2 py-0.5 rounded-md border border-blue-200 uppercase">
+          {currentUser?.role || 'Admin'}
+        </span>
+      </div>
 
       {/* KPI METRIC CARDS */}
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 sm:gap-4">
@@ -256,8 +405,47 @@ const Overview = () => {
         })}
       </div>
 
-      {/* SYSTEM HEALTH & QUICK ACTIONS */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      {/* MOBILE 4-COLUMN EASYPEISA-STYLE QUICK APP HUB (< md) */}
+      <div className="block md:hidden bg-white p-4 rounded-3xl border border-slate-300 shadow-[0_2px_10px_rgba(15,23,42,0.06)] space-y-3.5">
+        <div className="flex items-center justify-between pb-2.5 border-b border-slate-100">
+          <div className="flex items-center gap-2">
+            <div className="w-7 h-7 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center">
+              <Sparkles size={16} />
+            </div>
+            <h3 className="text-sm font-extrabold text-slate-950 tracking-tight">App Hub Services</h3>
+          </div>
+          <span className="text-[10px] font-mono font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md border border-slate-200">
+            {quickNavItems.length} Shortcuts
+          </span>
+        </div>
+
+        {/* 4-COLUMN GRID */}
+        <div className="grid grid-cols-4 gap-y-4 gap-x-2">
+          {quickNavItems.map(item => (
+            <button
+              key={item.id}
+              onClick={() => navigate(item.to)}
+              className="flex flex-col items-center justify-start group cursor-pointer active:scale-90 transition-transform"
+            >
+              <div className={`w-12 h-12 rounded-2xl flex items-center justify-center border transition-all ${item.bg} ${item.border || 'border-slate-200'} shadow-2xs group-hover:scale-105`}>
+                {item.icon}
+              </div>
+              <span className="text-[11px] font-extrabold text-slate-800 text-center tracking-tight leading-tight mt-1.5 line-clamp-2 px-0.5">
+                {item.label}
+              </span>
+            </button>
+          ))}
+        </div>
+
+        {/* PAGINATION DOT INDICATOR (MATCHING PHOTO) */}
+        <div className="flex items-center justify-center gap-1.5 pt-1.5">
+          <span className="w-3.5 h-1.5 rounded-full bg-emerald-600"></span>
+          <span className="w-1.5 h-1.5 rounded-full bg-slate-300"></span>
+        </div>
+      </div>
+
+      {/* DESKTOP ONLY: SYSTEM HEALTH & QUICK ACTIONS (>= md) */}
+      <div className="hidden md:grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 bg-white p-4 sm:p-6 rounded-2xl border border-slate-300 md:border-slate-200/80 shadow-[0_2px_10px_rgba(15,23,42,0.06)] md:shadow-xs">
           <div className="flex items-center justify-between mb-5 pb-3 border-b border-slate-100">
             <div className="flex items-center gap-2.5">
@@ -303,41 +491,35 @@ const Overview = () => {
           </div>
         </div>
 
-        <div className="bg-white p-4 sm:p-6 rounded-2xl border border-slate-300 md:border-slate-200/80 shadow-[0_2px_10px_rgba(15,23,42,0.06)] md:shadow-xs flex flex-col justify-between">
+        {/* DESKTOP APP HUB QUICK SERVICES CARD */}
+        <div className="bg-white p-5 rounded-2xl border border-slate-300 md:border-slate-200/80 shadow-[0_2px_10px_rgba(15,23,42,0.06)] md:shadow-xs flex flex-col justify-between">
           <div>
-            <div className="flex items-center gap-2 mb-4 pb-3 border-b border-slate-100">
-              <Sparkles size={18} className="text-blue-600" />
-              <h3 className="text-base font-extrabold text-slate-950 tracking-tight">Quick Navigation</h3>
+            <div className="flex items-center justify-between mb-4 pb-3 border-b border-slate-100">
+              <div className="flex items-center gap-2">
+                <Sparkles size={18} className="text-blue-600" />
+                <h3 className="text-base font-extrabold text-slate-950 tracking-tight">App Hub Services</h3>
+              </div>
+              <span className="text-[10px] font-mono font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md border border-slate-200">
+                {quickNavItems.length} Shortcuts
+              </span>
             </div>
-            <p className="text-xs text-slate-500 mb-4 leading-relaxed font-medium">
-              Fast shortcuts to primary administrative functions and logs.
-            </p>
-          </div>
 
-          <div className="flex flex-col gap-2.5">
-            {isAdmin && (
-              <button
-                onClick={() => navigate('/dashboard/users')}
-                className="w-full flex items-center justify-between px-4 py-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold transition-all shadow-xs active:scale-[0.99]"
-              >
-                <span>Register Staff Member</span>
-                <ArrowRight size={14} />
-              </button>
-            )}
-            <button
-              onClick={() => navigate('/dashboard/students')}
-              className="w-full flex items-center justify-between px-4 py-3 rounded-xl bg-slate-100/80 hover:bg-slate-200/70 border border-slate-300 text-slate-800 text-xs font-bold transition-all active:scale-[0.99]"
-            >
-              <span>Student Records</span>
-              <ArrowRight size={14} className="text-slate-500" />
-            </button>
-            <button
-              onClick={() => navigate('/dashboard/analytics')}
-              className="w-full flex items-center justify-between px-4 py-3 rounded-xl bg-slate-100/80 hover:bg-slate-200/70 border border-slate-300 text-slate-800 text-xs font-bold transition-all active:scale-[0.99]"
-            >
-              <span>Revenue Analytics</span>
-              <ArrowRight size={14} className="text-slate-500" />
-            </button>
+            <div className="grid grid-cols-4 gap-y-3 gap-x-2">
+              {quickNavItems.map(item => (
+                <button
+                  key={`desk_${item.id}`}
+                  onClick={() => navigate(item.to)}
+                  className="flex flex-col items-center justify-start group cursor-pointer hover:scale-105 active:scale-95 transition-transform"
+                >
+                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center border transition-all ${item.bg} ${item.border || 'border-slate-200'} shadow-2xs group-hover:border-slate-400`}>
+                    {item.icon}
+                  </div>
+                  <span className="text-[10px] font-bold text-slate-700 text-center tracking-tight leading-tight mt-1 line-clamp-1 px-0.5">
+                    {item.label}
+                  </span>
+                </button>
+              ))}
+            </div>
           </div>
         </div>
       </div>
