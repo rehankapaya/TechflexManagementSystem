@@ -328,8 +328,30 @@ const Fees = () => {
 
   return (
     <div className="space-y-6 font-sans animate-fade-in">
-      {/* HEADER */}
-      <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-slate-200/80">
+      {/* MOBILE COMPACT HEADER (< md) */}
+      <div className="flex md:hidden items-center justify-between gap-2 pb-2 border-b border-slate-200/80">
+        <div className="flex items-center gap-2">
+          <div className="w-8 h-8 rounded-xl bg-blue-600 flex items-center justify-center text-white shadow-xs shrink-0">
+            <CreditCard size={18} />
+          </div>
+          <div>
+            <h1 className="text-base font-extrabold text-slate-900 tracking-tight leading-none">Fee Entry</h1>
+            <span className="text-[11px] font-semibold text-slate-400">
+              Collect & ledger payments
+            </span>
+          </div>
+        </div>
+        <button
+          onClick={handleReset}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 text-xs font-bold transition-all shadow-xs cursor-pointer"
+        >
+          <RotateCcw size={13} className="text-slate-400" />
+          <span>Reset</span>
+        </button>
+      </div>
+
+      {/* DESKTOP HEADER (>= md) */}
+      <header className="hidden md:flex flex-row items-center justify-between gap-4 pb-2 border-b border-slate-200/80">
         <div>
           <div className="flex items-center gap-2">
             <CreditCard className="text-blue-600" size={24} />
@@ -339,7 +361,7 @@ const Fees = () => {
         </div>
         <button
           onClick={handleReset}
-          className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 text-xs font-bold transition-all shadow-xs w-fit"
+          className="flex items-center gap-2 px-4 py-2 rounded-xl bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 text-xs font-bold transition-all shadow-xs w-fit cursor-pointer"
         >
           <RotateCcw size={14} className="text-slate-400" />
           <span>Reset Form</span>

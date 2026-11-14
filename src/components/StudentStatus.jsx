@@ -279,7 +279,123 @@ const StudentStatus = () => {
           <span className="text-slate-400 font-normal">Realtime sync enabled</span>
         </div>
 
-        <div className="overflow-x-auto">
+        {/* MOBILE STUDENT STATUS CARDS (< md) */}
+        <div className="block md:hidden divide-y divide-slate-100">
+          {filteredStudents.length > 0 ? (
+            filteredStudents.map(s => (
+              <div key={`mob_status_${s.id}`} className="p-4 space-y-3 bg-white hover:bg-slate-50/50 transition-colors">
+                {/* Student Header */}
+                <div className="flex items-start justify-between gap-2.5">
+                  <div className="flex items-center gap-2.5">
+                    {s.profile_image ? (
+                      <img
+                        src={s.profile_image}
+                        alt={s.name}
+                        className="w-10 h-10 rounded-xl object-cover border border-slate-200 shrink-0 shadow-2xs"
+                      />
+                    ) : (
+                      <div className="w-10 h-10 rounded-xl bg-slate-100 text-slate-700 flex items-center justify-center font-bold text-sm shrink-0">
+                        {s.name?.charAt(0) || '?'}
+                      </div>
+                    )}
+                    <div>
+                      <div className="font-bold text-slate-900 text-sm leading-tight">{s.name}</div>
+                      <div className="flex items-center gap-2 mt-0.5">
+                        <span className="font-mono text-xs font-bold text-blue-600 bg-blue-50 px-1.5 py-0.2 rounded">
+                          {s.student_id}
+                        </span>
+                        {s.contact && (
+                          <span className="text-[11px] text-slate-400 font-mono">{s.contact}</span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border uppercase tracking-wider shrink-0 ${
+                    s.status === 'active'
+                      ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                      : 'bg-slate-100 text-slate-600 border-slate-200'
+                  }`}>
+                    {s.status?.toUpperCase() || 'ACTIVE'}
+                  </span>
+                </div>
+
+                {/* Enrolled Courses Controls */}
+                <div className="space-y-3 pt-1">
+                  {s.filteredCourses.map(([cId, cData]) => {
+                    const isActive = cData.course_status === 'active';
+                    return (
+                      <div key={cId} className="p-3 bg-slate-50 rounded-xl border border-slate-100 space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="font-bold text-slate-800 text-xs">{cData.course_name}</span>
+                          <span className={`inline-flex items-center gap-1 text-[11px] font-bold ${
+                            isActive ? 'text-emerald-600' : 'text-rose-600'
+                          }`}>
+                            <span className={`w-1.5 h-1.5 rounded-full ${isActive ? 'bg-emerald-500' : 'bg-rose-500'}`}></span>
+                            {cData.course_status}
+                          </span>
+                        </div>
+
+                        <div className="flex items-center gap-3 text-[10px] text-slate-500 font-medium">
+                          <span>Start: <b>{formatDate(cData.enrolledAt) || "N/A"}</b></span>
+                          <span>•</span>
+                          <span>End: {isActive ? <b className="text-blue-600">In Progress</b> : <b>{formatDate(cData.course_status_date)}</b>}</span>
+                        </div>
+
+                        {/* Status Change Form */}
+                        <div className="grid grid-cols-2 gap-2 pt-1 border-t border-slate-200/60">
+                          <div>
+                            <label className="block text-[9px] font-bold text-slate-400 uppercase mb-0.5">Start Date</label>
+                            <input
+                              type="date"
+                              onChange={(e) => setSelectedStartDates(prev => ({ ...prev, [`${s.id}_${cId}`]: e.target.value }))}
+                              className="w-full px-2 py-1 rounded-lg border border-slate-200 bg-white text-[11px] font-medium"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-[9px] font-bold text-slate-400 uppercase mb-0.5">Status Date</label>
+                            <input
+                              type="date"
+                              onChange={(e) => setSelectedCustomDates(prev => ({ ...prev, [`${s.id}_${cId}`]: e.target.value }))}
+                              className="w-full px-2 py-1 rounded-lg border border-slate-200 bg-white text-[11px] font-medium"
+                            />
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-2 pt-1">
+                          <select
+                            onChange={(e) => setSelectedCourseStatus(prev => ({ ...prev, [`${s.id}_${cId}`]: e.target.value }))}
+                            className="flex-1 px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white text-xs font-medium"
+                          >
+                            <option value="">Status: No Change</option>
+                            <option value="active">Active</option>
+                            <option value="coursecomplete">Graduated</option>
+                            <option value="dropout">Dropout</option>
+                          </select>
+                          <button
+                            onClick={() => handleStatusUpdate(s.id, cId)}
+                            disabled={loading}
+                            className="px-3 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-xs transition-all flex items-center gap-1 shrink-0 disabled:opacity-60 cursor-pointer"
+                          >
+                            <RefreshCw size={12} className={loading ? "animate-spin" : ""} />
+                            <span>Update</span>
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            ))
+          ) : (
+            <div className="py-12 text-center text-slate-400 text-xs">
+              No matching student records found.
+            </div>
+          )}
+        </div>
+
+        {/* DESKTOP TABLE (>= md) */}
+        <div className="hidden md:block overflow-x-auto">
           <table className="w-full text-left border-collapse text-xs">
             <thead>
               <tr className="bg-slate-50 border-b border-slate-200 text-slate-600 uppercase font-bold tracking-wider text-[11px]">

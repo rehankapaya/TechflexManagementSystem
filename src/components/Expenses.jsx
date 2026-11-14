@@ -202,24 +202,24 @@ const Expenses = () => {
   return (
     <div className="space-y-6 font-sans animate-fade-in">
       {/* HEADER & SUMMARY CARD */}
-      <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-slate-200/80">
+      <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-slate-200/80">
         <div>
           <div className="flex items-center gap-2">
-            <Receipt className="text-blue-600" size={24} />
-            <h1 className="text-2xl md:text-3xl font-extrabold text-slate-900 tracking-tight">Operating Expenses</h1>
+            <Receipt className="text-blue-600" size={22} />
+            <h1 className="text-xl sm:text-2xl md:text-3xl font-extrabold text-slate-900 tracking-tight">Operating Expenses</h1>
           </div>
-          <p className="text-sm text-slate-500 mt-1 font-medium">Record and analyze institute operational costs & departmental expenses</p>
+          <p className="text-xs sm:text-sm text-slate-500 mt-0.5 sm:mt-1 font-medium">Record and analyze institute operational costs</p>
         </div>
 
-        <div className="p-4 rounded-2xl bg-emerald-500 text-white shadow-lg shadow-emerald-500/20 flex items-center gap-4 min-w-[200px]">
-          <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center font-bold">
-            <DollarSign size={20} />
+        <div className="p-3 sm:p-4 rounded-2xl bg-emerald-600 text-white shadow-md shadow-emerald-600/20 flex items-center gap-3 min-w-[180px] w-fit">
+          <div className="w-9 h-9 rounded-xl bg-white/20 flex items-center justify-center font-bold shrink-0">
+            <DollarSign size={18} />
           </div>
           <div>
             <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-100 block">
-              {monthsFull[filterMonth - 1]} Expense
+              {monthsFull[filterMonth - 1]} Total
             </span>
-            <div className="text-2xl font-black font-mono">
+            <div className="text-xl sm:text-2xl font-black font-mono">
               PKR {totalExpense.toLocaleString()}
             </div>
           </div>
@@ -412,7 +412,68 @@ const Expenses = () => {
               </div>
             </div>
 
-            <div className="overflow-x-auto">
+            {/* MOBILE EXPENSES CARDS (< md) */}
+            <div className="block md:hidden divide-y divide-slate-100">
+              {filteredExpenses.length > 0 ? (
+                filteredExpenses.map(e => (
+                  <div key={`mob_exp_${e.id}`} className="p-4 space-y-2.5 bg-white hover:bg-slate-50/50 transition-colors">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        <span className={`inline-block px-2.5 py-0.5 rounded-full text-[10px] font-bold border uppercase tracking-wider ${
+                          e.courseName === 'General'
+                            ? 'bg-slate-100 text-slate-700 border-slate-200'
+                            : 'bg-amber-50 text-amber-800 border-amber-200'
+                        }`}>
+                          {e.courseName}
+                        </span>
+                        <span className="font-mono text-xs text-slate-400">
+                          {new Date(e.date).toLocaleDateString('en-GB')}
+                        </span>
+                      </div>
+
+                      {isAdmin && (
+                        <div className="flex items-center gap-1">
+                          <button
+                            onClick={() => handleEditExpense(e)}
+                            className="p-1.5 rounded-lg text-blue-600 hover:bg-blue-50 transition-colors cursor-pointer"
+                            title="Edit Expense"
+                          >
+                            <Pencil size={15} />
+                          </button>
+                          <button
+                            onClick={() => handleDelete(e.id)}
+                            className="p-1.5 rounded-lg text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
+                            title="Delete Expense"
+                          >
+                            <Trash2 size={15} />
+                          </button>
+                        </div>
+                      )}
+                    </div>
+
+                    <p className="text-sm font-semibold text-slate-800 leading-snug">
+                      {e.description}
+                    </p>
+
+                    <div className="flex items-center justify-between pt-1 border-t border-slate-100 text-xs">
+                      <span className="text-[11px] text-slate-400">
+                        Added by: <strong className="text-slate-600">{e.addedBy || 'Admin'}</strong>
+                      </span>
+                      <span className="font-mono font-black text-sm text-emerald-700">
+                        PKR {Number(e.amount).toLocaleString()}
+                      </span>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="py-12 text-center text-slate-400 text-xs">
+                  No expenses recorded for {monthsFull[filterMonth - 1]} {filterYear}.
+                </div>
+              )}
+            </div>
+
+            {/* DESKTOP TABLE (>= md) */}
+            <div className="hidden md:block overflow-x-auto">
               <table className="w-full text-left border-collapse text-xs">
                 <thead>
                   <tr className="bg-slate-50 border-b border-slate-200 text-slate-600 uppercase font-bold tracking-wider text-[11px]">

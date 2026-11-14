@@ -13,7 +13,8 @@ import {
   CheckCircle2,
   AlertCircle,
   Clock,
-  Layers
+  Layers,
+  X
 } from 'lucide-react';
 
 const FeeStatus = () => {
@@ -23,6 +24,7 @@ const FeeStatus = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCourseFilter, setSelectedCourseFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('active');
+  const [showMobileFilterDrawer, setShowMobileFilterDrawer] = useState(false);
   const [searchParams] = useSearchParams();
 
   const currentMonthLabel = getCanonicalShortMonth();
@@ -204,8 +206,39 @@ const FeeStatus = () => {
 
   return (
     <div className="space-y-6 font-sans animate-fade-in">
-      {/* HEADER */}
-      <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-slate-200/80">
+      {/* MOBILE COMPACT HEADER (< md) */}
+      <div className="flex md:hidden items-center justify-between gap-2 pb-2 border-b border-slate-200/80">
+        <div className="flex items-center gap-2">
+          <div className="w-8 h-8 rounded-xl bg-blue-600 flex items-center justify-center text-white shadow-xs shrink-0">
+            <BadgeDollarSign size={18} />
+          </div>
+          <div>
+            <h1 className="text-base font-extrabold text-slate-900 tracking-tight leading-none">Fee Ledger</h1>
+            <span className="text-[11px] font-semibold text-slate-400">
+              {finalDisplayList.length} records
+            </span>
+          </div>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <button
+            onClick={handleReset}
+            className="p-2 rounded-xl bg-white hover:bg-slate-50 border border-slate-200 text-slate-600 transition-colors cursor-pointer"
+            title="Reset Filters"
+          >
+            <RotateCcw size={15} />
+          </button>
+          <button
+            onClick={exportToExcel}
+            className="flex items-center gap-1 px-3 py-2 rounded-xl bg-emerald-600 text-white font-bold text-xs shadow-xs active:scale-95 transition-transform cursor-pointer"
+          >
+            <Download size={14} />
+            <span>CSV</span>
+          </button>
+        </div>
+      </div>
+
+      {/* DESKTOP HEADER (>= md) */}
+      <header className="hidden md:flex flex-row items-center justify-between gap-4 pb-2 border-b border-slate-200/80">
         <div>
           <div className="flex items-center gap-2">
             <BadgeDollarSign className="text-blue-600" size={24} />
@@ -216,14 +249,14 @@ const FeeStatus = () => {
         <div className="flex items-center gap-2.5">
           <button
             onClick={handleReset}
-            className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 text-xs font-bold transition-all shadow-xs"
+            className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 text-xs font-bold transition-all shadow-xs cursor-pointer"
           >
             <RotateCcw size={14} className="text-slate-400" />
             <span>Reset Filters</span>
           </button>
           <button
             onClick={exportToExcel}
-            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition-all shadow-xs"
+            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition-all shadow-xs cursor-pointer"
           >
             <Download size={14} />
             <span>Export CSV</span>
@@ -232,88 +265,200 @@ const FeeStatus = () => {
       </header>
 
       {/* FILTER CONTROLS BAR */}
-      <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Search */}
-        <div>
-          <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">
-            Search Student
-          </label>
+      <div className="bg-white p-3.5 sm:p-5 rounded-2xl border border-slate-200/80 shadow-xs space-y-3">
+        {/* MOBILE FILTER BAR (< md) */}
+        <div className="block md:hidden space-y-2">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={15} />
             <input
               type="text"
-              placeholder="Name or ID..."
+              placeholder="Search student name or ID..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-9 pr-3.5 py-2 rounded-xl border border-slate-200 bg-slate-50 text-xs font-medium focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
+              className="w-full pl-9 pr-8 py-2 rounded-xl border border-slate-200 bg-slate-50 text-xs font-medium focus:bg-white focus:outline-none"
             />
+            {searchTerm && (
+              <button
+                onClick={() => setSearchTerm('')}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-0.5 cursor-pointer"
+              >
+                <X size={14} />
+              </button>
+            )}
           </div>
-        </div>
 
-        {/* Enrollment Status */}
-        <div>
-          <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">
-            Student Status
-          </label>
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 text-xs font-medium focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
-          >
-            <option value="active">Active Only</option>
-            <option value="inactive">Inactive Only</option>
-            <option value="all">All Statuses</option>
-          </select>
-        </div>
-
-        {/* Course Filter */}
-        <div>
-          <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">
-            Filter Course
-          </label>
-          <select
-            value={selectedCourseFilter}
-            onChange={(e) => setSelectedCourseFilter(e.target.value)}
-            className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 text-xs font-medium focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
-          >
-            <option value="">All Courses</option>
-            {coursesList.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-          </select>
-        </div>
-
-        {/* Date Range: From / To */}
-        <div>
-          <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">
-            Billing Month Range
-          </label>
-          <div className="flex items-center gap-1.5">
-            <select
-              value={fromMonth}
-              onChange={(e) => setFromMonth(e.target.value)}
-              className="px-2 py-2 rounded-xl border border-slate-200 bg-slate-50 text-xs font-medium flex-1"
+          <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5 custom-scrollbar">
+            <button
+              onClick={() => setStatusFilter('active')}
+              className={`px-3 py-1 rounded-full text-[11px] font-bold shrink-0 transition-all cursor-pointer ${
+                statusFilter === 'active'
+                  ? 'bg-blue-600 text-white shadow-xs'
+                  : 'bg-slate-100 text-slate-600'
+              }`}
             >
-              {Object.keys(monthsMap).map(m => <option key={m} value={m}>{m}</option>)}
-            </select>
-            <input
-              type="number"
-              value={fromYear}
-              onChange={(e) => setFromYear(e.target.value)}
-              className="w-16 px-1.5 py-2 rounded-xl border border-slate-200 bg-slate-50 text-xs font-mono font-medium text-center"
-            />
-            <span className="text-slate-400 text-xs font-bold">to</span>
-            <select
-              value={toMonth}
-              onChange={(e) => setToMonth(e.target.value)}
-              className="px-2 py-2 rounded-xl border border-slate-200 bg-slate-50 text-xs font-medium flex-1"
+              Active
+            </button>
+            <button
+              onClick={() => setStatusFilter('all')}
+              className={`px-3 py-1 rounded-full text-[11px] font-bold shrink-0 transition-all cursor-pointer ${
+                statusFilter === 'all'
+                  ? 'bg-blue-600 text-white shadow-xs'
+                  : 'bg-slate-100 text-slate-600'
+              }`}
             >
-              {Object.keys(monthsMap).map(m => <option key={m} value={m}>{m}</option>)}
+              All Statuses
+            </button>
+
+            <button
+              onClick={() => setShowMobileFilterDrawer(!showMobileFilterDrawer)}
+              className={`flex items-center gap-1 px-3 py-1 rounded-full text-[11px] font-bold shrink-0 transition-all border cursor-pointer ${
+                showMobileFilterDrawer || selectedCourseFilter
+                  ? 'bg-blue-50 text-blue-700 border-blue-200'
+                  : 'bg-slate-100 text-slate-600 border-slate-200'
+              }`}
+            >
+              <Filter size={11} />
+              <span>Range & Course</span>
+              {selectedCourseFilter ? (
+                <span className="w-1.5 h-1.5 rounded-full bg-blue-600"></span>
+              ) : null}
+            </button>
+          </div>
+
+          {showMobileFilterDrawer && (
+            <div className="p-3 bg-slate-50 rounded-xl border border-slate-200/80 space-y-3 animate-in fade-in slide-in-from-top-1">
+              <div>
+                <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Course</label>
+                <select
+                  value={selectedCourseFilter}
+                  onChange={(e) => setSelectedCourseFilter(e.target.value)}
+                  className="w-full px-3 py-1.5 rounded-lg border border-slate-200 bg-white text-xs font-medium cursor-pointer"
+                >
+                  <option value="">All Courses</option>
+                  {coursesList.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1">Month Range</label>
+                <div className="flex items-center gap-1">
+                  <select
+                    value={fromMonth}
+                    onChange={(e) => setFromMonth(e.target.value)}
+                    className="px-2 py-1.5 rounded-lg border border-slate-200 bg-white text-xs font-medium flex-1 cursor-pointer"
+                  >
+                    {Object.keys(monthsMap).map(m => <option key={m} value={m}>{m}</option>)}
+                  </select>
+                  <input
+                    type="number"
+                    value={fromYear}
+                    onChange={(e) => setFromYear(e.target.value)}
+                    className="w-14 px-1 py-1.5 rounded-lg border border-slate-200 bg-white text-xs font-mono font-medium text-center"
+                  />
+                  <span className="text-slate-400 text-xs">to</span>
+                  <select
+                    value={toMonth}
+                    onChange={(e) => setToMonth(e.target.value)}
+                    className="px-2 py-1.5 rounded-lg border border-slate-200 bg-white text-xs font-medium flex-1 cursor-pointer"
+                  >
+                    {Object.keys(monthsMap).map(m => <option key={m} value={m}>{m}</option>)}
+                  </select>
+                  <input
+                    type="number"
+                    value={toYear}
+                    onChange={(e) => setToYear(e.target.value)}
+                    className="w-14 px-1 py-1.5 rounded-lg border border-slate-200 bg-white text-xs font-mono font-medium text-center"
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* DESKTOP FILTER BAR (>= md) */}
+        <div className="hidden md:grid md:grid-cols-2 lg:grid-cols-4 gap-4">
+          {/* Search */}
+          <div>
+            <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">
+              Search Student
+            </label>
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={15} />
+              <input
+                type="text"
+                placeholder="Name or ID..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full pl-9 pr-3.5 py-2 rounded-xl border border-slate-200 bg-slate-50 text-xs font-medium focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
+              />
+            </div>
+          </div>
+
+          {/* Enrollment Status */}
+          <div>
+            <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">
+              Student Status
+            </label>
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 text-xs font-medium focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+            >
+              <option value="active">Active Only</option>
+              <option value="inactive">Inactive Only</option>
+              <option value="all">All Statuses</option>
             </select>
-            <input
-              type="number"
-              value={toYear}
-              onChange={(e) => setToYear(e.target.value)}
-              className="w-16 px-1.5 py-2 rounded-xl border border-slate-200 bg-slate-50 text-xs font-mono font-medium text-center"
-            />
+          </div>
+
+          {/* Course Filter */}
+          <div>
+            <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">
+              Filter Course
+            </label>
+            <select
+              value={selectedCourseFilter}
+              onChange={(e) => setSelectedCourseFilter(e.target.value)}
+              className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 text-xs font-medium focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+            >
+              <option value="">All Courses</option>
+              {coursesList.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+            </select>
+          </div>
+
+          {/* Date Range: From / To */}
+          <div>
+            <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">
+              Billing Month Range
+            </label>
+            <div className="flex items-center gap-1.5">
+              <select
+                value={fromMonth}
+                onChange={(e) => setFromMonth(e.target.value)}
+                className="px-2 py-2 rounded-xl border border-slate-200 bg-slate-50 text-xs font-medium flex-1"
+              >
+                {Object.keys(monthsMap).map(m => <option key={m} value={m}>{m}</option>)}
+              </select>
+              <input
+                type="number"
+                value={fromYear}
+                onChange={(e) => setFromYear(e.target.value)}
+                className="w-16 px-1.5 py-2 rounded-xl border border-slate-200 bg-slate-50 text-xs font-mono font-medium text-center"
+              />
+              <span className="text-slate-400 text-xs font-bold">to</span>
+              <select
+                value={toMonth}
+                onChange={(e) => setToMonth(e.target.value)}
+                className="px-2 py-2 rounded-xl border border-slate-200 bg-slate-50 text-xs font-medium flex-1"
+              >
+                {Object.keys(monthsMap).map(m => <option key={m} value={m}>{m}</option>)}
+              </select>
+              <input
+                type="number"
+                value={toYear}
+                onChange={(e) => setToYear(e.target.value)}
+                className="w-16 px-1.5 py-2 rounded-xl border border-slate-200 bg-slate-50 text-xs font-mono font-medium text-center"
+              />
+            </div>
           </div>
         </div>
       </div>

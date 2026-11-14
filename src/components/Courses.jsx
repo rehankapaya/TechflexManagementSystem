@@ -198,7 +198,55 @@ const Courses = () => {
             </span>
           </div>
 
-          <div className="overflow-x-auto">
+          {/* MOBILE COURSES CARDS (< md) */}
+          <div className="block md:hidden divide-y divide-slate-100">
+            {courses.length > 0 ? (
+              courses.map((course) => (
+                <div key={`mob_course_${course.id}`} className="p-4 space-y-2.5 bg-white hover:bg-slate-50/50 transition-colors">
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <div className="font-bold text-slate-900 text-sm leading-snug">{course.name}</div>
+                      <div className="inline-flex items-center gap-1 bg-slate-100 text-slate-700 px-2 py-0.5 rounded-md text-[10px] font-mono font-semibold mt-1">
+                        <Clock size={11} className="text-slate-400" />
+                        <span>{course.duration} Months</span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={() => startEdit(course)}
+                        className="p-1.5 rounded-lg text-blue-600 hover:bg-blue-50 transition-colors cursor-pointer"
+                        title="Edit Course"
+                      >
+                        <Pencil size={15} />
+                      </button>
+                      <button
+                        onClick={() => handleDelete(course.id)}
+                        className="p-1.5 rounded-lg text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
+                        title="Delete Course"
+                      >
+                        <Trash2 size={15} />
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between pt-1 border-t border-slate-100 text-xs">
+                    <span className="text-slate-400 font-medium">Standard Tuition:</span>
+                    <span className="font-mono font-black text-sm text-emerald-700">
+                      PKR {Number(course.base_fee).toLocaleString()}
+                    </span>
+                  </div>
+                </div>
+              ))
+            ) : (
+              <div className="py-12 text-center text-slate-400 text-xs">
+                No courses found in the catalog.
+              </div>
+            )}
+          </div>
+
+          {/* DESKTOP TABLE (>= md) */}
+          <div className="hidden md:block overflow-x-auto">
             <table className="w-full text-left border-collapse text-xs">
               <thead>
                 <tr className="bg-slate-50 border-b border-slate-200 text-slate-600 uppercase font-bold tracking-wider text-[11px]">

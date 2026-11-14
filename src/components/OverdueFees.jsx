@@ -207,8 +207,39 @@ const OverdueFees = () => {
 
   return (
     <div className="space-y-6 font-sans animate-fade-in">
-      {/* HEADER */}
-      <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-slate-200/80">
+      {/* MOBILE COMPACT HEADER (< md) */}
+      <div className="flex md:hidden items-center justify-between gap-2 pb-2 border-b border-slate-200/80">
+        <div className="flex items-center gap-2">
+          <div className="w-8 h-8 rounded-xl bg-rose-600 flex items-center justify-center text-white shadow-xs shrink-0">
+            <AlertCircle size={18} />
+          </div>
+          <div>
+            <h1 className="text-base font-extrabold text-slate-900 tracking-tight leading-none">Overdue Fees</h1>
+            <span className="text-[11px] font-semibold text-rose-600">
+              {finalDisplayList.length} delinquent
+            </span>
+          </div>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <button
+            onClick={handleReset}
+            className="p-2 rounded-xl bg-white hover:bg-slate-50 border border-slate-200 text-slate-600 transition-colors cursor-pointer"
+            title="Reset Search"
+          >
+            <RotateCcw size={15} />
+          </button>
+          <button
+            onClick={exportToExcel}
+            className="flex items-center gap-1 px-3 py-2 rounded-xl bg-emerald-600 text-white font-bold text-xs shadow-xs active:scale-95 transition-transform cursor-pointer"
+          >
+            <Download size={14} />
+            <span>CSV</span>
+          </button>
+        </div>
+      </div>
+
+      {/* DESKTOP HEADER (>= md) */}
+      <header className="hidden md:flex flex-row sm:items-center justify-between gap-4 pb-2 border-b border-slate-200/80">
         <div>
           <div className="flex items-center gap-2">
             <AlertCircle className="text-rose-600" size={24} />
@@ -219,14 +250,14 @@ const OverdueFees = () => {
         <div className="flex items-center gap-2.5">
           <button
             onClick={handleReset}
-            className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 text-xs font-bold transition-all shadow-xs"
+            className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 text-xs font-bold transition-all shadow-xs cursor-pointer"
           >
             <RotateCcw size={14} className="text-slate-400" />
             <span>Reset Search</span>
           </button>
           <button
             onClick={exportToExcel}
-            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition-all shadow-xs"
+            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition-all shadow-xs cursor-pointer"
           >
             <Download size={14} />
             <span>Export CSV</span>
@@ -235,33 +266,33 @@ const OverdueFees = () => {
       </header>
 
       {/* SUMMARY METRIC CARDS */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div className="bg-rose-50/60 p-5 rounded-2xl border border-rose-200/80 shadow-xs">
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 sm:gap-4">
+        <div className="bg-rose-50/60 p-4 sm:p-5 rounded-2xl border border-rose-200/80 shadow-xs">
           <div className="flex items-center justify-between">
-            <span className="text-[11px] font-bold text-rose-700 uppercase tracking-wider">Overdue Students</span>
-            <Users size={18} className="text-rose-500" />
+            <span className="text-[10px] sm:text-[11px] font-bold text-rose-700 uppercase tracking-wider">Students</span>
+            <Users size={16} className="text-rose-500" />
           </div>
-          <p className="text-2xl font-black font-mono text-rose-900 mt-2">
+          <p className="text-xl sm:text-2xl font-black font-mono text-rose-900 mt-1 sm:mt-2">
             {new Set(finalDisplayList.map(i => i.studentId)).size}
           </p>
         </div>
 
-        <div className="bg-amber-50/60 p-5 rounded-2xl border border-amber-200/80 shadow-xs">
+        <div className="bg-amber-50/60 p-4 sm:p-5 rounded-2xl border border-amber-200/80 shadow-xs">
           <div className="flex items-center justify-between">
-            <span className="text-[11px] font-bold text-amber-700 uppercase tracking-wider">Overdue Invoices</span>
-            <FileText size={18} className="text-amber-500" />
+            <span className="text-[10px] sm:text-[11px] font-bold text-amber-700 uppercase tracking-wider">Invoices</span>
+            <FileText size={16} className="text-amber-500" />
           </div>
-          <p className="text-2xl font-black font-mono text-amber-900 mt-2">
+          <p className="text-xl sm:text-2xl font-black font-mono text-amber-900 mt-1 sm:mt-2">
             {finalDisplayList.length}
           </p>
         </div>
 
-        <div className="bg-emerald-50/60 p-5 rounded-2xl border border-emerald-200/80 shadow-xs">
+        <div className="col-span-2 sm:col-span-1 bg-emerald-50/60 p-4 sm:p-5 rounded-2xl border border-emerald-200/80 shadow-xs">
           <div className="flex items-center justify-between">
-            <span className="text-[11px] font-bold text-emerald-700 uppercase tracking-wider">Total Outstanding</span>
-            <AlertCircle size={18} className="text-emerald-500" />
+            <span className="text-[10px] sm:text-[11px] font-bold text-emerald-700 uppercase tracking-wider">Total Outstanding</span>
+            <AlertCircle size={16} className="text-emerald-500" />
           </div>
-          <p className="text-2xl font-black font-mono text-emerald-900 mt-2">
+          <p className="text-xl sm:text-2xl font-black font-mono text-emerald-900 mt-1 sm:mt-2">
             PKR {totalOverdueAmount.toLocaleString()}
           </p>
         </div>

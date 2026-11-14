@@ -206,20 +206,20 @@ const Overview = () => {
   return (
     <div className="space-y-8 animate-fade-in font-sans">
       {/* HEADER */}
-      <header className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-2">
+      <header className="flex flex-col md:flex-row md:items-center justify-between gap-3 pb-2">
         <div>
           <div className="flex items-center gap-2">
-            <h1 className="text-2xl md:text-3xl font-extrabold text-slate-900 tracking-tight">
+            <h1 className="text-xl sm:text-2xl md:text-3xl font-extrabold text-slate-900 tracking-tight">
               Welcome back, {currentUser?.name || 'Admin'}
             </h1>
-            <span className="inline-block animate-pulse text-2xl">👋</span>
+            <span className="inline-block animate-pulse text-xl sm:text-2xl">👋</span>
           </div>
-          <p className="text-sm text-slate-500 mt-1 font-medium">
+          <p className="text-xs sm:text-sm text-slate-500 mt-0.5 sm:mt-1 font-medium">
             System performance and operational summary for today.
           </p>
         </div>
-        <div className="flex items-center gap-2.5 px-4 py-2 bg-white rounded-xl border border-slate-200/80 shadow-xs text-xs font-semibold text-slate-700 w-fit">
-          <Calendar size={15} className="text-blue-600" />
+        <div className="flex items-center gap-2 px-3 py-1.5 sm:px-4 sm:py-2 bg-white rounded-xl border border-slate-200/80 shadow-xs text-xs font-semibold text-slate-700 w-fit">
+          <Calendar size={14} className="text-blue-600" />
           <span>
             {new Date().toLocaleDateString('en-US', { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' })}
           </span>
@@ -227,25 +227,27 @@ const Overview = () => {
       </header>
 
       {/* KPI METRIC CARDS */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 sm:gap-4">
         {statCards.map((card, idx) => {
           const Icon = card.icon;
           return (
             <div
               key={idx}
-              className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-xs hover:shadow-md transition-all flex items-center gap-4"
+              className={`bg-white p-3.5 sm:p-5 rounded-2xl border border-slate-200/80 shadow-xs hover:shadow-md transition-all flex items-center gap-3 sm:gap-4 ${
+                idx === 4 ? 'col-span-2 lg:col-span-1' : ''
+              }`}
             >
-              <div className={`w-12 h-12 rounded-xl border flex items-center justify-center shrink-0 ${card.color}`}>
-                <Icon size={22} />
+              <div className={`w-10 h-10 sm:w-12 sm:h-12 rounded-xl border flex items-center justify-center shrink-0 ${card.color}`}>
+                <Icon size={20} className="sm:w-[22px] sm:h-[22px]" />
               </div>
               <div className="min-w-0">
-                <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block truncate">
+                <span className="text-[10px] sm:text-[11px] font-bold text-slate-400 uppercase tracking-wider block truncate">
                   {card.title}
                 </span>
-                <h2 className="text-2xl font-black text-slate-900 font-mono tracking-tight my-0.5">
+                <h2 className="text-xl sm:text-2xl font-black text-slate-900 font-mono tracking-tight my-0.5">
                   {loading ? '...' : card.value.toLocaleString()}
                 </h2>
-                <span className="text-[11px] text-slate-500 font-medium block truncate">
+                <span className="text-[10px] sm:text-[11px] text-slate-500 font-medium block truncate">
                   {card.desc}
                 </span>
               </div>

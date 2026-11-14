@@ -32,7 +32,8 @@ import {
   Camera,
   Upload,
   Crop,
-  ZoomIn
+  ZoomIn,
+  Filter
 } from 'lucide-react';
 import { parseLocalDateMidday } from '../utils/monthUtils';
 import ContactSyncModal from './ContactSyncModal';
@@ -57,6 +58,7 @@ const Students = () => {
   const [viewingStudent, setViewingStudent] = useState(null);
   const [enlargedPhoto, setEnlargedPhoto] = useState(null);
   const [showContactSyncModal, setShowContactSyncModal] = useState(false);
+  const [showMobileFilterDrawer, setShowMobileFilterDrawer] = useState(false);
 
   useEffect(() => {
     const q = searchParams.get('search') || searchParams.get('id');
@@ -443,8 +445,47 @@ const Students = () => {
 
   return (
     <div className="space-y-6">
-      {/* HEADER WITH STATS & ACTION BUTTONS */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-2 border-b border-slate-200/80">
+      {/* MOBILE COMPACT HEADER (< md) */}
+      <div className="flex md:hidden items-center justify-between gap-2 pb-2 border-b border-slate-200/80">
+        <div className="flex items-center gap-2">
+          <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-blue-600 to-indigo-600 flex items-center justify-center text-white shadow-xs shrink-0">
+            <GraduationCap size={18} />
+          </div>
+          <div>
+            <h1 className="text-base font-extrabold text-slate-900 tracking-tight leading-none">Students</h1>
+            <span className="text-[11px] font-semibold text-slate-400">
+              {filteredStudents.length} {filteredStudents.length === 1 ? 'student' : 'students'}
+            </span>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-1.5">
+          <button
+            onClick={() => setShowContactSyncModal(true)}
+            className="p-2 bg-slate-900 text-white rounded-xl active:scale-95 transition-transform cursor-pointer"
+            title="Sync Contacts to Phone"
+          >
+            <Smartphone size={16} className="text-emerald-400" />
+          </button>
+          <button
+            onClick={downloadExcel}
+            className="p-2 bg-emerald-600 text-white rounded-xl active:scale-95 transition-transform cursor-pointer"
+            title="Export Excel"
+          >
+            <Download size={16} />
+          </button>
+          <button
+            onClick={() => setShowQuickEnroll(!showQuickEnroll)}
+            className="flex items-center gap-1 px-3 py-2 bg-blue-600 text-white rounded-xl font-bold text-xs shadow-xs active:scale-95 transition-transform cursor-pointer"
+          >
+            {showQuickEnroll ? <X size={14} /> : <Plus size={14} />}
+            <span>{showQuickEnroll ? 'Close' : 'New'}</span>
+          </button>
+        </div>
+      </div>
+
+      {/* DESKTOP HEADER WITH STATS & ACTION BUTTONS (>= md) */}
+      <div className="hidden md:flex flex-row items-center justify-between gap-4 pb-2 border-b border-slate-200/80">
         <div>
           <div className="flex items-center gap-2.5">
             <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-600 to-indigo-600 flex items-center justify-center text-white shadow-md shadow-blue-500/20">
@@ -848,8 +889,138 @@ const Students = () => {
       )}
 
       {/* FILTER & SEARCH TOOLBAR */}
-      <div className="bg-white border border-slate-200/80 rounded-2xl p-4 shadow-sm space-y-3">
-        <div className="flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
+      <div className="bg-white border border-slate-200/80 rounded-2xl p-3 sm:p-4 shadow-sm space-y-2.5">
+        {/* MOBILE SEARCH & FILTER ROW (< md) */}
+        <div className="block md:hidden space-y-2">
+          {/* Mobile Search Bar */}
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+            <input
+              type="text"
+              placeholder="Search by name, ID, or phone..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full pl-9 pr-8 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+            />
+            {searchTerm && (
+              <button
+                onClick={() => setSearchTerm('')}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-0.5 cursor-pointer"
+              >
+                <X size={14} />
+              </button>
+            )}
+          </div>
+
+          {/* Mobile Quick Filter Chips */}
+          <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5 custom-scrollbar">
+            <button
+              onClick={() => setStatusFilter('all')}
+              className={`px-3 py-1 rounded-full text-[11px] font-bold shrink-0 transition-all cursor-pointer ${
+                statusFilter === 'all'
+                  ? 'bg-blue-600 text-white shadow-xs'
+                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+              }`}
+            >
+              All
+            </button>
+            <button
+              onClick={() => setStatusFilter('active')}
+              className={`px-3 py-1 rounded-full text-[11px] font-bold shrink-0 transition-all cursor-pointer ${
+                statusFilter === 'active'
+                  ? 'bg-emerald-600 text-white shadow-xs'
+                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+              }`}
+            >
+              Active
+            </button>
+            <button
+              onClick={() => setStatusFilter('inactive')}
+              className={`px-3 py-1 rounded-full text-[11px] font-bold shrink-0 transition-all cursor-pointer ${
+                statusFilter === 'inactive'
+                  ? 'bg-slate-800 text-white shadow-xs'
+                  : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+              }`}
+            >
+              Inactive
+            </button>
+
+            <button
+              onClick={() => setShowMobileFilterDrawer(!showMobileFilterDrawer)}
+              className={`flex items-center gap-1 px-3 py-1 rounded-full text-[11px] font-bold shrink-0 transition-all border cursor-pointer ${
+                showMobileFilterDrawer || filterCourse || laptopFilter !== 'all'
+                  ? 'bg-blue-50 text-blue-700 border-blue-200'
+                  : 'bg-slate-100 text-slate-600 border-slate-200'
+              }`}
+            >
+              <Filter size={11} />
+              <span>Filters</span>
+              {(filterCourse ? 1 : 0) + (laptopFilter !== 'all' ? 1 : 0) > 0 && (
+                <span className="w-4 h-4 rounded-full bg-blue-600 text-white text-[9px] flex items-center justify-center font-bold">
+                  {(filterCourse ? 1 : 0) + (laptopFilter !== 'all' ? 1 : 0)}
+                </span>
+              )}
+            </button>
+
+            <button
+              onClick={() => setSortOrder(prev => prev === 'asc' ? 'desc' : 'asc')}
+              className="flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold bg-slate-100 text-slate-600 shrink-0 ml-auto cursor-pointer"
+              title="Toggle Sort ID"
+            >
+              <ArrowUpDown size={11} />
+              <span>{sortOrder.toUpperCase()}</span>
+            </button>
+          </div>
+
+          {/* Expandable Mobile Filters Sheet */}
+          {showMobileFilterDrawer && (
+            <div className="p-3 bg-slate-50 rounded-xl border border-slate-200/80 space-y-2.5 animate-in fade-in slide-in-from-top-1">
+              <div>
+                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">
+                  Filter by Course
+                </label>
+                <select
+                  value={filterCourse}
+                  onChange={(e) => setFilterCourse(e.target.value)}
+                  className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-medium text-slate-700 focus:outline-none cursor-pointer"
+                >
+                  <option value="">All Courses</option>
+                  {courses.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">
+                  Laptop Status
+                </label>
+                <select
+                  value={laptopFilter}
+                  onChange={(e) => setLaptopFilter(e.target.value)}
+                  className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-xs font-medium text-slate-700 focus:outline-none cursor-pointer"
+                >
+                  <option value="all">Laptop: All</option>
+                  <option value="Has Laptop">Has Laptop</option>
+                  <option value="No! Provided By ins">No! Provided By Ins.</option>
+                </select>
+              </div>
+
+              {(filterCourse || laptopFilter !== 'all') && (
+                <button
+                  onClick={() => {
+                    setFilterCourse('');
+                    setLaptopFilter('all');
+                  }}
+                  className="text-xs text-blue-600 font-bold hover:underline cursor-pointer"
+                >
+                  Reset Course & Laptop Filters
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* DESKTOP FILTER & SEARCH TOOLBAR (>= md) */}
+        <div className="hidden md:flex flex-row items-center justify-between gap-3">
           {/* SEARCH BAR */}
           <div className="relative flex-1 max-w-md">
             <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
@@ -863,7 +1034,7 @@ const Students = () => {
             {searchTerm && (
               <button
                 onClick={() => setSearchTerm('')}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer"
               >
                 <X size={14} />
               </button>

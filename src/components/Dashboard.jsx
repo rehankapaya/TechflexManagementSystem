@@ -30,7 +30,11 @@ import {
   Megaphone,
   Clock,
   Menu,
-  Download
+  Download,
+  Grid,
+  Layers,
+  Sparkles,
+  Smartphone
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -42,11 +46,38 @@ const Dashboard = () => {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
     return typeof window !== 'undefined' ? window.innerWidth < 768 : false;
   });
+  const [mobileHubOpen, setMobileHubOpen] = useState(false);
   const [showProfileDropdown, setShowProfileDropdown] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [error, setError] = useState(null);
   const [deferredPrompt, setDeferredPrompt] = useState(null);
   const [canInstall, setCanInstall] = useState(false);
+
+  useEffect(() => {
+    // Automatically close mobile hub drawer when route changes
+    setMobileHubOpen(false);
+  }, [location.pathname]);
+
+  const getCurrentPageTitle = (path) => {
+    if (path === '/dashboard') return 'Overview';
+    if (path.startsWith('/dashboard/students')) return 'Students';
+    if (path.startsWith('/dashboard/fees')) return 'Fee Entry';
+    if (path.startsWith('/dashboard/feestatus')) return 'Fee Status';
+    if (path.startsWith('/dashboard/overdue')) return 'Overdue';
+    if (path.startsWith('/dashboard/expenses')) return 'Expenses';
+    if (path.startsWith('/dashboard/courses')) return 'Courses';
+    if (path.startsWith('/dashboard/courseenrollment')) return 'Enrollment';
+    if (path.startsWith('/dashboard/timeslot-analytics')) return 'Timeslots';
+    if (path.startsWith('/dashboard/studentstatus')) return 'Student Status';
+    if (path.startsWith('/dashboard/users')) return 'Users';
+    if (path.startsWith('/dashboard/analytics') || path.startsWith('/dashboard/analtyics')) return 'Analytics';
+    if (path.startsWith('/dashboard/record')) return 'Records';
+    if (path.startsWith('/dashboard/certificate')) return 'Certificates';
+    if (path.startsWith('/dashboard/salary')) return 'Staff Salary';
+    if (path.startsWith('/dashboard/iic/marketing')) return 'Marketing AI';
+    if (path.startsWith('/dashboard/iic')) return 'IIC AI Hub';
+    return 'Dashboard';
+  };
 
   useEffect(() => {
     const handleCollapse = () => {
@@ -102,20 +133,10 @@ const Dashboard = () => {
 
   return (
     <div className="flex h-screen bg-slate-50 overflow-hidden font-sans">
-      {/* Mobile backdrop */}
-      {!sidebarCollapsed && (
-        <div
-          onClick={() => setSidebarCollapsed(true)}
-          className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs z-20 md:hidden"
-        />
-      )}
-
-      {/* SIDEBAR */}
+      {/* DESKTOP SIDEBAR (>= md) */}
       <aside
-        className={`bg-[#0F172A] text-slate-300 flex flex-col transition-all duration-300 ease-in-out z-30 shadow-xl ${
-          sidebarCollapsed
-            ? 'w-0 -translate-x-full md:translate-x-0 md:w-20 overflow-hidden'
-            : 'fixed md:relative inset-y-0 left-0 w-64'
+        className={`hidden md:flex bg-[#0F172A] text-slate-300 flex-col transition-all duration-300 ease-in-out z-30 shadow-xl relative inset-y-0 left-0 ${
+          sidebarCollapsed ? 'w-20' : 'w-64'
         }`}
       >
         <div className="p-6 flex items-center gap-3 border-b border-slate-800/50">
@@ -209,7 +230,6 @@ const Dashboard = () => {
                 collapsed={sidebarCollapsed}
                 active={isActive('/dashboard/certificate')}
               />
-
             </div>
           )}
 
@@ -236,64 +256,85 @@ const Dashboard = () => {
 
         <button
           onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-          className="absolute bottom-6 -right-3 w-6 h-6 rounded-full bg-[#3B82F6] text-white flex items-center justify-center hover:bg-blue-600 transition-colors shadow-lg z-50"
+          className="absolute bottom-6 -right-3 w-6 h-6 rounded-full bg-[#3B82F6] text-white flex items-center justify-center hover:bg-blue-600 transition-colors shadow-lg z-50 cursor-pointer"
         >
           {sidebarCollapsed ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
         </button>
       </aside>
 
-      {/* MAIN CONTENT */}
+      {/* MAIN CONTENT AREA */}
       <div className="flex-1 flex flex-col min-w-0">
-        <header className="h-16 sm:h-20 bg-white border-b border-slate-200 flex items-center justify-between px-4 sm:px-8 z-10">
-          <div className="flex items-center gap-2 sm:gap-3">
-            <button
-              onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-              className="p-2 text-slate-600 hover:bg-slate-100 rounded-lg transition-colors md:hidden"
-              title="Toggle Menu"
-            >
-              <Menu size={22} />
-            </button>
-            <div className="flex items-center gap-2 md:hidden">
-              <div className="w-8 h-8 rounded-lg overflow-hidden shadow-sm flex items-center justify-center bg-slate-900 border border-slate-200 shrink-0">
-                <img src="/official-logo.jpg" alt="TechFlex Logo" className="w-full h-full object-cover" />
-              </div>
-              <span className="text-slate-800 font-bold text-lg tracking-tight">TechFlex</span>
+        {/* MOBILE TOP APP BAR (< md) */}
+        <header className="flex md:hidden h-14 bg-white/95 backdrop-blur-md border-b border-slate-200/80 items-center justify-between px-3.5 sticky top-0 z-20 shadow-2xs">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="w-8 h-8 rounded-xl overflow-hidden shadow-xs flex items-center justify-center bg-slate-900 border border-slate-200 shrink-0">
+              <img src="/official-logo.jpg" alt="TechFlex Logo" className="w-full h-full object-cover" />
+            </div>
+            <div className="flex items-center gap-1.5 min-w-0">
+              <span className="text-slate-900 font-extrabold text-base tracking-tight shrink-0">TechFlex</span>
+              <span className="text-slate-300 shrink-0">•</span>
+              <span className="text-xs font-bold text-blue-600 truncate bg-blue-50/80 px-2 py-0.5 rounded-md border border-blue-100">
+                {getCurrentPageTitle(location.pathname)}
+              </span>
             </div>
           </div>
 
-          <div className="flex items-center gap-3 sm:gap-6">
+          <div className="flex items-center gap-2 shrink-0">
             {canInstall && (
               <button
                 onClick={handleInstallClick}
-                className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold shadow-sm transition-all"
+                className="flex items-center gap-1 px-2.5 py-1 bg-blue-600 active:bg-blue-700 text-white rounded-lg text-[11px] font-bold shadow-xs transition-transform active:scale-95 cursor-pointer"
+                title="Install TechFlex App"
+              >
+                <Download size={13} />
+                <span>Install</span>
+              </button>
+            )}
+
+            <button
+              onClick={() => setMobileHubOpen(true)}
+              className="flex items-center gap-1 p-1 rounded-xl bg-slate-100 hover:bg-slate-200 active:scale-95 transition-all cursor-pointer border border-slate-200/60"
+              title="Open TechFlex App Hub"
+            >
+              <div className="w-7 h-7 rounded-lg bg-[#3B82F6] flex items-center justify-center text-white font-bold text-xs shadow-2xs">
+                {getInitials(currentUser?.name)}
+              </div>
+              <div className="w-2 h-2 rounded-full bg-emerald-500 mr-0.5 animate-pulse"></div>
+            </button>
+          </div>
+        </header>
+
+        {/* DESKTOP HEADER (>= md) */}
+        <header className="hidden md:flex h-16 sm:h-20 bg-white border-b border-slate-200 items-center justify-between px-8 z-10">
+          <div className="flex items-center gap-3">
+            <span className="text-xl font-extrabold text-slate-800 tracking-tight">
+              {getCurrentPageTitle(location.pathname)}
+            </span>
+          </div>
+
+          <div className="flex items-center gap-6">
+            {canInstall && (
+              <button
+                onClick={handleInstallClick}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-semibold shadow-sm transition-all cursor-pointer"
                 title="Install TechFlex as an app"
               >
                 <Download size={14} />
-                <span className="hidden sm:inline">Install App</span>
-                <span className="sm:hidden">Install</span>
+                <span>Install App</span>
               </button>
             )}
-            {/* <div className="flex items-center gap-4 text-slate-500">
-              <button className="relative p-2 hover:bg-slate-100 rounded-lg transition-colors">
-                <Bell size={20} />
-                <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full border-2 border-white"></span>
-              </button>
-              <button className="p-2 hover:bg-slate-100 rounded-lg transition-colors">
-                <HelpCircle size={20} />
-              </button>
-            </div> */}
 
             <div className="h-8 w-[1px] bg-slate-200"></div>
 
             <div className="relative">
               <button
                 onClick={() => setShowProfileDropdown(!showProfileDropdown)}
-                className="flex items-center gap-3 p-1.5 hover:bg-slate-50 rounded-xl transition-all"
+                className="flex items-center gap-3 p-1.5 hover:bg-slate-50 rounded-xl transition-all cursor-pointer"
               >
                 <div className="w-10 h-10 rounded-full bg-[#3B82F6] flex items-center justify-center text-white font-bold text-sm shadow-inner">
                   {getInitials(currentUser?.name)}
                 </div>
-                <div className="hidden md:flex flex-col text-left">
+                <div className="flex flex-col text-left">
                   <span className="text-sm font-semibold text-slate-800 leading-tight">{currentUser?.name || "User"}</span>
                   <span className="text-[11px] text-slate-500 font-medium uppercase tracking-wider">{isAdmin ? "Administrator" : "Staff"}</span>
                 </div>
@@ -307,12 +348,9 @@ const Dashboard = () => {
                     <p className="text-sm font-medium text-slate-700 truncate">{currentUser?.email}</p>
                   </div>
                   <div className="h-[1px] bg-slate-100 my-1"></div>
-                  {/* <Link to="/dashboard/profile" className="flex items-center gap-2 px-3 py-2 text-sm text-slate-600 hover:bg-slate-50 hover:text-[#3B82F6] rounded-lg transition-colors">
-                    <UserCog size={16} /> My Profile
-                  </Link> */}
                   <button
                     onClick={handleLogout}
-                    className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors font-medium mt-1"
+                    className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors font-medium mt-1 cursor-pointer"
                   >
                     <LogOut size={16} /> Logout
                   </button>
@@ -322,14 +360,14 @@ const Dashboard = () => {
           </div>
         </header>
 
-        <main className="flex-1 overflow-y-auto p-3 sm:p-6 pb-24 md:pb-6">
+        <main className="flex-1 overflow-y-auto p-3 sm:p-6 pb-24 md:pb-6 custom-scrollbar">
           {error && (
             <div className="mb-6 flex items-center justify-between p-4 bg-red-50 border border-red-100 text-red-700 rounded-xl animate-bounce-short">
               <div className="flex items-center gap-3">
                 <AlertCircle size={20} />
                 <p className="text-sm font-medium">{error}</p>
               </div>
-              <button onClick={() => setError(null)} className="text-red-400 hover:text-red-600">
+              <button onClick={() => setError(null)} className="text-red-400 hover:text-red-600 cursor-pointer">
                 <X size={20} />
               </button>
             </div>
@@ -346,12 +384,12 @@ const Dashboard = () => {
           </div>
         </footer>
 
-        {/* MOBILE BOTTOM NAVIGATION BAR */}
-        <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-slate-200/80 px-2 py-1 shadow-[0_-4px_16px_rgba(0,0,0,0.06)] flex items-center justify-around pb-[max(0.4rem,env(safe-area-inset-bottom))]">
+        {/* MOBILE BOTTOM NAVIGATION BAR (< md) */}
+        <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-xl border-t border-slate-200/80 px-2 py-1.5 shadow-[0_-4px_24px_rgba(0,0,0,0.08)] flex items-center justify-around pb-[max(0.6rem,env(safe-area-inset-bottom))]">
           <BottomNavLink
             to="/dashboard"
             icon={<LayoutDashboard size={20} />}
-            label="Overview"
+            label="Home"
             active={location.pathname === '/dashboard'}
           />
           <BottomNavLink
@@ -373,17 +411,297 @@ const Dashboard = () => {
             active={isActive('/dashboard/feestatus')}
           />
           <button
-            onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-            className={`flex flex-col items-center justify-center py-1 px-3 rounded-xl transition-all cursor-pointer ${
-              !sidebarCollapsed ? 'text-blue-600 font-semibold' : 'text-slate-500 hover:text-slate-700'
+            onClick={() => setMobileHubOpen(true)}
+            className={`flex flex-col items-center justify-center py-1 px-3 rounded-xl transition-all cursor-pointer active:scale-95 ${
+              mobileHubOpen ? 'text-blue-600 font-bold' : 'text-slate-500 hover:text-slate-700'
             }`}
           >
-            <div className={`p-1 rounded-lg transition-transform ${!sidebarCollapsed ? 'scale-110 bg-blue-50 text-blue-600' : ''}`}>
-              <Menu size={20} />
+            <div className={`p-1.5 rounded-xl transition-all ${mobileHubOpen ? 'bg-blue-600 text-white shadow-md shadow-blue-500/25 scale-105' : 'bg-slate-100 text-slate-600'}`}>
+              <Grid size={18} />
             </div>
-            <span className="text-[10px] tracking-tight mt-0.5">More</span>
+            <span className="text-[10px] tracking-tight mt-0.5 font-medium">App Hub</span>
           </button>
         </nav>
+
+        {/* NATIVE MOBILE APP HUB SHEET (< md) */}
+        {mobileHubOpen && (
+          <div className="fixed inset-0 z-50 md:hidden flex flex-col justify-end">
+            {/* Backdrop */}
+            <div
+              onClick={() => setMobileHubOpen(false)}
+              className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs transition-opacity animate-in fade-in"
+            />
+
+            {/* Bottom Sheet Drawer */}
+            <div className="relative w-full max-h-[88vh] bg-white rounded-t-[28px] shadow-2xl flex flex-col overflow-hidden animate-in slide-in-from-bottom duration-300 border-t border-slate-100 z-10">
+              {/* Drag Indicator & Header */}
+              <div className="pt-3 pb-2.5 px-5 flex flex-col items-center border-b border-slate-100 shrink-0">
+                <div className="w-12 h-1.5 bg-slate-200 rounded-full mb-3" />
+                <div className="w-full flex items-center justify-between">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-7 h-7 rounded-lg overflow-hidden bg-slate-900 border border-slate-200 shadow-2xs">
+                      <img src="/official-logo.jpg" alt="Logo" className="w-full h-full object-cover" />
+                    </div>
+                    <div>
+                      <h2 className="text-base font-extrabold text-slate-900 tracking-tight leading-none">TechFlex App Hub</h2>
+                      <span className="text-[10px] text-slate-400 font-medium">Native Navigation Center</span>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => setMobileHubOpen(false)}
+                    className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 flex items-center justify-center transition-colors cursor-pointer"
+                  >
+                    <X size={16} />
+                  </button>
+                </div>
+              </div>
+
+              {/* Sheet Content (Scrollable) */}
+              <div className="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar pb-[max(2.5rem,env(safe-area-inset-bottom))]">
+                {/* User Identity Card */}
+                <div className="p-3.5 rounded-2xl bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white shadow-md flex items-center justify-between">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="w-11 h-11 rounded-2xl bg-blue-600 flex items-center justify-center font-bold text-base text-white shadow-inner shrink-0">
+                      {getInitials(currentUser?.name)}
+                    </div>
+                    <div className="min-w-0">
+                      <div className="font-bold text-sm text-white truncate leading-tight">{currentUser?.name || 'User'}</div>
+                      <div className="text-[11px] text-slate-300 truncate">{currentUser?.email}</div>
+                      <span className="inline-block mt-1 text-[9px] font-bold px-2 py-0.5 rounded-full bg-white/15 text-blue-200 uppercase tracking-wider">
+                        {isAdmin ? 'Administrator' : 'Staff Member'}
+                      </span>
+                    </div>
+                  </div>
+                  <button
+                    onClick={handleLogout}
+                    className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 text-xs font-bold transition-colors cursor-pointer shrink-0 ml-2"
+                  >
+                    <LogOut size={14} />
+                    <span>Logout</span>
+                  </button>
+                </div>
+
+                {/* PWA Install Promo if available */}
+                {canInstall && (
+                  <button
+                    onClick={handleInstallClick}
+                    className="w-full p-3 rounded-2xl bg-blue-50 border border-blue-200/80 text-blue-900 flex items-center justify-between transition-all active:scale-[0.98] cursor-pointer"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-9 h-9 rounded-xl bg-blue-600 text-white flex items-center justify-center shadow-xs">
+                        <Download size={18} />
+                      </div>
+                      <div className="text-left">
+                        <div className="text-xs font-bold">Install Mobile App</div>
+                        <div className="text-[11px] text-blue-600 font-medium">Add TechFlex to your home screen</div>
+                      </div>
+                    </div>
+                    <span className="text-xs font-bold bg-blue-600 text-white px-3 py-1.5 rounded-xl shadow-xs">
+                      Install
+                    </span>
+                  </button>
+                )}
+
+                {/* Categorized App Hub Tiles */}
+                <div className="space-y-4">
+                  {/* Finance Section */}
+                  <div>
+                    <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-2 px-1 flex items-center gap-1.5">
+                      <CreditCard size={12} className="text-blue-600" />
+                      <span>Finance & Accounts</span>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2.5">
+                      <MobileHubTile
+                        to="/dashboard/fees"
+                        icon={<CreditCard size={18} className="text-blue-600" />}
+                        bg="bg-blue-50"
+                        title="Fee Entry"
+                        subtitle="Collect tuition"
+                        active={isActive('/dashboard/fees')}
+                        onClick={() => setMobileHubOpen(false)}
+                      />
+                      <MobileHubTile
+                        to="/dashboard/feestatus"
+                        icon={<BadgeDollarSign size={18} className="text-emerald-600" />}
+                        bg="bg-emerald-50"
+                        title="Fee Status"
+                        subtitle="Ledger & balances"
+                        active={isActive('/dashboard/feestatus')}
+                        onClick={() => setMobileHubOpen(false)}
+                      />
+                      <MobileHubTile
+                        to="/dashboard/overdue"
+                        icon={<AlertCircle size={18} className="text-rose-600" />}
+                        bg="bg-rose-50"
+                        title="Overdue Fees"
+                        subtitle="Reminders & calls"
+                        active={isActive('/dashboard/overdue')}
+                        onClick={() => setMobileHubOpen(false)}
+                      />
+                      <MobileHubTile
+                        to="/dashboard/expenses"
+                        icon={<Receipt size={18} className="text-amber-600" />}
+                        bg="bg-amber-50"
+                        title="Expenses"
+                        subtitle="Tracking & ledger"
+                        active={isActive('/dashboard/expenses')}
+                        onClick={() => setMobileHubOpen(false)}
+                      />
+                      {isAdmin && (
+                        <MobileHubTile
+                          to="/dashboard/salary"
+                          icon={<Banknote size={18} className="text-teal-600" />}
+                          bg="bg-teal-50"
+                          title="Staff Salary"
+                          subtitle="Payroll & slips"
+                          active={isActive('/dashboard/salary')}
+                          onClick={() => setMobileHubOpen(false)}
+                        />
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Academics Section */}
+                  <div>
+                    <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-2 px-1 flex items-center gap-1.5">
+                      <GraduationCap size={12} className="text-indigo-600" />
+                      <span>Academics & Students</span>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2.5">
+                      <MobileHubTile
+                        to="/dashboard/students"
+                        icon={<Users size={18} className="text-indigo-600" />}
+                        bg="bg-indigo-50"
+                        title="Students"
+                        subtitle="Profiles & photos"
+                        active={isActive('/dashboard/students')}
+                        onClick={() => setMobileHubOpen(false)}
+                      />
+                      <MobileHubTile
+                        to="/dashboard/studentstatus"
+                        icon={<UserCheck size={18} className="text-emerald-600" />}
+                        bg="bg-emerald-50"
+                        title="Student Status"
+                        subtitle="Active & completed"
+                        active={isActive('/dashboard/studentstatus')}
+                        onClick={() => setMobileHubOpen(false)}
+                      />
+                      {isAdmin && (
+                        <>
+                          <MobileHubTile
+                            to="/dashboard/courses"
+                            icon={<BookOpen size={18} className="text-purple-600" />}
+                            bg="bg-purple-50"
+                            title="Courses"
+                            subtitle="Curriculum fees"
+                            active={isActive('/dashboard/courses')}
+                            onClick={() => setMobileHubOpen(false)}
+                          />
+                          <MobileHubTile
+                            to="/dashboard/courseenrollment"
+                            icon={<PenSquare size={18} className="text-sky-600" />}
+                            bg="bg-sky-50"
+                            title="Enrollment"
+                            subtitle="Course batching"
+                            active={isActive('/dashboard/courseenrollment')}
+                            onClick={() => setMobileHubOpen(false)}
+                          />
+                        </>
+                      )}
+                      <MobileHubTile
+                        to="/dashboard/timeslot-analytics"
+                        icon={<Clock size={18} className="text-cyan-600" />}
+                        bg="bg-cyan-50"
+                        title="Timeslots"
+                        subtitle="Room schedules"
+                        active={isActive('/dashboard/timeslot-analytics')}
+                        onClick={() => setMobileHubOpen(false)}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Intelligence & AI */}
+                  {isAdmin && (
+                    <div>
+                      <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-2 px-1 flex items-center gap-1.5">
+                        <Sparkles size={11} className="text-purple-600" />
+                        <span>Intelligence & AI</span>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2.5">
+                        <MobileHubTile
+                          to="/dashboard/iic"
+                          icon={<BrainCircuit size={18} className="text-purple-600" />}
+                          bg="bg-purple-50"
+                          title="IIC AI Hub"
+                          subtitle="Risk & analytics"
+                          active={location.pathname === '/dashboard/iic'}
+                          onClick={() => setMobileHubOpen(false)}
+                        />
+                        <MobileHubTile
+                          to="/dashboard/iic/marketing"
+                          icon={<Megaphone size={18} className="text-pink-600" />}
+                          bg="bg-pink-50"
+                          title="Marketing AI"
+                          subtitle="Campaigns & ads"
+                          active={isActive('/dashboard/iic/marketing')}
+                          onClick={() => setMobileHubOpen(false)}
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Administration Section */}
+                  {isAdmin && (
+                    <div>
+                      <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-2 px-1 flex items-center gap-1.5">
+                        <UserCog size={12} className="text-slate-600" />
+                        <span>Administration</span>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2.5">
+                        <MobileHubTile
+                          to="/dashboard/users"
+                          icon={<UserCog size={18} className="text-slate-700" />}
+                          bg="bg-slate-100"
+                          title="Users"
+                          subtitle="Role management"
+                          active={isActive('/dashboard/users')}
+                          onClick={() => setMobileHubOpen(false)}
+                        />
+                        <MobileHubTile
+                          to="/dashboard/analytics"
+                          icon={<BarChart3 size={18} className="text-blue-600" />}
+                          bg="bg-blue-50"
+                          title="Analytics"
+                          subtitle="Revenue reports"
+                          active={isActive('/dashboard/analytics') || isActive('/dashboard/analtyics')}
+                          onClick={() => setMobileHubOpen(false)}
+                        />
+                        <MobileHubTile
+                          to="/dashboard/record"
+                          icon={<FileText size={18} className="text-emerald-600" />}
+                          bg="bg-emerald-50"
+                          title="Records"
+                          subtitle="Global Excel export"
+                          active={isActive('/dashboard/record')}
+                          onClick={() => setMobileHubOpen(false)}
+                        />
+                        <MobileHubTile
+                          to="/dashboard/certificate"
+                          icon={<Award size={18} className="text-amber-600" />}
+                          bg="bg-amber-50"
+                          title="Certificates"
+                          subtitle="Generate diplomas"
+                          active={isActive('/dashboard/certificate')}
+                          onClick={() => setMobileHubOpen(false)}
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -414,16 +732,38 @@ const SidebarLink = ({ to, icon, label, collapsed, active, onClick }) => (
 const BottomNavLink = ({ to, icon, label, active }) => (
   <Link
     to={to}
-    className={`flex flex-col items-center justify-center py-1 px-3 rounded-xl transition-all ${
+    className={`flex flex-col items-center justify-center py-1 px-3 rounded-xl transition-all active:scale-95 ${
       active
-        ? 'text-blue-600 font-semibold'
+        ? 'text-blue-600 font-bold'
         : 'text-slate-400 hover:text-slate-600'
     }`}
   >
-    <div className={`p-1 rounded-lg transition-transform ${active ? 'scale-110 bg-blue-50 text-blue-600' : ''}`}>
+    <div className={`p-1.5 rounded-xl transition-all ${active ? 'bg-blue-50 text-blue-600 scale-105' : ''}`}>
       {icon}
     </div>
     <span className="text-[10px] tracking-tight mt-0.5">{label}</span>
+  </Link>
+);
+
+const MobileHubTile = ({ to, icon, bg, title, subtitle, active, onClick }) => (
+  <Link
+    to={to}
+    onClick={onClick}
+    className={`flex items-center gap-3 p-3 rounded-2xl border transition-all active:scale-98 ${
+      active
+        ? 'bg-blue-50/70 border-blue-200 shadow-xs'
+        : 'bg-white hover:bg-slate-50/80 border-slate-200/80'
+    }`}
+  >
+    <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${bg}`}>
+      {icon}
+    </div>
+    <div className="min-w-0">
+      <div className={`text-xs font-bold truncate leading-tight ${active ? 'text-blue-700' : 'text-slate-900'}`}>
+        {title}
+      </div>
+      <div className="text-[10px] text-slate-400 truncate mt-0.5">{subtitle}</div>
+    </div>
   </Link>
 );
 
