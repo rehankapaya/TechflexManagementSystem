@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { db } from '../firebase.js';
-import { ref, onValue, update, remove } from 'firebase/database';
+import { useData } from '../contexts/DataContext';
+import { ref, update, remove } from 'firebase/database';
 import toast from 'react-hot-toast';
 import {
   PenSquare,
@@ -17,8 +18,7 @@ import {
 } from 'lucide-react';
 
 const CourseEnrollment = () => {
-  const [students, setStudents] = useState([]);
-  const [courses, setCourses] = useState([]);
+  const { students, courses } = useData();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedStudent, setSelectedStudent] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -48,30 +48,11 @@ const CourseEnrollment = () => {
   };
 
   useEffect(() => {
-    const studentsRef = ref(db, 'students');
-    const coursesRef = ref(db, 'courses');
-
-    const unsubStudents = onValue(studentsRef, (snap) => {
-      const data = snap.val();
-      const list = data ? Object.keys(data).map(id => ({ id, ...data[id] })) : [];
-      setStudents(list);
-
-      if (selectedStudent) {
-        const updated = list.find(s => s.id === selectedStudent.id);
-        setSelectedStudent(updated);
-      }
-    });
-
-    const unsubCourses = onValue(coursesRef, (snap) => {
-      const data = snap.val();
-      setCourses(data ? Object.keys(data).map(id => ({ id, ...data[id] })) : []);
-    });
-
-    return () => {
-      unsubStudents();
-      unsubCourses();
-    };
-  }, [selectedStudent?.id]);
+    if (selectedStudent) {
+      const updated = students.find(s => s.id === selectedStudent.id);
+      setSelectedStudent(updated);
+    }
+  }, [students, selectedStudent?.id]);
 
   const handleCourseChange = (e) => {
     const courseId = e.target.value;

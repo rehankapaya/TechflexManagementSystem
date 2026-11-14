@@ -1,6 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { db } from '../firebase';
-import { ref, onValue } from 'firebase/database';
+import React, { useState } from 'react';
+import { useData } from '../contexts/DataContext';
 import {
   Clock,
   Users,
@@ -13,23 +12,9 @@ import {
 } from 'lucide-react';
 
 const TimeslotAnalytics = () => {
-  const [students, setStudents] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const { students, loading: dataLoading } = useData();
+  const loading = dataLoading.students;
   const [selectedSlot, setSelectedSlot] = useState(null);
-
-  useEffect(() => {
-    const studentsRef = ref(db, 'students');
-    const unsub = onValue(studentsRef, (snap) => {
-      const data = snap.val();
-      if (data) {
-        setStudents(Object.keys(data).map(id => ({ id, ...data[id] })));
-      } else {
-        setStudents([]);
-      }
-      setLoading(false);
-    });
-    return () => unsub();
-  }, []);
 
   const regularSlots = [
     "3:00 PM - 4:00 PM", "4:00 PM - 5:00 PM", "5:00 PM - 6:00 PM",

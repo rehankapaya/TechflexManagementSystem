@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { db } from '../firebase';
 import { useAuth } from '../contexts/AuthContext';
-import { ref, push, set, onValue, remove } from 'firebase/database';
+import { useData } from '../contexts/DataContext';
+import { ref, push, set, remove } from 'firebase/database';
 import { downloadExpenseSample, parseExcelUpload, exportExpenses } from '../utils/bulkUpload';
 import toast from 'react-hot-toast';
 import { MONTHS_FULL } from '../utils/monthUtils';
@@ -24,8 +25,7 @@ import {
 
 const Expenses = () => {
   const { currentUser, isAdmin } = useAuth();
-  const [expenses, setExpenses] = useState([]);
-  const [courses, setCourses] = useState([]);
+  const { expenses, courses } = useData();
   const [loading, setLoading] = useState(false);
   const [filterMonth, setFilterMonth] = useState(new Date().getMonth() + 1);
   const [filterYear, setFilterYear] = useState(new Date().getFullYear());
@@ -39,32 +39,6 @@ const Expenses = () => {
     description: '',
     courseName: 'General',
   });
-
-  useEffect(() => {
-    const unsubCourses = onValue(ref(db, 'courses'), (snap) => {
-      const data = snap.val();
-      setCourses(data ? Object.keys(data).map(id => ({ id, ...data[id] })) : []);
-    });
-
-    const unsubExpenses = onValue(ref(db, 'expenses'), (snap) => {
-      const data = snap.val();
-      setExpenses(data ? Object.keys(data).map(id => {
-        const exp = { id, ...data[id] };
-        if (exp.courseName && typeof exp.courseName === 'object') {
-          exp.courseName = exp.courseName.richText ? exp.courseName.richText.map(r => r.text).join('') : (exp.courseName.text || String(exp.courseName));
-        }
-        if (exp.description && typeof exp.description === 'object') {
-          exp.description = exp.description.richText ? exp.description.richText.map(r => r.text).join('') : (exp.description.text || String(exp.description));
-        }
-        return exp;
-      }) : []);
-    });
-
-    return () => {
-      unsubCourses();
-      unsubExpenses();
-    };
-  }, []);
 
   const handleChange = (e) => setFormData({ ...formData, [e.target.name]: e.target.value });
 

@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
 import { db } from '../firebase.js';
-import { ref, push, set, onValue, remove, update } from 'firebase/database';
+import { useData } from '../contexts/DataContext';
+import { ref, push, set, remove, update } from 'firebase/database';
 import toast from 'react-hot-toast';
 import {
   Award,
@@ -18,9 +19,9 @@ import {
 } from 'lucide-react';
 
 const CertificateGenerator = () => {
+  const { certificates: history, courses } = useData();
   const [view, setView] = useState('list');
   const [isEditing, setIsEditing] = useState(null);
-  const [courses, setCourses] = useState([]);
 
   const [formData, setFormData] = useState({
     name: '',
@@ -32,7 +33,6 @@ const CertificateGenerator = () => {
 
   const [pdfPreview, setPdfPreview] = useState(null);
   const [isSaving, setIsSaving] = useState(false);
-  const [history, setHistory] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
 
   // Auto-increment Cert ID
@@ -52,34 +52,6 @@ const CertificateGenerator = () => {
       setFormData(prev => ({ ...prev, certID: generatedID }));
     }
   }, [view, isEditing, history]);
-
-  // Fetch History & Courses
-  useEffect(() => {
-    const certsRef = ref(db, 'generated_certificates');
-    const historyUnsub = onValue(certsRef, (snapshot) => {
-      const data = snapshot.val();
-      if (data) {
-        const list = Object.keys(data).map(id => ({ id, ...data[id] }));
-        setHistory(list.reverse());
-      } else {
-        setHistory([]);
-      }
-    });
-
-    const coursesRef = ref(db, 'courses');
-    const coursesUnsub = onValue(coursesRef, (snapshot) => {
-      const data = snapshot.val();
-      if (data) {
-        const list = Object.keys(data).map(id => ({ id, ...data[id] }));
-        setCourses(list);
-      }
-    });
-
-    return () => {
-      historyUnsub();
-      coursesUnsub();
-    };
-  }, []);
 
   const handleChange = (e) => {
     const { name, value } = e.target;

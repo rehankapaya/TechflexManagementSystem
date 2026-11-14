@@ -1,6 +1,7 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
+import { DataProvider } from './contexts/DataContext';
 import ProtectedRoute from './components/ProtectedRoute';
 import { Toaster } from 'react-hot-toast';
 
@@ -35,8 +36,9 @@ import SocialMarketingAI from './components/iic/SocialMarketingAI';
 function App() {
   return (
     <AuthProvider>
-      <Toaster position="top-right" />
-      <Router>
+      <DataProvider>
+        <Toaster position="top-right" />
+        <Router>
         <Routes>
           <Route path="/login" element={<Login />} />
 
@@ -210,6 +212,7 @@ function App() {
           <Route path="*" element={<Navigate to="/login" replace />} />
         </Routes>
       </Router>
+      </DataProvider>
     </AuthProvider>
   );
 }

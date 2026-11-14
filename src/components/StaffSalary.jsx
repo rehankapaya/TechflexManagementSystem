@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { db } from '../firebase';
 import { useAuth } from '../contexts/AuthContext';
-import { ref, push, set, onValue, remove } from 'firebase/database';
+import { useData } from '../contexts/DataContext';
+import { ref, push, set, remove } from 'firebase/database';
 import toast from 'react-hot-toast';
 import { MONTHS_FULL, normalizeMonth } from '../utils/monthUtils';
 import {
@@ -21,9 +22,8 @@ import {
 
 const StaffSalary = () => {
   const { currentUser, isAdmin } = useAuth();
-  const [salaries, setSalaries] = useState([]);
+  const { salariesList: salaries, staffDirectory } = useData();
   const [loading, setLoading] = useState(false);
-  const [staffDirectory, setStaffDirectory] = useState([]);
   const [showStaffModal, setShowStaffModal] = useState(false);
   const [newStaffName, setNewStaffName] = useState('');
   const [newStaffRole, setNewStaffRole] = useState('');
@@ -51,22 +51,6 @@ const StaffSalary = () => {
     currentYear,
     ...salaries.map(s => new Date(s.date).getFullYear())
   ])).filter(y => !isNaN(y)).sort((a, b) => a - b);
-
-  useEffect(() => {
-    const unsubSalaries = onValue(ref(db, 'staff_salary'), (snap) => {
-      const data = snap.val();
-      setSalaries(data ? Object.keys(data).map(id => ({ id, ...data[id] })) : []);
-    });
-    const unsubDirectory = onValue(ref(db, 'staff_directory'), (snap) => {
-      const data = snap.val();
-      setStaffDirectory(data ? Object.keys(data).map(id => ({ id, ...data[id] })) : []);
-    });
-
-    return () => {
-      unsubSalaries();
-      unsubDirectory();
-    };
-  }, []);
 
   const handleChange = (e) => setFormData({ ...formData, [e.target.name]: e.target.value });
 

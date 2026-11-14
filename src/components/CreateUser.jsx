@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { auth, db } from '../firebase.js';
+import { useData } from '../contexts/DataContext';
 import { createUserWithEmailAndPassword, sendPasswordResetEmail } from 'firebase/auth';
-import { ref, set, onValue, remove, update } from 'firebase/database';
+import { ref, set, remove, update } from 'firebase/database';
 import toast from 'react-hot-toast';
 import {
   UserPlus,
@@ -20,13 +21,13 @@ import {
 } from 'lucide-react';
 
 const CreateUser = () => {
+  const { users } = useData();
   const [formData, setFormData] = useState({
     name: '',
     email: '',
     password: '',
     role: 'teacher'
   });
-  const [users, setUsers] = useState([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [showEditModal, setShowEditModal] = useState(false);
@@ -37,18 +38,6 @@ const CreateUser = () => {
     { value: 'teacher', label: 'Teacher', icon: BookOpen, color: 'text-blue-600 bg-blue-50 border-blue-200' },
     { value: 'feescashier', label: 'Cashier', icon: Wallet, color: 'text-emerald-600 bg-emerald-50 border-emerald-200' }
   ];
-
-  useEffect(() => {
-    const usersRef = ref(db, 'users');
-    const unsubscribe = onValue(usersRef, (snapshot) => {
-      const data = snapshot.val();
-      if (data) {
-        const userList = Object.values(data).reverse();
-        setUsers(userList);
-      }
-    });
-    return () => unsubscribe();
-  }, []);
 
   const handleChange = (e) => {
     const { name, value } = e.target;

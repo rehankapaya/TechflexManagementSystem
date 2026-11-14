@@ -1,7 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { db } from '../firebase';
-import { ref, get } from 'firebase/database';
+import { useData } from '../contexts/DataContext';
 import { MONTHS_FULL } from '../utils/monthUtils';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -27,143 +26,108 @@ import {
   Clock,
   Award,
   UserCog,
-  FileText
+  FileText,
+  BrainCircuit,
+  Megaphone,
+  TrendingUp,
+  ShieldAlert,
+  Bot
 } from 'lucide-react';
 
 const Overview = () => {
   const { currentUser, isAdmin } = useAuth();
   const navigate = useNavigate();
-  const [stats, setStats] = useState({
-    totalUsers: 0,
-    teachers: 0,
-    cashiers: 0,
-    students: 0,
-    activeStudents: 0,
-  });
-
-  const [advancedStats, setAdvancedStats] = useState({
-    monthYear: {},
-    genderYear: {},
-    laptopYear: {},
-    statusYear: {},
-    totalsByStatus: { active: 0, coursecomplete: 0, dropout: 0 },
-    courseYear: {}
-  });
-
-  const [loading, setLoading] = useState(true);
+  const [selectedCategory, setSelectedCategory] = useState('all');
+  const { students, users, loading: dataLoading } = useData();
+  const loading = dataLoading.students || dataLoading.users;
 
   const currentYear = new Date().getFullYear();
-  const yearsList = Array.from({ length: currentYear - 2023 + 1 }, (_, i) => 2023 + i);
+  const yearsList = useMemo(() => Array.from({ length: currentYear - 2023 + 1 }, (_, i) => 2023 + i), [currentYear]);
   const monthsFull = MONTHS_FULL;
 
-  useEffect(() => {
-    const fetchStats = async () => {
-      try {
-        const usersRef = ref(db, 'users');
-        const studentsRef = ref(db, 'students');
+  const { stats, advancedStats } = useMemo(() => {
+    const userList = users || [];
+    const totalStudentCount = students.length;
+    const activeStudentCount = students.filter(s => s.status === 'active').length;
 
-        const [userSnap, studentSnap] = await Promise.all([
-          get(usersRef),
-          get(studentsRef)
-        ]);
+    const initialYearObj = {};
+    yearsList.forEach(y => initialYearObj[y] = 0);
 
-        let userList = [];
-        if (userSnap.exists()) {
-          userList = Object.values(userSnap.val());
+    const monthYear = {};
+    monthsFull.forEach(m => { monthYear[m] = { ...initialYearObj }; });
+
+    const genderYear = { "Male": { ...initialYearObj }, "Female": { ...initialYearObj } };
+    const laptopYear = { "Has Laptop": { ...initialYearObj }, "No! Provided By ins": { ...initialYearObj } };
+    const statusYear = { "dropout": { ...initialYearObj }, "coursecomplete": { ...initialYearObj }, "active": { ...initialYearObj } };
+    const totalsByStatus = { active: 0, coursecomplete: 0, dropout: 0 };
+    const courseYear = {};
+
+    students.forEach(s => {
+      const dateStr = s.createdAt || "";
+      let sYear = null;
+      let sMonthName = null;
+      if (dateStr) {
+        const d = new Date(dateStr);
+        sYear = d.getFullYear();
+        if (yearsList.includes(sYear)) {
+          sMonthName = monthsFull[d.getMonth()];
+          if (monthYear[sMonthName]) {
+            monthYear[sMonthName][sYear] += 1;
+          }
+          if (s.gender && genderYear[s.gender]) {
+            genderYear[s.gender][sYear] += 1;
+          }
+          if (s.laptop_status && laptopYear[s.laptop_status]) {
+            laptopYear[s.laptop_status][sYear] += 1;
+          }
         }
+      }
 
-        let totalStudentCount = 0;
-        let activeStudentCount = 0;
+      if (s.enrolled_courses) {
+        Object.values(s.enrolled_courses).forEach(c => {
+          const cDateStr = c.enrolledAt || s.createdAt;
+          let cYear = null;
+          if (cDateStr) {
+            cYear = new Date(cDateStr).getFullYear();
+          }
 
-        const initialYearObj = {};
-        yearsList.forEach(y => initialYearObj[y] = 0);
+          const st = c.course_status || "active";
+          if (totalsByStatus[st] !== undefined) {
+            totalsByStatus[st] += 1;
+          }
 
-        const monthYear = {};
-        monthsFull.forEach(m => { monthYear[m] = { ...initialYearObj }; });
-
-        const genderYear = { "Male": { ...initialYearObj }, "Female": { ...initialYearObj } };
-        const laptopYear = { "Has Laptop": { ...initialYearObj }, "No! Provided By ins": { ...initialYearObj } };
-        const statusYear = { "dropout": { ...initialYearObj }, "coursecomplete": { ...initialYearObj }, "active": { ...initialYearObj } };
-        const totalsByStatus = { active: 0, coursecomplete: 0, dropout: 0 };
-        const courseYear = {};
-
-        if (studentSnap.exists()) {
-          const studentsData = studentSnap.val();
-          const studentList = Object.values(studentsData);
-
-          totalStudentCount = studentList.length;
-          activeStudentCount = studentList.filter(s => s.status === 'active').length;
-
-          studentList.forEach(s => {
-            const dateStr = s.createdAt || "";
-            let sYear = null;
-            let sMonthName = null;
-            if (dateStr) {
-              const d = new Date(dateStr);
-              sYear = d.getFullYear();
-              if (yearsList.includes(sYear)) {
-                sMonthName = monthsFull[d.getMonth()];
-                if (monthYear[sMonthName]) {
-                  monthYear[sMonthName][sYear] += 1;
-                }
-                if (s.gender && genderYear[s.gender]) {
-                  genderYear[s.gender][sYear] += 1;
-                }
-                if (s.laptop_status && laptopYear[s.laptop_status]) {
-                  laptopYear[s.laptop_status][sYear] += 1;
-                }
-              }
+          if (cYear && yearsList.includes(cYear)) {
+            if (statusYear[st] !== undefined) {
+              statusYear[st][cYear] += 1;
             }
-
-            if (s.enrolled_courses) {
-              Object.values(s.enrolled_courses).forEach(c => {
-                const cDateStr = c.enrolledAt || s.createdAt;
-                let cYear = null;
-                if (cDateStr) {
-                  cYear = new Date(cDateStr).getFullYear();
-                }
-
-                const st = c.course_status || "active";
-                if (totalsByStatus[st] !== undefined) {
-                  totalsByStatus[st] += 1;
-                }
-
-                if (cYear && yearsList.includes(cYear)) {
-                  if (statusYear[st] !== undefined) {
-                    statusYear[st][cYear] += 1;
-                  }
-                  const cName = c.course_name || "Unknown";
-                  if (!courseYear[cName]) {
-                    courseYear[cName] = { ...initialYearObj };
-                  }
-                  courseYear[cName][cYear] += 1;
-                }
-              });
+            const cName = c.course_name || "Unknown";
+            if (!courseYear[cName]) {
+              courseYear[cName] = { ...initialYearObj };
             }
-          });
-        }
-
-        setStats({
-          totalUsers: userList.length,
-          teachers: userList.filter(u => u.role === 'teacher').length,
-          cashiers: userList.filter(u => u.role === 'feescashier').length,
-          students: totalStudentCount,
-          activeStudents: activeStudentCount,
+            courseYear[cName][cYear] += 1;
+          }
         });
+      }
+    });
 
-        setAdvancedStats({
-          monthYear, genderYear, laptopYear, statusYear, totalsByStatus, courseYear
-        });
-
-      } catch (error) {
-        console.error("Error fetching stats:", error);
-      } finally {
-        setLoading(false);
+    return {
+      stats: {
+        totalUsers: userList.length,
+        teachers: userList.filter(u => u.role === 'teacher').length,
+        cashiers: userList.filter(u => u.role === 'feescashier').length,
+        students: totalStudentCount,
+        activeStudents: activeStudentCount,
+      },
+      advancedStats: {
+        monthYear,
+        genderYear,
+        laptopYear,
+        statusYear,
+        totalsByStatus,
+        courseYear
       }
     };
-
-    fetchStats();
-  }, []);
+  }, [students, users, yearsList, monthsFull]);
 
   const statCards = [
     { title: "Total Staff", value: stats.totalUsers, icon: Users, color: "text-blue-600 bg-blue-50 border-blue-100", desc: "Registered team members" },
@@ -173,9 +137,18 @@ const Overview = () => {
     { title: "Cashiers", value: stats.cashiers, icon: Wallet, color: "text-amber-600 bg-amber-50 border-amber-100", desc: "Financial nodes" },
   ];
 
-  const quickNavItems = [
+  const navCategories = [
+    { id: 'all', label: 'All Services' },
+    { id: 'finance', label: 'Finance' },
+    { id: 'academics', label: 'Academics' },
+    ...(isAdmin ? [{ id: 'ai', label: 'AI & Intelligence' }, { id: 'admin', label: 'Administration' }] : []),
+  ];
+
+  const allNavItems = [
+    // Finance
     {
       id: 'fees',
+      category: 'finance',
       label: 'Fee Entry',
       to: '/dashboard/fees',
       icon: <CreditCard size={22} className="text-blue-600" />,
@@ -184,6 +157,7 @@ const Overview = () => {
     },
     {
       id: 'status',
+      category: 'finance',
       label: 'Fee Status',
       to: '/dashboard/feestatus',
       icon: <BadgeDollarSign size={22} className="text-emerald-600" />,
@@ -191,15 +165,8 @@ const Overview = () => {
       border: 'border-emerald-200'
     },
     {
-      id: 'students',
-      label: 'Students',
-      to: '/dashboard/students',
-      icon: <Users size={22} className="text-indigo-600" />,
-      bg: 'bg-indigo-50/90',
-      border: 'border-indigo-200'
-    },
-    {
       id: 'overdue',
+      category: 'finance',
       label: 'Overdue',
       to: '/dashboard/overdue',
       icon: <AlertCircle size={22} className="text-rose-600" />,
@@ -208,6 +175,7 @@ const Overview = () => {
     },
     {
       id: 'expenses',
+      category: 'finance',
       label: 'Expenses',
       to: '/dashboard/expenses',
       icon: <Receipt size={22} className="text-amber-600" />,
@@ -215,15 +183,29 @@ const Overview = () => {
       border: 'border-amber-200'
     },
     {
-      id: 'courses',
-      label: 'Courses',
-      to: '/dashboard/courses',
-      icon: <BookOpen size={22} className="text-teal-600" />,
+      id: 'salary',
+      category: 'finance',
+      label: 'Staff Salary',
+      to: '/dashboard/salary',
+      icon: <Banknote size={22} className="text-teal-600" />,
       bg: 'bg-teal-50/90',
-      border: 'border-teal-200'
+      border: 'border-teal-200',
+      adminOnly: true
+    },
+
+    // Academics
+    {
+      id: 'students',
+      category: 'academics',
+      label: 'Students',
+      to: '/dashboard/students',
+      icon: <Users size={22} className="text-indigo-600" />,
+      bg: 'bg-indigo-50/90',
+      border: 'border-indigo-200'
     },
     {
       id: 'studentstatus',
+      category: 'academics',
       label: 'Status',
       to: '/dashboard/studentstatus',
       icon: <UserCheck size={22} className="text-violet-600" />,
@@ -231,49 +213,91 @@ const Overview = () => {
       border: 'border-violet-200'
     },
     {
+      id: 'courses',
+      category: 'academics',
+      label: 'Courses',
+      to: '/dashboard/courses',
+      icon: <BookOpen size={22} className="text-teal-600" />,
+      bg: 'bg-teal-50/90',
+      border: 'border-teal-200',
+      adminOnly: true
+    },
+    {
       id: 'enrollment',
+      category: 'academics',
       label: 'Enrollment',
       to: '/dashboard/courseenrollment',
       icon: <PenSquare size={22} className="text-sky-600" />,
       bg: 'bg-sky-50/90',
-      border: 'border-sky-200'
+      border: 'border-sky-200',
+      adminOnly: true
     },
     {
-      id: 'salary',
-      label: 'Staff Salary',
-      to: '/dashboard/salary',
-      icon: <Banknote size={22} className="text-emerald-600" />,
+      id: 'timeslots',
+      category: 'academics',
+      label: 'Timeslots',
+      to: '/dashboard/timeslot-analytics',
+      icon: <Clock size={22} className="text-cyan-600" />,
+      bg: 'bg-cyan-50/90',
+      border: 'border-cyan-200'
+    },
+
+    // Intelligence & AI
+    {
+      id: 'iic',
+      category: 'ai',
+      label: 'IIC AI Hub',
+      to: '/dashboard/iic',
+      icon: <BrainCircuit size={22} className="text-purple-600" />,
+      bg: 'bg-purple-50/90',
+      border: 'border-purple-200',
+      adminOnly: true
+    },
+    {
+      id: 'marketing',
+      category: 'ai',
+      label: 'Marketing AI',
+      to: '/dashboard/iic/marketing',
+      icon: <Megaphone size={22} className="text-pink-600" />,
+      bg: 'bg-pink-50/90',
+      border: 'border-pink-200',
+      adminOnly: true
+    },
+    {
+      id: 'forecast',
+      category: 'ai',
+      label: 'Forecasting',
+      to: '/dashboard/iic/forecast',
+      icon: <TrendingUp size={22} className="text-emerald-600" />,
       bg: 'bg-emerald-50/90',
       border: 'border-emerald-200',
       adminOnly: true
     },
     {
-      id: 'timeslots',
-      label: 'Timeslots',
-      to: '/dashboard/timeslot-analytics',
-      icon: <Clock size={22} className="text-cyan-600" />,
-      bg: 'bg-cyan-50/90',
-      border: 'border-cyan-200',
-      hideIfAdmin: true
+      id: 'risk',
+      category: 'ai',
+      label: 'Student Risk',
+      to: '/dashboard/iic/risk',
+      icon: <ShieldAlert size={22} className="text-rose-600" />,
+      bg: 'bg-rose-50/90',
+      border: 'border-rose-200',
+      adminOnly: true
     },
     {
-      id: 'analytics',
-      label: 'Analytics',
-      to: '/dashboard/analytics',
-      icon: <BarChart3 size={22} className="text-blue-600" />,
-      bg: 'bg-blue-50/90',
-      border: 'border-blue-200'
+      id: 'assistant',
+      category: 'ai',
+      label: 'AI Assistant',
+      to: '/dashboard/iic/assistant',
+      icon: <Bot size={22} className="text-indigo-600" />,
+      bg: 'bg-indigo-50/90',
+      border: 'border-indigo-200',
+      adminOnly: true
     },
-    {
-      id: 'certificates',
-      label: 'Certificates',
-      to: '/dashboard/certificate',
-      icon: <Award size={22} className="text-amber-600" />,
-      bg: 'bg-amber-50/90',
-      border: 'border-amber-200'
-    },
+
+    // Administration
     {
       id: 'users',
+      category: 'admin',
       label: 'Staff Roles',
       to: '/dashboard/users',
       icon: <UserCog size={22} className="text-slate-700" />,
@@ -282,19 +306,40 @@ const Overview = () => {
       adminOnly: true
     },
     {
+      id: 'analytics',
+      category: 'admin',
+      label: 'Analytics',
+      to: '/dashboard/analytics',
+      icon: <BarChart3 size={22} className="text-blue-600" />,
+      bg: 'bg-blue-50/90',
+      border: 'border-blue-200',
+      adminOnly: true
+    },
+    {
       id: 'record',
+      category: 'admin',
       label: 'Records',
       to: '/dashboard/record',
       icon: <FileText size={22} className="text-emerald-600" />,
       bg: 'bg-emerald-50/90',
       border: 'border-emerald-200',
-      hideIfAdmin: true
+      adminOnly: true
     },
-  ].filter(item => {
-    if (item.adminOnly && !isAdmin) return false;
-    if (item.hideIfAdmin && isAdmin) return false;
-    return true;
-  }).slice(0, 12);
+    {
+      id: 'certificates',
+      category: 'admin',
+      label: 'Certificates',
+      to: '/dashboard/certificate',
+      icon: <Award size={22} className="text-amber-600" />,
+      bg: 'bg-amber-50/90',
+      border: 'border-amber-200',
+      adminOnly: true
+    },
+  ];
+
+  const quickNavItems = allNavItems
+    .filter(item => (!item.adminOnly || isAdmin))
+    .filter(item => selectedCategory === 'all' || item.category === selectedCategory);
 
   const AnalyticsTable = ({ title, columns, data, rowLabelKey, rowKeys, icon: Icon = BarChart3 }) => {
     return (
@@ -406,7 +451,7 @@ const Overview = () => {
       </div>
 
       {/* MOBILE 4-COLUMN EASYPEISA-STYLE QUICK APP HUB (< md) */}
-      <div className="block md:hidden bg-white p-4 rounded-3xl border border-slate-300 shadow-[0_2px_10px_rgba(15,23,42,0.06)] space-y-3.5">
+      <div className="block md:hidden bg-white p-4 rounded-3xl border border-slate-300 shadow-[0_2px_10px_rgba(15,23,42,0.06)] space-y-3">
         <div className="flex items-center justify-between pb-2.5 border-b border-slate-100">
           <div className="flex items-center gap-2">
             <div className="w-7 h-7 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center">
@@ -414,13 +459,30 @@ const Overview = () => {
             </div>
             <h3 className="text-sm font-extrabold text-slate-950 tracking-tight">App Hub Services</h3>
           </div>
-          <span className="text-[10px] font-mono font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md border border-slate-200">
-            {quickNavItems.length} Shortcuts
+          <span className="text-[10px] font-mono font-bold text-slate-600 bg-slate-100 px-2.5 py-0.5 rounded-md border border-slate-200">
+            {quickNavItems.length} Services
           </span>
         </div>
 
+        {/* CATEGORY FILTER PILLS */}
+        <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-1">
+          {navCategories.map(cat => (
+            <button
+              key={cat.id}
+              onClick={() => setSelectedCategory(cat.id)}
+              className={`px-3 py-1 rounded-xl text-xs font-extrabold whitespace-nowrap transition-all cursor-pointer ${
+                selectedCategory === cat.id
+                  ? 'bg-blue-600 text-white shadow-2xs'
+                  : 'bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-200/80'
+              }`}
+            >
+              {cat.label}
+            </button>
+          ))}
+        </div>
+
         {/* 4-COLUMN GRID */}
-        <div className="grid grid-cols-4 gap-y-4 gap-x-2">
+        <div className="grid grid-cols-4 gap-y-4 gap-x-2 pt-1">
           {quickNavItems.map(item => (
             <button
               key={item.id}
@@ -494,14 +556,31 @@ const Overview = () => {
         {/* DESKTOP APP HUB QUICK SERVICES CARD */}
         <div className="bg-white p-5 rounded-2xl border border-slate-300 md:border-slate-200/80 shadow-[0_2px_10px_rgba(15,23,42,0.06)] md:shadow-xs flex flex-col justify-between">
           <div>
-            <div className="flex items-center justify-between mb-4 pb-3 border-b border-slate-100">
+            <div className="flex items-center justify-between mb-3 pb-3 border-b border-slate-100">
               <div className="flex items-center gap-2">
                 <Sparkles size={18} className="text-blue-600" />
                 <h3 className="text-base font-extrabold text-slate-950 tracking-tight">App Hub Services</h3>
               </div>
               <span className="text-[10px] font-mono font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md border border-slate-200">
-                {quickNavItems.length} Shortcuts
+                {quickNavItems.length} Services
               </span>
+            </div>
+
+            {/* Desktop Category Filter Pills */}
+            <div className="flex items-center gap-1 overflow-x-auto no-scrollbar pb-3">
+              {navCategories.map(cat => (
+                <button
+                  key={`desk_cat_${cat.id}`}
+                  onClick={() => setSelectedCategory(cat.id)}
+                  className={`px-2.5 py-1 rounded-lg text-[11px] font-extrabold whitespace-nowrap transition-all cursor-pointer ${
+                    selectedCategory === cat.id
+                      ? 'bg-blue-600 text-white shadow-2xs'
+                      : 'bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-200/80'
+                  }`}
+                >
+                  {cat.label}
+                </button>
+              ))}
             </div>
 
             <div className="grid grid-cols-4 gap-y-3 gap-x-2">
@@ -525,10 +604,40 @@ const Overview = () => {
       </div>
 
       {/* ADVANCED ANALYTICS SECTION */}
-      <div>
-        <div className="flex items-center gap-2 mb-4">
+      <div className="space-y-4">
+        <div className="flex items-center gap-2">
           <Layers size={18} className="text-blue-600" />
           <h2 className="text-lg font-extrabold text-slate-900 tracking-tight">Multi-Year Academic Breakdown</h2>
+        </div>
+
+        {/* TOTAL STATUS SUMMARY CARD (PLACED FIRST BEFORE THE TABLES) */}
+        <div className="bg-white rounded-2xl border border-slate-300 md:border-slate-200/80 shadow-[0_2px_10px_rgba(15,23,42,0.06)] md:shadow-xs p-5 transition-all hover:shadow-md">
+          <div className="flex items-center gap-2 mb-4">
+            <div className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center">
+              <UserCheck size={16} />
+            </div>
+            <h3 className="text-sm font-extrabold text-slate-900 tracking-tight">Enrollment Status Totals</h3>
+          </div>
+          <div className="grid grid-cols-3 gap-3 text-center">
+            <div className="p-3.5 rounded-xl bg-emerald-50 border border-emerald-200">
+              <span className="text-[10px] uppercase font-bold text-emerald-800 tracking-wider block">Active</span>
+              <span className="text-2xl font-black font-mono text-emerald-900 mt-1 block">
+                {advancedStats.totalsByStatus.active}
+              </span>
+            </div>
+            <div className="p-3.5 rounded-xl bg-blue-50 border border-blue-200">
+              <span className="text-[10px] uppercase font-bold text-blue-800 tracking-wider block">Completed</span>
+              <span className="text-2xl font-black font-mono text-blue-900 mt-1 block">
+                {advancedStats.totalsByStatus.coursecomplete}
+              </span>
+            </div>
+            <div className="p-3.5 rounded-xl bg-rose-50 border border-rose-200">
+              <span className="text-[10px] uppercase font-bold text-rose-800 tracking-wider block">Dropped</span>
+              <span className="text-2xl font-black font-mono text-rose-900 mt-1 block">
+                {advancedStats.totalsByStatus.dropout}
+              </span>
+            </div>
+          </div>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -563,36 +672,6 @@ const Overview = () => {
             rowLabelKey="Status"
             rowKeys={["dropout", "coursecomplete", "active"]}
           />
-
-          {/* TOTAL STATUS SUMMARY CARD */}
-          <div className="bg-white rounded-2xl border border-slate-300 md:border-slate-200/80 shadow-[0_2px_10px_rgba(15,23,42,0.06)] md:shadow-xs p-5 transition-all hover:shadow-md">
-            <div className="flex items-center gap-2 mb-4">
-              <div className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-700 flex items-center justify-center">
-                <UserCheck size={16} />
-              </div>
-              <h3 className="text-sm font-extrabold text-slate-900 tracking-tight">Enrollment Status Totals</h3>
-            </div>
-            <div className="grid grid-cols-3 gap-3 text-center">
-              <div className="p-3.5 rounded-xl bg-emerald-50 border border-emerald-200">
-                <span className="text-[10px] uppercase font-bold text-emerald-800 tracking-wider block">Active</span>
-                <span className="text-2xl font-black font-mono text-emerald-900 mt-1 block">
-                  {advancedStats.totalsByStatus.active}
-                </span>
-              </div>
-              <div className="p-3.5 rounded-xl bg-blue-50 border border-blue-200">
-                <span className="text-[10px] uppercase font-bold text-blue-800 tracking-wider block">Completed</span>
-                <span className="text-2xl font-black font-mono text-blue-900 mt-1 block">
-                  {advancedStats.totalsByStatus.coursecomplete}
-                </span>
-              </div>
-              <div className="p-3.5 rounded-xl bg-rose-50 border border-rose-200">
-                <span className="text-[10px] uppercase font-bold text-rose-800 tracking-wider block">Dropped</span>
-                <span className="text-2xl font-black font-mono text-rose-900 mt-1 block">
-                  {advancedStats.totalsByStatus.dropout}
-                </span>
-              </div>
-            </div>
-          </div>
 
           <AnalyticsTable
             title="Enrollment Distribution by Course"

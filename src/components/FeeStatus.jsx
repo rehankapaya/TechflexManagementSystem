@@ -1,7 +1,6 @@
 import { useSearchParams } from 'react-router-dom';
 import React, { useState, useEffect } from 'react';
-import { db } from '../firebase.js';
-import { ref, onValue } from 'firebase/database';
+import { useData } from '../contexts/DataContext';
 import { MONTHS_SHORT, normalizeMonth, normalizeMonthKey, resolveFeeRecord, getCanonicalShortMonth, getMonthIndex } from '../utils/monthUtils';
 import {
   BadgeDollarSign,
@@ -18,9 +17,7 @@ import {
 } from 'lucide-react';
 
 const FeeStatus = () => {
-  const [students, setStudents] = useState([]);
-  const [feesData, setFeesData] = useState({});
-  const [coursesList, setCoursesList] = useState([]);
+  const { students, feeTransactions: feesData, courses: coursesList } = useData();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCourseFilter, setSelectedCourseFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('active');
@@ -44,24 +41,6 @@ const FeeStatus = () => {
   }, [searchParams]);
 
   const monthsMap = { Jan: 0, Feb: 1, Mar: 2, Apr: 3, May: 4, Jun: 5, Jul: 6, Aug: 7, Sep: 8, Oct: 9, Nov: 10, Dec: 11 };
-
-  useEffect(() => {
-    const unsubStudents = onValue(ref(db, 'students'), (snap) => {
-      const data = snap.val();
-      setStudents(data ? Object.keys(data).map(id => ({ id, ...data[id] })) : []);
-    });
-    const unsubFees = onValue(ref(db, 'fee_transactions'), (snap) => setFeesData(snap.val() || {}));
-    const unsubCourses = onValue(ref(db, 'courses'), (snap) => {
-      const data = snap.val();
-      setCoursesList(data ? Object.keys(data).map(id => ({ id, ...data[id] })) : []);
-    });
-
-    return () => {
-      unsubStudents();
-      unsubFees();
-      unsubCourses();
-    };
-  }, []);
 
   const handleReset = () => {
     setSearchTerm('');

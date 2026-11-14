@@ -1,6 +1,5 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { db } from '../firebase';
-import { ref, onValue } from 'firebase/database';
+import React, { useState, useMemo } from 'react';
+import { useData } from '../contexts/DataContext';
 import * as XLSX from 'xlsx';
 import { MONTHS_SHORT, normalizeMonth } from '../utils/monthUtils';
 import {
@@ -14,28 +13,10 @@ import {
 } from 'lucide-react';
 
 const BalanceSheet = () => {
-  const [fees, setFees] = useState({});
-  const [students, setStudents] = useState({});
-  const [expenses, setExpenses] = useState({});
-  const [salaries, setSalaries] = useState({});
-  const [loading, setLoading] = useState(true);
+  const { feeTransactions: fees, studentsRaw: students, expensesRaw: expenses, staffSalary: salaries } = useData();
   const [expandedYears, setExpandedYears] = useState({});
 
   const monthsFull = MONTHS_SHORT;
-
-  useEffect(() => {
-    const unsubFees = onValue(ref(db, 'fee_transactions'), snap => setFees(snap.val() || {}));
-    const unsubStudents = onValue(ref(db, 'students'), snap => setStudents(snap.val() || {}));
-    const unsubExpenses = onValue(ref(db, 'expenses'), snap => setExpenses(snap.val() || {}));
-    const unsubSalaries = onValue(ref(db, 'staff_salary'), snap => setSalaries(snap.val() || {}));
-    
-    const timer = setTimeout(() => setLoading(false), 600);
-
-    return () => {
-      clearTimeout(timer);
-      unsubFees(); unsubStudents(); unsubExpenses(); unsubSalaries();
-    };
-  }, []);
 
   const aggregatedData = useMemo(() => {
     const result = {};

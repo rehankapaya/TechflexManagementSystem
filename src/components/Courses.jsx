@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { db } from '../firebase.js';
-import { ref, set, push, onValue, remove, update } from 'firebase/database';
+import { useData } from '../contexts/DataContext';
+import { ref, set, push, remove, update } from 'firebase/database';
 import toast from 'react-hot-toast';
 import {
   BookOpen,
@@ -15,27 +16,10 @@ import {
 } from 'lucide-react';
 
 const Courses = () => {
-  const [courses, setCourses] = useState([]);
+  const { courses } = useData();
   const [formData, setFormData] = useState({ name: '', base_fee: '', duration: '' });
   const [isEditing, setIsEditing] = useState(null);
   const [loading, setLoading] = useState(false);
-
-  useEffect(() => {
-    const coursesRef = ref(db, 'courses');
-    const unsubscribe = onValue(coursesRef, (snapshot) => {
-      const data = snapshot.val();
-      if (data) {
-        const list = Object.keys(data).map((id) => ({
-          id,
-          ...data[id],
-        }));
-        setCourses(list);
-      } else {
-        setCourses([]);
-      }
-    });
-    return () => unsubscribe();
-  }, []);
 
   const handleChange = (e) => {
     const value = (e.target.name === 'duration' || e.target.name === 'base_fee')

@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { db } from '../firebase.js';
-import { ref, onValue, update } from 'firebase/database';
+import { useData } from '../contexts/DataContext';
+import { ref, update } from 'firebase/database';
 import * as XLSX from 'xlsx';
 import toast from 'react-hot-toast';
 import { parseLocalDateMidday } from '../utils/monthUtils';
@@ -18,7 +19,7 @@ import {
 } from 'lucide-react';
 
 const StudentStatus = () => {
-  const [students, setStudents] = useState([]);
+  const { students } = useData();
   const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(false);
   const [selectedCourseStatus, setSelectedCourseStatus] = useState({});
@@ -42,15 +43,6 @@ const StudentStatus = () => {
   const allUniqueCourses = Array.from(new Set(
     students.flatMap(s => Object.values(s.enrolled_courses || {}).map(c => c.course_name))
   )).sort();
-
-  useEffect(() => {
-    const studentsRef = ref(db, 'students');
-    const unsubscribe = onValue(studentsRef, (snap) => {
-      const data = snap.val();
-      setStudents(data ? Object.keys(data).map(id => ({ id, ...data[id] })) : []);
-    });
-    return () => unsubscribe();
-  }, []);
 
   const formatDate = (dateString) => {
     if (!dateString) return null;

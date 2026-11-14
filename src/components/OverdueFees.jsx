@@ -1,32 +1,11 @@
-import React, { useState, useEffect } from 'react';
-import { db } from '../firebase.js';
-import { ref, onValue } from 'firebase/database';
+import React, { useState } from 'react';
+import { useData } from '../contexts/DataContext';
 import { Phone, MessageCircle, AlertCircle, Search, RotateCcw, Download, Calendar, Users, FileText } from 'lucide-react';
 import { MONTHS_SHORT, normalizeMonth, normalizeMonthKey, resolveFeeRecord, getCanonicalShortMonth } from '../utils/monthUtils';
 
 const OverdueFees = () => {
-  const [students, setStudents] = useState([]);
-  const [feesData, setFeesData] = useState({});
-  const [coursesList, setCoursesList] = useState([]);
+  const { students, feeTransactions: feesData, courses: coursesList } = useData();
   const [searchTerm, setSearchTerm] = useState('');
-
-  useEffect(() => {
-    const unsubStudents = onValue(ref(db, 'students'), (snap) => {
-      const data = snap.val();
-      setStudents(data ? Object.keys(data).map(id => ({ id, ...data[id] })) : []);
-    });
-    const unsubFees = onValue(ref(db, 'fee_transactions'), (snap) => setFeesData(snap.val() || {}));
-    const unsubCourses = onValue(ref(db, 'courses'), (snap) => {
-      const data = snap.val();
-      setCoursesList(data ? Object.keys(data).map(id => ({ id, ...data[id] })) : []);
-    });
-
-    return () => {
-      unsubStudents();
-      unsubFees();
-      unsubCourses();
-    };
-  }, []);
 
   const handleReset = () => {
     setSearchTerm('');

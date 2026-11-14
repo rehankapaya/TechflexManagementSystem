@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
-import { db } from '../firebase';
-import { ref, get } from 'firebase/database';
+import { useData } from '../contexts/DataContext';
 import { generateTechflexRecord } from '../utils/exportExcel';
 import toast from 'react-hot-toast';
 import { FileSpreadsheet, Download, Calendar, CheckCircle2, Sparkles } from 'lucide-react';
 
 const GlobalExport = () => {
+  const { studentsRaw, coursesRaw, feeTransactions, expensesRaw } = useData();
   const [loading, setLoading] = useState(false);
   const [filter, setFilter] = useState({ year: new Date().getFullYear().toString() });
 
@@ -15,19 +15,7 @@ const GlobalExport = () => {
   const handleExport = async () => {
     setLoading(true);
     try {
-      const [studentsSnap, coursesSnap, feesSnap, expensesSnap] = await Promise.all([
-        get(ref(db, 'students')),
-        get(ref(db, 'courses')),
-        get(ref(db, 'fee_transactions')),
-        get(ref(db, 'expenses'))
-      ]);
-
-      const students = studentsSnap.val() || {};
-      const courses = coursesSnap.val() || {};
-      const fees = feesSnap.val() || {};
-      const expenses = expensesSnap.val() || {};
-
-      await generateTechflexRecord(students, courses, fees, expenses, filter.year);
+      await generateTechflexRecord(studentsRaw, coursesRaw, feeTransactions, expensesRaw, filter.year);
       toast.success("Excel workbook generated successfully!");
     } catch (error) {
       console.error(error);

@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { db } from '../firebase.js';
 import { useAuth } from '../contexts/AuthContext';
-import { ref, set, push, onValue, remove, update } from 'firebase/database';
+import { useData } from '../contexts/DataContext';
+import { ref, set, push, remove, update } from 'firebase/database';
 import { downloadFeeSample, parseExcelUpload } from '../utils/bulkUpload';
 import toast from 'react-hot-toast';
 import { MONTHS_SHORT, normalizeMonth, normalizeMonthKey, getCanonicalShortMonth, MONTH_ORDER } from '../utils/monthUtils';
@@ -26,11 +27,7 @@ import {
 
 const Fees = () => {
   const { currentUser, isAdmin } = useAuth();
-
-  // Data States
-  const [students, setStudents] = useState([]);
-  const [feesData, setFeesData] = useState({});
-  const [pendingFees, setPendingFees] = useState([]);
+  const { students, feeTransactions: feesData, pendingFees } = useData();
 
   // UI States
   const [selectedStudent, setSelectedStudent] = useState(null);
@@ -58,29 +55,6 @@ const Fees = () => {
   };
 
   const [formData, setFormData] = useState(initialFormState);
-
-  // --- 1. Realtime Listeners ---
-  useEffect(() => {
-    const unsubStudents = onValue(ref(db, 'students'), (snap) => {
-      const data = snap.val();
-      setStudents(data ? Object.keys(data).map(id => ({ id, ...data[id] })) : []);
-    });
-
-    const unsubFees = onValue(ref(db, 'fee_transactions'), (snap) => {
-      setFeesData(snap.val() || {});
-    });
-
-    const unsubPending = onValue(ref(db, 'pending_fee_approvals'), (snap) => {
-      const data = snap.val();
-      setPendingFees(data ? Object.keys(data).map(id => ({ id, ...data[id] })) : []);
-    });
-
-    return () => {
-      unsubStudents();
-      unsubFees();
-      unsubPending();
-    };
-  }, []);
 
   // --- 2. Logic Functions ---
   const handleReset = () => {

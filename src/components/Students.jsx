@@ -2,6 +2,7 @@ import { useSearchParams } from 'react-router-dom';
 import React, { useState, useEffect } from 'react';
 import { db } from '../firebase.js';
 import { useAuth } from '../contexts/AuthContext';
+import { useData } from '../contexts/DataContext';
 import { ref, set, push, onValue, remove, update } from 'firebase/database';
 import * as XLSX from 'xlsx';
 import toast from 'react-hot-toast';
@@ -43,9 +44,7 @@ import { processProfileImage } from '../utils/imageUtils';
 
 const Students = () => {
   const { currentUser, isAdmin } = useAuth();
-  const [students, setStudents] = useState([]);
-  const [pendingStudents, setPendingStudents] = useState([]);
-  const [courses, setCourses] = useState([]);
+  const { students, courses, pendingStudents } = useData();
   const [isEditing, setIsEditing] = useState(null);
   const [showQuickEnroll, setShowQuickEnroll] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
@@ -191,23 +190,6 @@ const Students = () => {
     XLSX.utils.book_append_sheet(workbook, worksheet, "Students");
     XLSX.writeFile(workbook, `Student_Directory_${new Date().toLocaleDateString()}.xlsx`);
   };
-
-  useEffect(() => {
-    onValue(ref(db, 'courses'), (snap) => {
-      const data = snap.val();
-      setCourses(data ? Object.keys(data).map(id => ({ id, ...data[id] })) : []);
-    });
-
-    onValue(ref(db, 'students'), (snap) => {
-      const data = snap.val();
-      setStudents(data ? Object.keys(data).map(id => ({ id, ...data[id] })) : []);
-    });
-
-    onValue(ref(db, 'pending_approvals'), (snap) => {
-      const data = snap.val();
-      setPendingStudents(data ? Object.keys(data).map(id => ({ id, ...data[id] })) : []);
-    });
-  }, []);
 
   const handleChange = (e) => {
     const { name, value } = e.target;

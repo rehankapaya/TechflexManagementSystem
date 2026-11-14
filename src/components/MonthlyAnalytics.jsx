@@ -1,6 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { db } from '../firebase';
-import { ref, onValue, get } from 'firebase/database';
+import React, { useState, useEffect, useMemo } from 'react';
+import { useData } from '../contexts/DataContext';
 import * as XLSX from 'xlsx';
 import toast from 'react-hot-toast';
 import BalanceSheet from './BalanceSheet';
@@ -21,11 +20,11 @@ import {
 import { MONTHS_SHORT, normalizeMonth, normalizeMonthKey, getCanonicalShortMonth } from '../utils/monthUtils';
 
 const MonthlyAnalytics = () => {
+  const { courses, feeTransactions, expensesRaw, staffSalary, studentsRaw } = useData();
+
   const [month, setMonth] = useState(getCanonicalShortMonth());
   const [year, setYear] = useState(new Date().getFullYear().toString());
   const [feeData, setFeeData] = useState([]);
-  const [courseNames, setCourseNames] = useState({});
-  const [rawFeeData, setRawFeeData] = useState(null);
   const [stats, setStats] = useState({ totalPaid: 0, totalPending: 0 });
   const [yearlyComparison, setYearlyComparison] = useState([]);
   const [totalExpenses, setTotalExpenses] = useState(0);
@@ -42,169 +41,140 @@ const MonthlyAnalytics = () => {
   const currentYear = new Date().getFullYear();
   const years = Array.from({ length: Math.max(5, currentYear - 2024 + 5) }, (_, i) => (2024 + i).toString());
 
-  // --- Fetch Course Names Mapping ---
-  useEffect(() => {
-    const coursesRef = ref(db, 'courses');
-    get(coursesRef).then((snapshot) => {
-      if (snapshot.exists()) {
-        const data = snapshot.val();
-        const mapping = {};
-        for (let id in data) mapping[id] = data[id].name;
-        setCourseNames(mapping);
-      }
-    });
-  }, []);
+  // --- Course Names Mapping ---
+  const courseNames = useMemo(() => {
+    const mapping = {};
+    if (courses && Array.isArray(courses)) {
+      courses.forEach(c => {
+        mapping[c.id] = c.name;
+      });
+    }
+    return mapping;
+  }, [courses]);
 
-  // --- Main Data Fetching Logic ---
+  // --- Main Data Computing Logic ---
   useEffect(() => {
     const selectedKey = `${month}_${year}`;
-    const feeRef = ref(db, 'fee_transactions');
+    const data = feeTransactions;
+    const report = {};
+    const monthlyTotals = months.map(m => ({ month: m, total: 0 }));
+    let paidSum = 0, pendingSum = 0;
+    let totalAllTimePaid = 0;
 
-    const unsubscribe = onValue(feeRef, (snapshot) => {
-      const data = snapshot.val();
-      setRawFeeData(data);
-      const report = {};
-      const monthlyTotals = months.map(m => ({ month: m, total: 0 }));
-      let paidSum = 0, pendingSum = 0;
-      let totalAllTimePaid = 0;
+    if (data) {
+      for (let studentId in data) {
+        for (let courseId in data[studentId]) {
+          const coursesInFees = data[studentId][courseId];
+          
+          for (let tKey in coursesInFees) {
+            totalAllTimePaid += Number(coursesInFees[tKey].paid || 0);
+          }
 
-      if (data) {
-        for (let studentId in data) {
-          for (let courseId in data[studentId]) {
-            const coursesInFees = data[studentId][courseId];
-            
+          // Calculate Yearly Trend (for Chart)
+          months.forEach((m, index) => {
+            const targetKey = `${m}_${year}`;
             for (let tKey in coursesInFees) {
-              totalAllTimePaid += Number(coursesInFees[tKey].paid || 0);
+              if (normalizeMonthKey(tKey) === targetKey) {
+                monthlyTotals[index].total += Number(coursesInFees[tKey].paid || 0);
+              }
             }
+          });
 
-            // Calculate Yearly Trend (for Chart)
-            months.forEach((m, index) => {
-              const targetKey = `${m}_${year}`;
-              for (let tKey in coursesInFees) {
-                if (normalizeMonthKey(tKey) === targetKey) {
-                  monthlyTotals[index].total += Number(coursesInFees[tKey].paid || 0);
-                }
+          // Calculate Monthly Breakdown (for Table)
+          for (let tKey in coursesInFees) {
+            if (normalizeMonthKey(tKey) === selectedKey) {
+              const record = coursesInFees[tKey];
+              paidSum += Number(record.paid || 0);
+              pendingSum += Number(record.balance || 0);
+
+              if (!report[courseId]) {
+                report[courseId] = { 
+                  courseName: courseNames[courseId] || courseId, 
+                  paid: 0, 
+                  pending: 0 
+                };
               }
-            });
-
-            // Calculate Monthly Breakdown (for Table)
-            for (let tKey in coursesInFees) {
-              if (normalizeMonthKey(tKey) === selectedKey) {
-                const record = coursesInFees[tKey];
-                paidSum += Number(record.paid || 0);
-                pendingSum += Number(record.balance || 0);
-
-                if (!report[courseId]) {
-                  report[courseId] = { 
-                    courseName: courseNames[courseId] || courseId, 
-                    paid: 0, 
-                    pending: 0 
-                  };
-                }
-                report[courseId].paid += Number(record.paid || 0);
-                report[courseId].pending += Number(record.balance || 0);
-              }
+              report[courseId].paid += Number(record.paid || 0);
+              report[courseId].pending += Number(record.balance || 0);
             }
           }
         }
       }
-      setFeeData(Object.values(report));
-      setStats({ totalPaid: paidSum, totalPending: pendingSum });
-      setYearlyComparison(monthlyTotals);
-      setAllTimeIncome(totalAllTimePaid);
-    });
+    }
+    setFeeData(Object.values(report));
+    setStats({ totalPaid: paidSum, totalPending: pendingSum });
+    setYearlyComparison(monthlyTotals);
+    setAllTimeIncome(totalAllTimePaid);
+  }, [month, year, courseNames, feeTransactions]);
 
-    return () => unsubscribe();
-  }, [month, year, courseNames]);
-
-  // --- Expenses & Salaries Data Fetching Logic ---
+  // --- Expenses & Salaries Computing Logic ---
   useEffect(() => {
-    const expensesRef = ref(db, 'expenses');
-    const salaryRef = ref(db, 'staff_salary');
+    let currentMonthExpenses = 0;
+    let totalAllTime = 0;
 
-    const unsubExpenses = onValue(expensesRef, (snapshot) => {
-      const data = snapshot.val();
-      let currentMonthExpenses = 0;
-      let totalAllTime = 0;
+    if (expensesRaw) {
+      Object.values(expensesRaw).forEach(exp => {
+        totalAllTime += Number(exp.amount || 0);
+        if (exp.date) {
+          const expDate = new Date(exp.date);
+          if (!isNaN(expDate.getTime())) {
+            const expMonth = months[expDate.getMonth()];
+            const expYear = expDate.getFullYear().toString();
 
-      if (data) {
-        Object.values(data).forEach(exp => {
-          totalAllTime += Number(exp.amount || 0);
-          if (exp.date) {
-            const expDate = new Date(exp.date);
-            if (!isNaN(expDate.getTime())) {
-              const expMonth = months[expDate.getMonth()];
-              const expYear = expDate.getFullYear().toString();
-
-              if (expYear === year && expMonth === month) {
-                currentMonthExpenses += Number(exp.amount || 0);
-              }
+            if (expYear === year && expMonth === month) {
+              currentMonthExpenses += Number(exp.amount || 0);
             }
           }
-        });
-      }
-      setTotalExpenses(currentMonthExpenses);
-      setAllTimeExpenses(totalAllTime);
-    });
+        }
+      });
+    }
+    setTotalExpenses(currentMonthExpenses);
+    setAllTimeExpenses(totalAllTime);
 
-    const unsubSalary = onValue(salaryRef, (snapshot) => {
-      const data = snapshot.val();
-      let currentMonthSalaries = 0;
-      let totalAllTime = 0;
+    let currentMonthSalaries = 0;
+    let totalAllTimeSal = 0;
 
-      if (data) {
-        Object.values(data).forEach(salary => {
-          totalAllTime += Number(salary.amount || 0);
-          if (salary.salaryYear && salary.salaryMonth) {
-            const salMonth = normalizeMonth(salary.salaryMonth);
-            if (salary.salaryYear.toString() === year && salMonth === month) {
-              currentMonthSalaries += Number(salary.amount || 0);
-            }
+    if (staffSalary) {
+      Object.values(staffSalary).forEach(salary => {
+        totalAllTimeSal += Number(salary.amount || 0);
+        if (salary.salaryYear && salary.salaryMonth) {
+          const salMonth = normalizeMonth(salary.salaryMonth);
+          if (salary.salaryYear.toString() === year && salMonth === month) {
+            currentMonthSalaries += Number(salary.amount || 0);
           }
-        });
-      }
-      setTotalSalaries(currentMonthSalaries);
-      setAllTimeSalaries(totalAllTime);
-    });
+        }
+      });
+    }
+    setTotalSalaries(currentMonthSalaries);
+    setAllTimeSalaries(totalAllTimeSal);
+  }, [month, year, expensesRaw, staffSalary]);
 
-    return () => {
-      unsubExpenses();
-      unsubSalary();
-    };
-  }, [month, year]);
-
-  // --- Admissions Fetching Logic ---
+  // --- Admissions Computing Logic ---
   useEffect(() => {
-    const studentsRef = ref(db, 'students');
-    const unsubStudents = onValue(studentsRef, (snapshot) => {
-      const data = snapshot.val();
-      let currentMonthAdm = 0;
-      let totalAllTimeAdm = 0;
+    let currentMonthAdm = 0;
+    let totalAllTimeAdm = 0;
 
-      if (data) {
-        Object.values(data).forEach(student => {
-          const admFee = Number(student.admission_fee || 0);
-          totalAllTimeAdm += admFee;
+    if (studentsRaw) {
+      Object.values(studentsRaw).forEach(student => {
+        const admFee = Number(student.admission_fee || 0);
+        totalAllTimeAdm += admFee;
 
-          if (student.createdAt) {
-            const admDate = new Date(student.createdAt);
-            if (!isNaN(admDate.getTime())) {
-              const admMonth = months[admDate.getMonth()];
-              const admYear = admDate.getFullYear().toString();
+        if (student.createdAt) {
+          const admDate = new Date(student.createdAt);
+          if (!isNaN(admDate.getTime())) {
+            const admMonth = months[admDate.getMonth()];
+            const admYear = admDate.getFullYear().toString();
 
-              if (admYear === year && admMonth === month) {
-                currentMonthAdm += admFee;
-              }
+            if (admYear === year && admMonth === month) {
+              currentMonthAdm += admFee;
             }
           }
-        });
-      }
-      setTotalAdmissionFees(currentMonthAdm);
-      setAllTimeAdmissionFees(totalAllTimeAdm);
-    });
-
-    return () => unsubStudents();
-  }, [month, year]);
+        }
+      });
+    }
+    setTotalAdmissionFees(currentMonthAdm);
+    setAllTimeAdmissionFees(totalAllTimeAdm);
+  }, [month, year, studentsRaw]);
 
   // --- Export Functions ---
   const exportMonthly = () => {
@@ -224,7 +194,7 @@ const MonthlyAnalytics = () => {
   };
 
   const exportYearly = () => {
-    if (!rawFeeData) {
+    if (!feeTransactions) {
       toast.error("No data found");
       return;
     }
@@ -233,8 +203,8 @@ const MonthlyAnalytics = () => {
       months.forEach(m => {
         let total = 0;
         const targetKey = `${m}_${year}`;
-        for (let sId in rawFeeData) {
-          const studentCourses = rawFeeData[sId]?.[courseId];
+        for (let sId in feeTransactions) {
+          const studentCourses = feeTransactions[sId]?.[courseId];
           if (studentCourses) {
             for (let tKey in studentCourses) {
               if (normalizeMonthKey(tKey) === targetKey) {
