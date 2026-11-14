@@ -300,6 +300,48 @@ const Fees = () => {
 
   const balanceCalc = Number(formData.payable) - Number(formData.paid) - Number(formData.waived);
 
+  const renderBulkUploadCard = (idSuffix = '') => {
+    if (!isAdmin) return null;
+    const inputId = `fee-upload${idSuffix ? `-${idSuffix}` : ''}`;
+    return (
+      <div className="bg-white p-4 sm:p-6 rounded-2xl border border-slate-300 md:border-slate-200/80 shadow-[0_2px_10px_rgba(15,23,42,0.06)] md:shadow-xs space-y-4">
+        <div className="flex items-center gap-2 pb-3 border-b border-slate-100">
+          <FileSpreadsheet className="text-emerald-600" size={18} />
+          <h3 className="text-sm font-bold text-slate-900 tracking-tight">Bulk Upload Fee Records</h3>
+        </div>
+        <p className="text-xs text-slate-500 leading-relaxed">
+          Upload an Excel sheet to batch import student fee records. Existing transactions matching student and month will be synchronized.
+        </p>
+        <div className="flex flex-col sm:flex-row gap-2.5">
+          <button
+            type="button"
+            onClick={downloadFeeSample}
+            className="flex-1 flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-700 text-xs font-bold transition-all cursor-pointer"
+          >
+            <FileSpreadsheet size={15} />
+            <span>Download Sample</span>
+          </button>
+          <input
+            type="file"
+            accept=".xlsx, .xls"
+            onChange={handleBulkUploadFees}
+            id={inputId}
+            className="hidden"
+          />
+          <button
+            type="button"
+            onClick={() => document.getElementById(inputId).click()}
+            disabled={loading}
+            className="flex-1 flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition-all shadow-xs disabled:opacity-60 cursor-pointer"
+          >
+            <Upload size={15} />
+            <span>{loading ? "Processing..." : "Upload Excel"}</span>
+          </button>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className="space-y-6 font-sans animate-fade-in">
       {/* MOBILE COMPACT HEADER (< md) */}
@@ -585,44 +627,10 @@ const Fees = () => {
             )}
           </div>
 
-          {/* BULK UPLOAD CARD */}
-          {isAdmin && (
-            <div className="bg-white p-6 rounded-2xl border border-slate-200/80 shadow-xs space-y-4">
-              <div className="flex items-center gap-2 pb-3 border-b border-slate-100">
-                <FileSpreadsheet className="text-emerald-600" size={18} />
-                <h3 className="text-sm font-bold text-slate-900 tracking-tight">Bulk Upload Fee Records</h3>
-              </div>
-              <p className="text-xs text-slate-500 leading-relaxed">
-                Upload an Excel sheet to batch import student fee records. Existing transactions matching student and month will be synchronized.
-              </p>
-              <div className="flex flex-col sm:flex-row gap-2.5">
-                <button
-                  type="button"
-                  onClick={downloadFeeSample}
-                  className="flex-1 flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-700 text-xs font-bold transition-all"
-                >
-                  <FileSpreadsheet size={15} />
-                  <span>Download Sample</span>
-                </button>
-                <input
-                  type="file"
-                  accept=".xlsx, .xls"
-                  onChange={handleBulkUploadFees}
-                  id="fee-upload"
-                  className="hidden"
-                />
-                <button
-                  type="button"
-                  onClick={() => document.getElementById('fee-upload').click()}
-                  disabled={loading}
-                  className="flex-1 flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition-all shadow-xs disabled:opacity-60"
-                >
-                  <Upload size={15} />
-                  <span>{loading ? "Processing..." : "Upload Excel"}</span>
-                </button>
-              </div>
-            </div>
-          )}
+          {/* BULK UPLOAD CARD (DESKTOP VIEW) */}
+          <div className="hidden lg:block">
+            {renderBulkUploadCard('desktop')}
+          </div>
         </div>
 
         {/* RIGHT COLUMN: PENDING APPROVALS & COURSE LEDGER (7 cols) */}
@@ -901,6 +909,11 @@ const Fees = () => {
                 <p className="text-[11px] text-slate-400">Transaction history will be displayed here automatically.</p>
               </div>
             )}
+          </div>
+
+          {/* BULK UPLOAD CARD (MOBILE VIEW: AFTER FEES LEDGER) */}
+          <div className="block lg:hidden">
+            {renderBulkUploadCard('mobile')}
           </div>
         </div>
       </div>
