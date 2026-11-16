@@ -3,6 +3,12 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 
 // Common Coaching Grades for matching
 export const COACHING_GRADES = [
+  'Playgroup / Nursery',
+  'KG / Prep',
+  'Class 1',
+  'Class 2',
+  'Class 3',
+  'Class 4',
   'Class 5',
   'Class 6',
   'Class 7',
@@ -173,6 +179,13 @@ export const parseSlipTextLocal = (rawText, coachingStudents = []) => {
     else if (/class\s*8/i.test(textClean)) result.grade = 'Class 8';
     else if (/class\s*7/i.test(textClean)) result.grade = 'Class 7';
     else if (/class\s*6/i.test(textClean)) result.grade = 'Class 6';
+    else if (/class\s*5|five/i.test(textClean)) result.grade = 'Class 5';
+    else if (/class\s*4|four/i.test(textClean)) result.grade = 'Class 4';
+    else if (/class\s*3|three/i.test(textClean)) result.grade = 'Class 3';
+    else if (/class\s*2|two/i.test(textClean)) result.grade = 'Class 2';
+    else if (/class\s*1|one/i.test(textClean)) result.grade = 'Class 1';
+    else if (/playgroup|nursery/i.test(textClean)) result.grade = 'Playgroup / Nursery';
+    else if (/kg|prep/i.test(textClean)) result.grade = 'KG / Prep';
   }
 
   // 9. Student Name Extraction & Database Student Matching

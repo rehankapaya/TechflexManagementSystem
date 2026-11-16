@@ -1,6 +1,12 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
 export const COACHING_GRADES = [
+  'Playgroup / Nursery',
+  'KG / Prep',
+  'Class 1',
+  'Class 2',
+  'Class 3',
+  'Class 4',
   'Class 5',
   'Class 6',
   'Class 7',
@@ -28,14 +34,28 @@ export const COACHING_FIELDS = [
 export const isClassAboveEight = (grade) => {
   if (!grade) return false;
   const g = grade.trim().toLowerCase();
-  if (/class\s*[5678]\b/i.test(g) || /^(?:5|6|7|8|v|vi|vii|viii)$/i.test(g)) {
-    return false;
+  // Below or equal to 8:
+  if (/playgroup|nursery|kg|prep/i.test(g)) return false;
+  if (/class\s*(?:[1-8]|i|ii|iii|iv|v|vi|vii|viii)\b/i.test(g)) return false;
+  if (/^(?:[1-8]|i|ii|iii|iv|v|vi|vii|viii)$/i.test(g)) return false;
+  if (/primary|middle/i.test(g)) return false;
+  // Classes strictly above 8: 9, 10, 1st Year, 2nd Year, O-Levels, A-Levels
+  if (
+    /class\s*(?:9|10|ix|x)\b/i.test(g) ||
+    /matric/i.test(g) ||
+    /1st\s*year|2nd\s*year|inter|o[-\s]?level|a[-\s]?level/i.test(g)
+  ) {
+    return true;
   }
-  return true;
+  return false;
 };
 
 export const QUALIFICATION_OPTIONS = [
-  'Primary (Below Class 5)',
+  'Playgroup / Nursery',
+  'KG / Prep',
+  'Class 1',
+  'Class 2',
+  'Class 3',
   'Class 4',
   'Class 5',
   'Class 6',
@@ -167,11 +187,23 @@ export const matchCourseAndGrade = (extractedCourseOrClass, fullText = '', cours
         matchedGrade = 'Class 6';
       } else if (/\b(?:class\s*5|5th|\bv\b|five\b|\b05\b)/i.test(pool)) {
         matchedGrade = 'Class 5';
+      } else if (/\b(?:class\s*4|4th|\biv\b|four\b|\b04\b)/i.test(pool)) {
+        matchedGrade = 'Class 4';
+      } else if (/\b(?:class\s*3|3rd|\biii\b|three\b|\b03\b)/i.test(pool)) {
+        matchedGrade = 'Class 3';
+      } else if (/\b(?:class\s*2|2nd|\bii\b|two\b|\b02\b)/i.test(pool)) {
+        matchedGrade = 'Class 2';
+      } else if (/\b(?:class\s*1|1st|\bi\b|one\b|\b01\b)/i.test(pool) && !/\b(?:commerce|year)\b/i.test(pool)) {
+        matchedGrade = 'Class 1';
+      } else if (/\b(?:playgroup|nursery)\b/i.test(pool)) {
+        matchedGrade = 'Playgroup / Nursery';
+      } else if (/\b(?:kg|prep|kindergarten)\b/i.test(pool)) {
+        matchedGrade = 'KG / Prep';
       } else if (/\b(?:o[-\s]?levels?)\b/i.test(pool)) {
         matchedGrade = 'O-Levels';
       } else if (/\b(?:a[-\s]?levels?)\b/i.test(pool)) {
         matchedGrade = 'A-Levels';
-      } else if (/\b(?:four|primary|coaching)\b/i.test(pool)) {
+      } else if (/\b(?:primary|coaching)\b/i.test(pool)) {
         matchedGrade = 'General Coaching';
       }
     }

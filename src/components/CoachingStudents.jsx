@@ -95,7 +95,7 @@ const CoachingStudents = () => {
     contact: '',
     secondary_contact: '',
     gender: 'Male',
-    grade: COACHING_GRADES[4], // Class 9 default
+    grade: COACHING_GRADES.find(g => g.startsWith('Class 9')) || 'Class 9 (Matric I)',
     field: 'Science',
     admission_fee: '0',
     monthly_fee: '',
@@ -148,7 +148,7 @@ const CoachingStudents = () => {
   const handleAdmissionFormApplied = (extracted) => {
     if (!extracted) return;
     setEditingStudent(null);
-    const resolvedGrade = extracted.matchedGrade || extracted.grade || COACHING_GRADES[4];
+    const resolvedGrade = extracted.matchedGrade || extracted.grade || COACHING_GRADES.find(g => g.startsWith('Class 9')) || 'Class 9 (Matric I)';
     setFormData(prev => ({
       ...prev,
       roll_no: autoRollNo,
@@ -169,7 +169,7 @@ const CoachingStudents = () => {
 
   const handleEdit = (student) => {
     setEditingStudent(student);
-    const resolvedGrade = student.grade || COACHING_GRADES[4];
+    const resolvedGrade = student.grade || COACHING_GRADES.find(g => g.startsWith('Class 9')) || 'Class 9 (Matric I)';
     setFormData({
       roll_no: student.roll_no || student.student_id || '',
       name: student.name || '',
