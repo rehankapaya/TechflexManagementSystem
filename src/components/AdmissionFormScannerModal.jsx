@@ -299,7 +299,7 @@ const AdmissionFormScannerModal = ({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-900/70 backdrop-blur-xs animate-in fade-in duration-200">
       <div className="bg-white w-full max-w-5xl max-h-[94vh] rounded-3xl shadow-2xl border border-slate-200 flex flex-col overflow-hidden animate-in zoom-in-95 duration-200">
-        
+
         {/* MODAL HEADER */}
         <div className="px-5 py-4 border-b border-slate-200 flex items-center justify-between bg-gradient-to-r from-slate-50 via-white to-blue-50/40">
           <div className="flex items-center gap-3">
@@ -357,11 +357,10 @@ const AdmissionFormScannerModal = ({
                 <button
                   type="button"
                   onClick={() => setEngine('auto')}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-bold transition-all cursor-pointer ${
-                    engine === 'auto'
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-bold transition-all cursor-pointer ${engine === 'auto'
                       ? 'bg-indigo-600 text-white shadow-xs'
                       : 'text-slate-600 hover:text-slate-900'
-                  }`}
+                    }`}
                   title="Uses Groq AI LLM to filter form labels and structure extracted fields with 100% precision"
                 >
                   <Sparkles size={14} />
@@ -370,11 +369,10 @@ const AdmissionFormScannerModal = ({
                 <button
                   type="button"
                   onClick={() => setEngine('local')}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-bold transition-all cursor-pointer ${
-                    engine === 'local'
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-bold transition-all cursor-pointer ${engine === 'local'
                       ? 'bg-indigo-600 text-white shadow-xs'
                       : 'text-slate-600 hover:text-slate-900'
-                  }`}
+                    }`}
                   title="Pure offline regex parser without external API calls"
                 >
                   <Cpu size={14} />
@@ -383,11 +381,10 @@ const AdmissionFormScannerModal = ({
                 <button
                   type="button"
                   onClick={() => setEngine('gemini')}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-bold transition-all cursor-pointer ${
-                    engine === 'gemini'
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-bold transition-all cursor-pointer ${engine === 'gemini'
                       ? 'bg-indigo-600 text-white shadow-xs'
                       : 'text-slate-600 hover:text-slate-900'
-                  }`}
+                    }`}
                   title="Multimodal visual extraction from Gemini 1.5 Flash"
                 >
                   <Eye size={14} />
@@ -533,7 +530,7 @@ const AdmissionFormScannerModal = ({
 
               {/* SPLIT REVIEW AREA */}
               <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
-                
+
                 {/* LEFT: FORM IMAGE PREVIEW */}
                 <div className="lg:col-span-5 bg-slate-100/80 rounded-2xl border border-slate-200 p-3 flex flex-col gap-3">
                   <div className="flex items-center justify-between text-xs font-bold text-slate-700 px-1">
@@ -660,11 +657,10 @@ const AdmissionFormScannerModal = ({
                                   key={g}
                                   type="button"
                                   onClick={() => handleFieldChange('gender', g)}
-                                  className={`flex-1 py-1.5 text-xs font-bold rounded-xl border transition-all cursor-pointer ${
-                                    extractedData.gender === g
+                                  className={`flex-1 py-1.5 text-xs font-bold rounded-xl border transition-all cursor-pointer ${extractedData.gender === g
                                       ? 'bg-indigo-600 text-white border-indigo-600 shadow-xs'
                                       : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
-                                  }`}
+                                    }`}
                                 >
                                   {g}
                                 </button>
@@ -723,7 +719,7 @@ const AdmissionFormScannerModal = ({
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                           <div>
                             <label className="block text-[11px] font-semibold text-slate-600 mb-1">
-                              Primary Contact (Phone) *
+                              Primary Contact (Phone)
                             </label>
                             <input
                               type="tel"

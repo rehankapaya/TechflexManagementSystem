@@ -233,10 +233,10 @@ const CoachingStudents = () => {
       const studentPayload = {
         roll_no: editingStudent ? (editingStudent.roll_no || editingStudent.student_id || formData.roll_no || autoRollNo) : autoRollNo,
         name: formData.name.trim(),
-        contact: formData.contact.trim(),
-        contact_number: formData.contact.trim(),
-        secondary_contact: formData.secondary_contact.trim(),
-        guardian_contact: formData.secondary_contact.trim(),
+        contact: (formData.contact || '').trim(),
+        contact_number: (formData.contact || '').trim(),
+        secondary_contact: (formData.secondary_contact || '').trim(),
+        guardian_contact: (formData.secondary_contact || '').trim(),
         gender: formData.gender || 'Male',
         grade: formData.grade,
         field: isClassAboveEight(formData.grade) ? (formData.field ? formData.field.trim() : '') : '',
@@ -713,10 +713,12 @@ const CoachingStudents = () => {
                   />
                 </div>
 
-                {/* 2. Primary Phone */}
+                {/* 2. Primary Phone (Optional) */}
                 <div>
                   <div className="flex items-center justify-between mb-1">
-                    <label className="block text-xs font-semibold text-slate-600">Primary Phone *</label>
+                    <label className="block text-xs font-semibold text-slate-600">
+                      Primary Phone <span className="text-slate-400 font-normal">(Optional)</span>
+                    </label>
                     {!showSecondaryContact && (
                       <button
                         type="button"
@@ -731,10 +733,9 @@ const CoachingStudents = () => {
                   <input
                     type="text"
                     name="contact"
-                    placeholder="03001234567"
+                    placeholder="03001234567 (Optional)"
                     value={formData.contact}
                     onChange={handleChange}
-                    required
                     className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all font-mono"
                   />
                 </div>
