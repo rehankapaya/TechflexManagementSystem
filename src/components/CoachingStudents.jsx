@@ -7,6 +7,8 @@ import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import ImageCropModal from './ImageCropModal';
 import AdmissionFormScannerModal from './AdmissionFormScannerModal';
+import { QUALIFICATION_OPTIONS, matchQualification } from '../utils/admissionFormOcrParser';
+export { QUALIFICATION_OPTIONS };
 import {
   GraduationCap,
   Users,
@@ -134,7 +136,7 @@ const CoachingStudents = () => {
       religion: extracted.religion || prev.religion || 'Islam',
       grade: extracted.matchedGrade || prev.grade || COACHING_GRADES[4],
       timing: extracted.timing || extracted.timeslot || prev.timing || '',
-      last_qualification: extracted.qualification || prev.last_qualification || '',
+      last_qualification: matchQualification(extracted.last_qualification || extracted.qualification) || prev.last_qualification || '',
       contact_number: extracted.contact || prev.contact_number,
       guardian_contact: extracted.secondary_contact || prev.guardian_contact,
       address: extracted.address || prev.address,
@@ -840,13 +842,38 @@ const CoachingStudents = () => {
                       <label className="block text-[11px] font-bold text-slate-600 uppercase tracking-wider mb-1">
                         Last Qualification
                       </label>
-                      <input
-                        type="text"
-                        placeholder="e.g. 8th Class, 06, Matric"
-                        value={formData.last_qualification}
-                        onChange={(e) => setFormData({ ...formData, last_qualification: e.target.value })}
-                        className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white text-xs font-medium focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
-                      />
+                      <select
+                        value={
+                          QUALIFICATION_OPTIONS.includes(formData.last_qualification)
+                            ? formData.last_qualification
+                            : (formData.last_qualification ? 'Other' : '')
+                        }
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          if (val === 'Other') {
+                            if (QUALIFICATION_OPTIONS.includes(formData.last_qualification)) {
+                              setFormData({ ...formData, last_qualification: '' });
+                            }
+                          } else {
+                            setFormData({ ...formData, last_qualification: val });
+                          }
+                        }}
+                        className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 cursor-pointer"
+                      >
+                        <option value="">Select Qualification (Optional)</option>
+                        {QUALIFICATION_OPTIONS.map((q) => (
+                          <option key={q} value={q}>{q}</option>
+                        ))}
+                      </select>
+                      {(!QUALIFICATION_OPTIONS.includes(formData.last_qualification) || formData.last_qualification === 'Other') && (
+                        <input
+                          type="text"
+                          placeholder="Specify custom qualification (e.g. DAE, Hafiz-e-Quran)..."
+                          value={formData.last_qualification === 'Other' ? '' : formData.last_qualification}
+                          onChange={(e) => setFormData({ ...formData, last_qualification: e.target.value })}
+                          className="w-full mt-1.5 px-3 py-2 rounded-xl border border-slate-200 bg-white text-xs font-medium focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
+                        />
+                      )}
                     </div>
 
                     <div>

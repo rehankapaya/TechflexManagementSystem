@@ -5,7 +5,9 @@ import {
   parseAdmissionFormLocal,
   parseAdmissionFormWithGroqAI,
   parseAdmissionFormWithGeminiAI,
-  COACHING_GRADES
+  COACHING_GRADES,
+  QUALIFICATION_OPTIONS,
+  matchQualification
 } from '../utils/admissionFormOcrParser';
 import toast from 'react-hot-toast';
 import {
@@ -858,15 +860,40 @@ const AdmissionFormScannerModal = ({
 
                           <div className="sm:col-span-2">
                             <label className="block text-[11px] font-semibold text-slate-600 mb-1">
-                              Last Qualification / School
+                              Last Qualification
                             </label>
-                            <input
-                              type="text"
-                              value={extractedData.qualification}
-                              onChange={(e) => handleFieldChange('qualification', e.target.value)}
-                              placeholder="e.g. Matric / Intermediate / School Name"
-                              className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white text-xs font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
-                            />
+                            <select
+                              value={
+                                QUALIFICATION_OPTIONS.includes(extractedData.qualification)
+                                  ? extractedData.qualification
+                                  : (extractedData.qualification ? 'Other' : '')
+                              }
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                if (val === 'Other') {
+                                  if (QUALIFICATION_OPTIONS.includes(extractedData.qualification)) {
+                                    handleFieldChange('qualification', '');
+                                  }
+                                } else {
+                                  handleFieldChange('qualification', val);
+                                }
+                              }}
+                              className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 cursor-pointer"
+                            >
+                              <option value="">Select Qualification (Optional)</option>
+                              {QUALIFICATION_OPTIONS.map((q) => (
+                                <option key={q} value={q}>{q}</option>
+                              ))}
+                            </select>
+                            {(!QUALIFICATION_OPTIONS.includes(extractedData.qualification) || extractedData.qualification === 'Other') && (
+                              <input
+                                type="text"
+                                value={extractedData.qualification === 'Other' ? '' : extractedData.qualification}
+                                onChange={(e) => handleFieldChange('qualification', e.target.value)}
+                                placeholder="Specify custom qualification..."
+                                className="w-full mt-1.5 px-3 py-2 rounded-xl border border-slate-200 bg-white text-xs font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+                              />
+                            )}
                           </div>
                         </div>
                       </div>

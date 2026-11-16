@@ -14,6 +14,24 @@ export const COACHING_GRADES = [
   'General Coaching'
 ];
 
+export const QUALIFICATION_OPTIONS = [
+  'Primary (Below Class 5)',
+  'Class 4',
+  'Class 5',
+  'Class 6',
+  'Class 7',
+  'Class 8 (Middle)',
+  'Class 9 (Matric I)',
+  'Class 10 (Matric II)',
+  '1st Year (Inter I)',
+  '2nd Year (Inter II)',
+  'O-Levels',
+  'A-Levels',
+  'Graduation / Bachelors',
+  'Masters / Post-Graduate',
+  'Other'
+];
+
 // Set of known form field labels to prevent labels from being extracted as user values
 const KNOWN_LABELS = new Set([
   'batch code', 'date', 'name of student', 'student name', 'father’s name', "father's name", 'father name',
@@ -31,6 +49,35 @@ const isLabelOrEmpty = (val) => {
   const clean = val.trim().toLowerCase().replace(/[:\-_/.]+/g, ' ').replace(/\s+/g, ' ').trim();
   if (clean.length < 2) return true;
   return KNOWN_LABELS.has(clean);
+};
+
+// Map extracted qualification to standard QUALIFICATION_OPTIONS
+export const matchQualification = (raw) => {
+  if (!raw || typeof raw !== 'string') return '';
+  const trimmed = raw.trim();
+  if (!trimmed || isLabelOrEmpty(trimmed)) return '';
+  const lower = trimmed.toLowerCase();
+
+  // If already matches an option directly
+  const exact = QUALIFICATION_OPTIONS.find(q => q.toLowerCase() === lower);
+  if (exact) return exact;
+
+  if (/\b(?:four|4th|class\s*4|04)\b/i.test(lower)) return 'Class 4';
+  if (/\b(?:five|5th|class\s*5|05)\b/i.test(lower)) return 'Class 5';
+  if (/\b(?:six|6th|class\s*6|06|vi\b)/i.test(lower)) return 'Class 6';
+  if (/\b(?:seven|7th|class\s*7|07|vii\b)/i.test(lower)) return 'Class 7';
+  if (/\b(?:eight|8th|class\s*8|08|viii\b|middle)/i.test(lower)) return 'Class 8 (Middle)';
+  if (/\b(?:nine|9th|class\s*9|09|ix\b|matric\s*i\b)/i.test(lower)) return 'Class 9 (Matric I)';
+  if (/\b(?:ten|10th|class\s*10|matric\s*ii\b|matric|ssc)\b/i.test(lower)) return 'Class 10 (Matric II)';
+  if (/\b(?:1st\s*year|first\s*year|inter\s*i\b|xi\b|11th)/i.test(lower)) return '1st Year (Inter I)';
+  if (/\b(?:2nd\s*year|second\s*year|inter\s*ii\b|xii\b|12th|intermediate|hssc)/i.test(lower)) return '2nd Year (Inter II)';
+  if (/\b(?:o[-\s]?levels?)\b/i.test(lower)) return 'O-Levels';
+  if (/\b(?:a[-\s]?levels?)\b/i.test(lower)) return 'A-Levels';
+  if (/\b(?:primary)\b/i.test(lower)) return 'Primary (Below Class 5)';
+  if (/\b(?:bachelors?|graduation|b\.?com|b\.?sc|b\.?a|bs)\b/i.test(lower)) return 'Graduation / Bachelors';
+  if (/\b(?:masters?|post[-\s]?grad|m\.?com|m\.?sc|m\.?a|ms)\b/i.test(lower)) return 'Masters / Post-Graduate';
+
+  return trimmed;
 };
 
 // Helper to sanitize field values and cut off adjacent field labels
@@ -292,7 +339,7 @@ export const parseAdmissionFormLocal = (rawText, courses = [], coachingGrades = 
   if (qualMatch) {
     const clean = cleanFieldValue(qualMatch[1], ['email', 'contact', 'signature']);
     if (clean && !isLabelOrEmpty(clean)) {
-      result.qualification = clean;
+      result.qualification = matchQualification(clean);
     }
   }
 
@@ -420,7 +467,7 @@ JSON Schema:
     timeslot: data.timing || '',
     timing: data.timing || '',
     class_type: data.timing?.includes('2') ? 'Alternate (2 Hours)' : 'Regular (1 Hour)',
-    qualification: data.qualification || '',
+    qualification: matchQualification(data.qualification || ''),
     email: data.email || '',
     batch_code: data.batch_code || '',
     reg_no: data.reg_no || '',
@@ -585,7 +632,7 @@ Output MUST be strictly valid JSON without any markdown formatting, backticks, o
     timeslot: aiData.timing || '',
     timing: aiData.timing || '',
     class_type: aiData.timing?.includes('2') ? 'Alternate (2 Hours)' : 'Regular (1 Hour)',
-    qualification: aiData.qualification || '',
+    qualification: matchQualification(aiData.qualification || ''),
     email: aiData.email || '',
     batch_code: aiData.batch_code || '',
     reg_no: aiData.reg_no || '',
