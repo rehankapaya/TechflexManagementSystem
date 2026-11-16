@@ -64,6 +64,7 @@ const CoachingFeeStatus = () => {
           waived,
           balance,
           pay_date: trx?.pay_date || '—',
+          serial_no: trx?.serial_no || '',
           status
         };
       });
@@ -133,6 +134,7 @@ const CoachingFeeStatus = () => {
       "Paid (PKR)": r.paid,
       "Waived (PKR)": r.waived,
       "Balance (PKR)": r.balance,
+      "Slip Serial No": r.serial_no || '—',
       "Payment Date": r.pay_date,
       "Status": r.status
     }));

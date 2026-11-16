@@ -6,6 +6,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useSearchParams } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { MONTHS_SHORT, normalizeMonthKey, getCanonicalShortMonth } from '../utils/monthUtils';
+import CoachingSlipScannerModal from './CoachingSlipScannerModal';
 import {
   CreditCard,
   Search,
@@ -19,7 +20,9 @@ import {
   DollarSign,
   CheckCircle2,
   Phone,
-  FileSpreadsheet
+  FileSpreadsheet,
+  Camera,
+  Hash
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
 
@@ -33,6 +36,7 @@ const CoachingFees = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [editingTransaction, setEditingTransaction] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [isScannerOpen, setIsScannerOpen] = useState(false);
 
   // Form State
   const getTodayDateStr = () => new Date().toISOString().split('T')[0];
@@ -44,6 +48,7 @@ const CoachingFees = () => {
     payable: 0,
     paid: 0,
     waived: 0,
+    serial_no: '',
     note: ''
   };
 
@@ -91,8 +96,53 @@ const CoachingFees = () => {
       payable: Number(trx.payable) || 0,
       paid: Number(trx.paid) || 0,
       waived: Number(trx.waived) || 0,
+      serial_no: trx.serial_no || '',
       note: trx.note || ''
     });
+  };
+
+  const handleSlipApplied = (extracted) => {
+    let targetStudent = extracted.student;
+    if (!targetStudent && extracted.rollNo) {
+      targetStudent = coachingStudents.find(s =>
+        (s.roll_no && s.roll_no.toUpperCase() === extracted.rollNo.toUpperCase()) ||
+        (s.student_id && s.student_id.toUpperCase() === extracted.rollNo.toUpperCase())
+      );
+    }
+    if (!targetStudent && extracted.studentName) {
+      const q = extracted.studentName.toLowerCase().trim();
+      targetStudent = coachingStudents.find(s => s.name && s.name.toLowerCase().trim() === q) ||
+                      coachingStudents.find(s => s.name && (s.name.toLowerCase().includes(q) || q.includes(s.name.toLowerCase())));
+    }
+
+    if (targetStudent) {
+      setSelectedStudent(targetStudent);
+    }
+
+    const payableAmount = extracted.amount > 0
+      ? extracted.amount
+      : (targetStudent ? Number(targetStudent.monthly_fee) || 0 : 0);
+
+    const paidAmount = extracted.amount > 0 ? extracted.amount : payableAmount;
+
+    setFormData({
+      month: extracted.month || getCanonicalShortMonth(),
+      year: extracted.year || new Date().getFullYear().toString(),
+      pay_date: extracted.payDate || getTodayDateStr(),
+      payable: payableAmount,
+      paid: paidAmount,
+      waived: 0,
+      serial_no: extracted.serialNo || '',
+      note: extracted.serialNo
+        ? `Slip #${extracted.serialNo} | ${extracted.paymentMethod || 'Cash'}${extracted.lateFee ? ` | Late: Rs.${extracted.lateFee}` : ''}`
+        : (extracted.paymentMethod ? `Paid via ${extracted.paymentMethod}${extracted.lateFee ? ` | Late: Rs.${extracted.lateFee}` : ''}` : '')
+    });
+
+    if (targetStudent) {
+      toast.success(`Slip scanned! Pre-filled for ${targetStudent.name} (${targetStudent.roll_no || ''})`);
+    } else {
+      toast.success("Slip details extracted! Please select the matching student.");
+    }
   };
 
   const handleDelete = async (trxId) => {
@@ -131,6 +181,7 @@ const CoachingFees = () => {
         studentId: selectedStudent.id,
         studentName: selectedStudent.name,
         rollNo: selectedStudent.roll_no || selectedStudent.student_id,
+        serial_no: formData.serial_no ? formData.serial_no.trim() : '',
         grade: selectedStudent.grade || '',
         month: formData.month,
         year: formData.year,
@@ -152,6 +203,7 @@ const CoachingFees = () => {
         payable: Number(selectedStudent.monthly_fee) || 0,
         paid: Number(selectedStudent.monthly_fee) || 0,
         waived: 0,
+        serial_no: '',
         note: ''
       }));
     } catch (err) {
@@ -196,6 +248,7 @@ const CoachingFees = () => {
       "Student Name": selectedStudent.name,
       "Class / Grade": selectedStudent.grade,
       "Period": `${h.month} ${h.year}`,
+      "Slip Serial No": h.serial_no || '—',
       "Pay Date": h.pay_date,
       "Payable (PKR)": h.payable,
       "Paid (PKR)": h.paid,
@@ -230,15 +283,27 @@ const CoachingFees = () => {
           </div>
         </div>
 
-        {selectedStudent && (
+        <div className="flex flex-wrap items-center gap-2">
           <button
-            onClick={handleReset}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 text-xs font-bold transition-all shadow-xs w-fit cursor-pointer"
+            type="button"
+            onClick={() => setIsScannerOpen(true)}
+            className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white text-xs font-extrabold transition-all shadow-md shadow-emerald-600/20 active:scale-95 cursor-pointer"
+            title="Scan paper fees slip via camera or file upload"
           >
-            <RotateCcw size={14} className="text-slate-400" />
-            <span>Select Different Student</span>
+            <Camera size={15} />
+            <span>Scan Filled Fee Slip</span>
           </button>
-        )}
+
+          {selectedStudent && (
+            <button
+              onClick={handleReset}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 text-xs font-bold transition-all shadow-xs w-fit cursor-pointer"
+            >
+              <RotateCcw size={14} className="text-slate-400" />
+              <span>Select Different Student</span>
+            </button>
+          )}
+        </div>
       </div>
 
       {/* MAIN TWO COLUMN LAYOUT */}
@@ -260,9 +325,19 @@ const CoachingFees = () => {
 
             {/* Student Search Box */}
             <div className="relative">
-              <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wider">
-                Find Coaching Student
-              </label>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="block text-xs font-bold text-slate-600 uppercase tracking-wider">
+                  Find Coaching Student
+                </label>
+                <button
+                  type="button"
+                  onClick={() => setIsScannerOpen(true)}
+                  className="text-[11px] font-bold text-emerald-700 hover:text-emerald-800 flex items-center gap-1 hover:underline cursor-pointer"
+                >
+                  <Camera size={12} />
+                  <span>Scan Slip</span>
+                </button>
+              </div>
               <div className="relative">
                 <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
                 <input
@@ -369,18 +444,37 @@ const CoachingFees = () => {
                   </div>
                 </div>
 
-                {/* Payment Date */}
-                <div>
-                  <label className="block text-[11px] font-bold text-slate-600 uppercase tracking-wider mb-1">
-                    Payment Date
-                  </label>
-                  <input
-                    type="date"
-                    value={formData.pay_date}
-                    onChange={(e) => setFormData({ ...formData, pay_date: e.target.value })}
-                    required
-                    className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 text-xs font-medium focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
-                  />
+                {/* Optional Slip Serial Number & Payment Date */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-600 uppercase tracking-wider mb-1 flex items-center justify-between">
+                      <span className="flex items-center gap-1">
+                        <Hash size={12} className="text-emerald-600" />
+                        <span>Slip Serial No</span>
+                      </span>
+                      <span className="text-[10px] text-slate-400 font-normal lowercase">(optional)</span>
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="e.g. SN-1042 or 042"
+                      value={formData.serial_no}
+                      onChange={(e) => setFormData({ ...formData, serial_no: e.target.value })}
+                      className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 text-xs font-mono font-bold text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-600 uppercase tracking-wider mb-1">
+                      Payment Date
+                    </label>
+                    <input
+                      type="date"
+                      value={formData.pay_date}
+                      onChange={(e) => setFormData({ ...formData, pay_date: e.target.value })}
+                      required
+                      className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 text-xs font-medium focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
+                    />
+                  </div>
                 </div>
 
                 {/* Financial Fields */}
@@ -523,8 +617,16 @@ const CoachingFees = () => {
 
                         <div className="pl-2 flex items-start justify-between">
                           <div>
-                            <div className="font-extrabold text-slate-950 text-sm">
-                              {item.month} {item.year}
+                            <div className="flex items-center gap-2">
+                              <span className="font-extrabold text-slate-950 text-sm">
+                                {item.month} {item.year}
+                              </span>
+                              {item.serial_no && (
+                                <span className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-md bg-blue-50 text-blue-700 font-mono text-[10px] font-bold border border-blue-200">
+                                  <Hash size={10} />
+                                  <span>{item.serial_no}</span>
+                                </span>
+                              )}
                             </div>
                             <div className="text-[11px] text-slate-500 font-mono mt-0.5">
                               Paid On: {item.pay_date || '—'} {item.note ? `• ${item.note}` : ''}
@@ -596,6 +698,14 @@ const CoachingFees = () => {
           </div>
         </div>
       </div>
+
+      {/* COACHING SLIP SCANNER MODAL */}
+      <CoachingSlipScannerModal
+        isOpen={isScannerOpen}
+        onClose={() => setIsScannerOpen(false)}
+        onApply={handleSlipApplied}
+        coachingStudents={coachingStudents}
+      />
     </div>
   );
 };
