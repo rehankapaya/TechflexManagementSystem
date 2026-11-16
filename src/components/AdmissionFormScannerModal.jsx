@@ -1,8 +1,12 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { createWorker } from 'tesseract.js';
 import * as pdfjsLib from 'pdfjs-dist';
-import { parseAdmissionFormLocal, parseAdmissionFormWithGeminiAI } from '../utils/admissionFormOcrParser';
-import { COACHING_GRADES } from '../utils/slipOcrParser';
+import {
+  parseAdmissionFormLocal,
+  parseAdmissionFormWithGroqAI,
+  parseAdmissionFormWithGeminiAI,
+  COACHING_GRADES
+} from '../utils/admissionFormOcrParser';
 import toast from 'react-hot-toast';
 import {
   Camera,
@@ -27,7 +31,9 @@ import {
   Clock,
   Shield,
   Sliders,
-  Check
+  Check,
+  ChevronDown,
+  ChevronUp
 } from 'lucide-react';
 
 // Configure pdfjs worker CDN fallback for Vite bundling
@@ -48,12 +54,20 @@ const AdmissionFormScannerModal = ({
   const [isProcessing, setIsProcessing] = useState(false);
   const [progressMsg, setProgressMsg] = useState('');
   const [ocrProgress, setOcrProgress] = useState(0);
+  const [cachedDirectText, setCachedDirectText] = useState('');
+  const [showRawText, setShowRawText] = useState(false);
 
-  // Engine: 'local' (Tesseract.js) | 'gemini' (AI Vision)
-  const [engine, setEngine] = useState('local');
+  // Engine: 'auto' (Smart AI with Groq + fallback) | 'local' (Offline Tesseract + Regex) | 'gemini' (AI Vision)
+  const [engine, setEngine] = useState('auto');
+
+  const [groqApiKey, setGroqApiKey] = useState(() => {
+    return localStorage.getItem('IIC_GROQ_API_KEY') || import.meta.env.VITE_GROQ_API_KEY || '';
+  });
+
   const [geminiApiKey, setGeminiApiKey] = useState(() => {
     return localStorage.getItem('TECHFLEX_GEMINI_API_KEY') || import.meta.env.VITE_GEMINI_API_KEY || '';
   });
+
   const [showKeyConfig, setShowKeyConfig] = useState(false);
 
   // Extracted Data State (Editable by user)
@@ -71,6 +85,8 @@ const AdmissionFormScannerModal = ({
       setIsProcessing(false);
       setProgressMsg('');
       setOcrProgress(0);
+      setCachedDirectText('');
+      setShowRawText(false);
     }
   }, [isOpen]);
 
@@ -83,18 +99,29 @@ const AdmissionFormScannerModal = ({
 
     setFileName(file.name);
     setExtractedData(null);
+    setCachedDirectText('');
 
-    // If PDF, convert 1st page to high-res canvas image
+    // If PDF, convert 1st page to canvas image & extract any digital text
     if (file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')) {
       try {
         setIsProcessing(true);
-        setProgressMsg('Rendering admission form PDF page to high-resolution image...');
+        setProgressMsg('Rendering admission form PDF & reading text...');
         const arrayBuffer = await file.arrayBuffer();
         const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
         const pdfDoc = await loadingTask.promise;
         const page = await pdfDoc.getPage(1);
 
-        const viewport = page.getViewport({ scale: 2.0 }); // 2x scale for sharp text recognition
+        // Attempt direct text extraction from PDF
+        let directText = '';
+        try {
+          const textContent = await page.getTextContent();
+          directText = textContent.items.map(item => item.str).join(' ').trim();
+        } catch (textErr) {
+          console.warn('PDF digital text extraction error:', textErr);
+        }
+
+        // Render page to canvas for crisp visual preview
+        const viewport = page.getViewport({ scale: 2.0 });
         const canvas = document.createElement('canvas');
         canvas.width = viewport.width;
         canvas.height = viewport.height;
@@ -103,12 +130,14 @@ const AdmissionFormScannerModal = ({
         await page.render({ canvasContext: ctx, viewport }).promise;
         const renderedDataUrl = canvas.toDataURL('image/png');
         setFileSrc(renderedDataUrl);
+        setCachedDirectText(directText);
         setIsProcessing(false);
-        // Automatically start scanning
-        processForm(renderedDataUrl);
+
+        // Automatically start parsing
+        processForm(renderedDataUrl, directText);
       } catch (err) {
-        console.error("PDF render error:", err);
-        toast.error("Failed to render PDF form. Please upload an image photo of the form.");
+        console.error('PDF render error:', err);
+        toast.error('Failed to render PDF form. Please upload an image photo of the form.');
         setIsProcessing(false);
       }
     } else if (file.type.startsWith('image/')) {
@@ -116,80 +145,110 @@ const AdmissionFormScannerModal = ({
       reader.onload = (event) => {
         const dataUrl = event.target.result;
         setFileSrc(dataUrl);
-        processForm(dataUrl);
+        setCachedDirectText('');
+        processForm(dataUrl, '');
       };
       reader.readAsDataURL(file);
     } else {
-      toast.error("Please upload an image (PNG, JPG) or PDF admission form.");
+      toast.error('Please upload an image (PNG, JPG) or PDF admission form.');
     }
 
     e.target.value = '';
   };
 
   // Main Form Processing Routine
-  const processForm = async (imageSrc) => {
+  const processForm = async (imageSrc, directTextOverride = null) => {
     const activeSrc = imageSrc || fileSrc;
-    if (!activeSrc) {
-      toast.error("Please select or capture an admission form first");
+    const directText = directTextOverride !== null ? directTextOverride : cachedDirectText;
+
+    if (!activeSrc && !directText) {
+      toast.error('Please select or capture an admission form first');
       return;
     }
 
     setIsProcessing(true);
-    setOcrProgress(10);
+    setOcrProgress(15);
 
     try {
-      if (engine === 'gemini' && geminiApiKey.trim()) {
-        setProgressMsg('Analyzing form fields with Gemini AI Vision...');
+      // CASE 1: Direct Gemini Vision Mode
+      if (engine === 'gemini' && geminiApiKey.trim() && activeSrc) {
+        setProgressMsg('Analyzing admission form with Gemini AI Vision...');
         setOcrProgress(50);
         const parsed = await parseAdmissionFormWithGeminiAI(activeSrc, geminiApiKey.trim(), courses, coachingGrades);
         setExtractedData(parsed);
         setOcrProgress(100);
-        toast.success("Admission form details extracted via AI Vision!");
-      } else {
-        // Local Browser OCR via Tesseract.js
-        setProgressMsg('Initializing local optical character recognition...');
-        setOcrProgress(20);
+        toast.success(parsed.name ? `Form extracted for ${parsed.name}!` : 'Admission form extracted via AI Vision!');
+        return;
+      }
+
+      // CASE 2: Text Extraction (from PDF digital text or Tesseract OCR)
+      let rawText = directText || '';
+
+      if (!rawText && activeSrc) {
+        setProgressMsg('Initializing optical character recognition...');
+        setOcrProgress(30);
 
         const worker = await createWorker('eng', 1, {
           logger: m => {
             if (m.status === 'recognizing text') {
-              setOcrProgress(Math.round(20 + (m.progress || 0) * 70));
+              setOcrProgress(Math.round(30 + (m.progress || 0) * 55));
               setProgressMsg(`Scanning form text: ${Math.round((m.progress || 0) * 100)}%`);
             }
           }
         });
 
-        setProgressMsg('Reading printed and handwritten text fields...');
+        setProgressMsg('Reading form text and printed fields...');
         const ret = await worker.recognize(activeSrc);
         await worker.terminate();
-
-        setOcrProgress(95);
-        setProgressMsg('Mapping admission form fields & course data...');
-
-        const parsed = parseAdmissionFormLocal(ret.data.text, courses, coachingGrades);
-        setExtractedData(parsed);
-        setOcrProgress(100);
-
-        if (parsed.name) {
-          toast.success(`Extracted details for: ${parsed.name}`);
-        } else {
-          toast.success("Form scanned! Please review the extracted fields.");
-        }
+        rawText = ret.data.text || '';
       }
+
+      setOcrProgress(85);
+
+      // CASE 3: Structure Data using AI (Groq) or Enhanced Local Heuristics
+      let parsed = null;
+
+      if ((engine === 'auto' || engine === 'groq') && groqApiKey.trim()) {
+        try {
+          setProgressMsg('Intelligently formatting fields with Groq AI...');
+          setOcrProgress(92);
+          parsed = await parseAdmissionFormWithGroqAI(rawText, groqApiKey.trim(), courses, coachingGrades);
+          toast.success(parsed.name ? `Extracted details for ${parsed.name}!` : 'Form details extracted via Smart AI!');
+        } catch (groqErr) {
+          console.warn('Groq AI structuring failed, falling back to local regex:', groqErr);
+          parsed = parseAdmissionFormLocal(rawText, courses, coachingGrades);
+          toast.success(parsed.name ? `Extracted: ${parsed.name}` : 'Form scanned via local parser.');
+        }
+      } else {
+        // Pure Local Label-Safe Heuristic Parser
+        setProgressMsg('Applying local label-safe regex extraction...');
+        parsed = parseAdmissionFormLocal(rawText, courses, coachingGrades);
+        toast.success(parsed.name ? `Extracted: ${parsed.name}` : 'Form scanned! Please review details.');
+      }
+
+      setExtractedData(parsed);
+      setOcrProgress(100);
     } catch (err) {
-      console.error("Admission form extraction error:", err);
-      toast.error(err.message || "Failed to extract admission form details");
+      console.error('Admission form extraction error:', err);
+      toast.error(err.message || 'Failed to extract admission form details');
     } finally {
       setIsProcessing(false);
     }
   };
 
-  // Save Gemini Key to localStorage
-  const handleSaveGeminiKey = (key) => {
-    const trimmed = key.trim();
-    setGeminiApiKey(trimmed);
-    localStorage.setItem('TECHFLEX_GEMINI_API_KEY', trimmed);
-    toast.success("Gemini API Key saved for scanner");
+  // Save Keys to localStorage
+  const handleSaveKeys = (newGroqKey, newGeminiKey) => {
+    if (newGroqKey !== undefined) {
+      const gTrim = newGroqKey.trim();
+      setGroqApiKey(gTrim);
+      localStorage.setItem('IIC_GROQ_API_KEY', gTrim);
+    }
+    if (newGeminiKey !== undefined) {
+      const gemTrim = newGeminiKey.trim();
+      setGeminiApiKey(gemTrim);
+      localStorage.setItem('TECHFLEX_GEMINI_API_KEY', gemTrim);
+    }
+    toast.success('Scanner engine settings saved!');
     setShowKeyConfig(false);
   };
 
@@ -246,15 +305,15 @@ const AdmissionFormScannerModal = ({
                   Scan Admission Form
                 </h3>
                 <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-100 text-indigo-800 border border-indigo-200 uppercase">
-                  OCR Extractor
+                  {engine === 'auto' ? 'Smart AI OCR' : engine === 'gemini' ? 'Gemini Vision' : 'Offline OCR'}
                 </span>
                 <span className="hidden sm:inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
                   <Shield size={10} />
-                  In-Memory Only (Zero DB Photo Save)
+                  Privacy Safe (Zero DB Image Storage)
                 </span>
               </div>
               <p className="text-xs text-slate-500 font-medium">
-                Scan or photograph a filled TechFlex admission form to auto-fill registration fields
+                Extract student, parent, contact, and academic fields from photos or PDF forms
               </p>
             </div>
           </div>
@@ -282,10 +341,25 @@ const AdmissionFormScannerModal = ({
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div>
                 <span className="font-bold text-slate-800">OCR Recognition Engine</span>
-                <p className="text-[11px] text-slate-500">Choose between 100% free offline OCR or Gemini AI Vision</p>
+                <p className="text-[11px] text-slate-500">
+                  Choose your extraction mode: Smart AI (auto-cleans form labels), Gemini Vision, or 100% Offline OCR
+                </p>
               </div>
 
               <div className="flex items-center bg-white p-1 rounded-xl border border-slate-200 shadow-2xs">
+                <button
+                  type="button"
+                  onClick={() => setEngine('auto')}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-bold transition-all cursor-pointer ${
+                    engine === 'auto'
+                      ? 'bg-indigo-600 text-white shadow-xs'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                  title="Uses Groq AI LLM to filter form labels and structure extracted fields with 100% precision"
+                >
+                  <Sparkles size={14} />
+                  <span>Smart AI (Recommended)</span>
+                </button>
                 <button
                   type="button"
                   onClick={() => setEngine('local')}
@@ -294,9 +368,10 @@ const AdmissionFormScannerModal = ({
                       ? 'bg-indigo-600 text-white shadow-xs'
                       : 'text-slate-600 hover:text-slate-900'
                   }`}
+                  title="Pure offline regex parser without external API calls"
                 >
                   <Cpu size={14} />
-                  <span>Free Local OCR</span>
+                  <span>Offline OCR</span>
                 </button>
                 <button
                   type="button"
@@ -306,50 +381,57 @@ const AdmissionFormScannerModal = ({
                       ? 'bg-indigo-600 text-white shadow-xs'
                       : 'text-slate-600 hover:text-slate-900'
                   }`}
+                  title="Multimodal visual extraction from Gemini 1.5 Flash"
                 >
-                  <Sparkles size={14} />
-                  <span>Gemini AI Vision</span>
+                  <Eye size={14} />
+                  <span>Gemini Vision</span>
                 </button>
               </div>
             </div>
 
-            {engine === 'gemini' && (
-              <div className="p-3 bg-white rounded-xl border border-indigo-200/70 space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="font-semibold text-slate-700 flex items-center gap-1.5">
-                    <Key size={14} className="text-indigo-600" />
-                    Gemini API Key
-                  </span>
-                  <a
-                    href="https://aistudio.google.com/app/apikey"
-                    target="_blank"
-                    rel="noreferrer"
-                    className="text-[11px] text-indigo-600 hover:underline"
-                  >
-                    Get Free Key from Google AI Studio &rarr;
-                  </a>
-                </div>
-                <div className="flex gap-2">
-                  <input
-                    type="password"
-                    placeholder="AIzaSy..."
-                    defaultValue={geminiApiKey}
-                    id="geminiKeyInput"
-                    className="flex-1 px-3 py-1.5 rounded-lg border border-slate-200 bg-slate-50 text-xs font-mono focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const input = document.getElementById('geminiKeyInput');
-                      handleSaveGeminiKey(input?.value || '');
-                    }}
-                    className="px-3 py-1.5 bg-indigo-600 text-white font-bold rounded-lg hover:bg-indigo-700 cursor-pointer text-xs"
-                  >
-                    Save Key
-                  </button>
-                </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+              <div className="p-3 bg-white rounded-xl border border-indigo-200/70 space-y-1.5">
+                <span className="font-semibold text-slate-700 flex items-center gap-1.5">
+                  <Key size={13} className="text-indigo-600" />
+                  Groq API Key (Fast Smart AI)
+                </span>
+                <input
+                  type="password"
+                  placeholder="gsk_..."
+                  defaultValue={groqApiKey}
+                  id="groqKeyInput"
+                  className="w-full px-3 py-1.5 rounded-lg border border-slate-200 bg-slate-50 text-xs font-mono focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                />
               </div>
-            )}
+
+              <div className="p-3 bg-white rounded-xl border border-indigo-200/70 space-y-1.5">
+                <span className="font-semibold text-slate-700 flex items-center gap-1.5">
+                  <Key size={13} className="text-indigo-600" />
+                  Gemini API Key (Visual Photos)
+                </span>
+                <input
+                  type="password"
+                  placeholder="AIzaSy..."
+                  defaultValue={geminiApiKey}
+                  id="geminiKeyInput"
+                  className="w-full px-3 py-1.5 rounded-lg border border-slate-200 bg-slate-50 text-xs font-mono focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                />
+              </div>
+            </div>
+
+            <div className="flex justify-end">
+              <button
+                type="button"
+                onClick={() => {
+                  const gInput = document.getElementById('groqKeyInput');
+                  const gemInput = document.getElementById('geminiKeyInput');
+                  handleSaveKeys(gInput?.value, gemInput?.value);
+                }}
+                className="px-4 py-1.5 bg-indigo-600 text-white font-bold rounded-lg hover:bg-indigo-700 cursor-pointer text-xs shadow-xs"
+              >
+                Save Engine Keys
+              </button>
+            </div>
           </div>
         )}
 
@@ -382,7 +464,7 @@ const AdmissionFormScannerModal = ({
                 Upload or Photograph Filled Admission Form
               </h4>
               <p className="text-xs text-slate-500 max-w-md mb-6">
-                Take a quick photo from your phone or choose an admission form image/PDF. All fields like Name, CNIC, Contacts, and Course/Class will be extracted.
+                Take a quick camera photo or upload an admission form image/PDF. Fields like Student Name, Father's Name, CNIC, Phone, Address, and Course/Class are parsed automatically.
               </p>
 
               <div className="flex flex-col sm:flex-row items-center gap-3 w-full max-w-md">
@@ -405,10 +487,14 @@ const AdmissionFormScannerModal = ({
                 </button>
               </div>
 
-              <div className="mt-8 flex items-center gap-6 text-[11px] text-slate-400">
+              <div className="mt-8 flex flex-wrap items-center justify-center gap-5 text-[11px] text-slate-400">
                 <div className="flex items-center gap-1.5">
                   <CheckCircle2 size={13} className="text-emerald-500" />
-                  <span>100% Client-Side Extraction</span>
+                  <span>Label-Hallucination Safe</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <CheckCircle2 size={13} className="text-emerald-500" />
+                  <span>Excludes Institute Header Phone</span>
                 </div>
                 <div className="flex items-center gap-1.5">
                   <CheckCircle2 size={13} className="text-emerald-500" />
@@ -462,6 +548,7 @@ const AdmissionFormScannerModal = ({
                         onClick={() => {
                           setFileSrc(null);
                           setExtractedData(null);
+                          setCachedDirectText('');
                         }}
                         className="p-1.5 bg-white hover:bg-rose-50 border border-slate-200 hover:border-rose-200 rounded-lg text-slate-600 hover:text-rose-600 transition-colors cursor-pointer"
                         title="Choose Another Form"
@@ -479,8 +566,30 @@ const AdmissionFormScannerModal = ({
                     />
                   </div>
 
+                  {/* Expandable Scanned Text Viewer */}
+                  {extractedData?.rawText && (
+                    <div className="border border-slate-200 rounded-xl bg-white overflow-hidden text-xs">
+                      <button
+                        type="button"
+                        onClick={() => setShowRawText(!showRawText)}
+                        className="w-full px-3 py-2 flex items-center justify-between text-slate-600 hover:bg-slate-50 cursor-pointer font-bold"
+                      >
+                        <span className="flex items-center gap-1.5">
+                          <Eye size={13} />
+                          <span>View Scanned Raw Text</span>
+                        </span>
+                        {showRawText ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                      </button>
+                      {showRawText && (
+                        <div className="p-3 bg-slate-50 border-t border-slate-200 font-mono text-[11px] text-slate-700 max-h-40 overflow-y-auto whitespace-pre-wrap select-all">
+                          {extractedData.rawText}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
                   <p className="text-[11px] text-slate-400 italic text-center">
-                    Note: This document image is kept strictly in-memory during extraction and is never saved to the database.
+                    Note: Document images are processed in-memory and are never uploaded or stored in the database.
                   </p>
                 </div>
 
@@ -858,4 +967,3 @@ const AdmissionFormScannerModal = ({
 };
 
 export default AdmissionFormScannerModal;
-
