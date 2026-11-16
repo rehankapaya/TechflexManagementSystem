@@ -853,32 +853,37 @@ const AdmissionFormScannerModal = ({
                             </div>
                           )}
 
-                          <div>
-                            <label className="block text-[11px] font-semibold text-slate-600 mb-1">
-                              Timing / Timeslot
-                            </label>
-                            <input
-                              type="text"
-                              value={extractedData.timeslot}
-                              onChange={(e) => handleFieldChange('timeslot', e.target.value)}
-                              placeholder="e.g. 5:00 PM - 6:00 PM"
-                              className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white text-xs font-mono font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
-                            />
-                          </div>
+                          {/* Timing / Timeslot & Class Type (Only for computer institute) */}
+                          {mode === 'computer' && (
+                            <>
+                              <div>
+                                <label className="block text-[11px] font-semibold text-slate-600 mb-1">
+                                  Timing / Timeslot
+                                </label>
+                                <input
+                                  type="text"
+                                  value={extractedData.timeslot}
+                                  onChange={(e) => handleFieldChange('timeslot', e.target.value)}
+                                  placeholder="e.g. 5:00 PM - 6:00 PM"
+                                  className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white text-xs font-mono font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+                                />
+                              </div>
 
-                          <div>
-                            <label className="block text-[11px] font-semibold text-slate-600 mb-1">
-                              Class Type
-                            </label>
-                            <select
-                              value={extractedData.class_type}
-                              onChange={(e) => handleFieldChange('class_type', e.target.value)}
-                              className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white text-xs font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 cursor-pointer"
-                            >
-                              <option value="Regular (1 Hour)">Regular (1 Hour)</option>
-                              <option value="Alternate (2 Hours)">Alternate (2 Hours)</option>
-                            </select>
-                          </div>
+                              <div>
+                                <label className="block text-[11px] font-semibold text-slate-600 mb-1">
+                                  Class Type
+                                </label>
+                                <select
+                                  value={extractedData.class_type}
+                                  onChange={(e) => handleFieldChange('class_type', e.target.value)}
+                                  className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white text-xs font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 cursor-pointer"
+                                >
+                                  <option value="Regular (1 Hour)">Regular (1 Hour)</option>
+                                  <option value="Alternate (2 Hours)">Alternate (2 Hours)</option>
+                                </select>
+                              </div>
+                            </>
+                          )}
 
                           <div className="sm:col-span-2">
                             <label className="block text-[11px] font-semibold text-slate-600 mb-1">

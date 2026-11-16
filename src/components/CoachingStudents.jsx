@@ -36,7 +36,6 @@ import {
   FileText,
   Upload,
   MessageCircle,
-  Clock,
   Smartphone
 } from 'lucide-react';
 
@@ -98,8 +97,6 @@ const CoachingStudents = () => {
     gender: 'Male',
     grade: COACHING_GRADES[4], // Class 9 default
     field: 'Science',
-    class_type: 'Regular (1 Hour)',
-    timeslot: '5:00 PM - 6:00 PM',
     admission_fee: '0',
     monthly_fee: '',
     joined_date: today,
@@ -133,12 +130,6 @@ const CoachingStudents = () => {
           updated.field = 'Science';
         }
       }
-      if (name === 'class_type') {
-        const slots = getTimeslotOptions(value);
-        if (slots.length > 0 && !slots.includes(prev.timeslot)) {
-          updated.timeslot = slots[0];
-        }
-      }
       return updated;
     });
   };
@@ -167,8 +158,6 @@ const CoachingStudents = () => {
       gender: (extracted.gender === 'Male' || extracted.gender === 'Female' || extracted.gender === 'Other') ? extracted.gender : prev.gender,
       grade: resolvedGrade,
       field: isClassAboveEight(resolvedGrade) ? (extracted.field || prev.field || 'Science') : '',
-      class_type: extracted.class_type || prev.class_type,
-      timeslot: extracted.timing || extracted.timeslot || prev.timeslot,
       joined_date: extracted.admission_date || prev.joined_date
     }));
     if (extracted.secondary_contact) {
@@ -189,8 +178,6 @@ const CoachingStudents = () => {
       gender: student.gender || 'Male',
       grade: resolvedGrade,
       field: student.field || (isClassAboveEight(resolvedGrade) ? 'Science' : ''),
-      class_type: student.class_type || 'Regular (1 Hour)',
-      timeslot: student.timeslot || student.timing || '5:00 PM - 6:00 PM',
       monthly_fee: student.monthly_fee || '',
       admission_fee: student.admission_fee || '0',
       status: student.status || 'active',
@@ -253,9 +240,9 @@ const CoachingStudents = () => {
         gender: formData.gender || 'Male',
         grade: formData.grade,
         field: isClassAboveEight(formData.grade) ? (formData.field ? formData.field.trim() : '') : '',
-        class_type: formData.class_type || 'Regular (1 Hour)',
-        timeslot: formData.timeslot.trim(),
-        timing: formData.timeslot.trim(),
+        class_type: 'Regular',
+        timeslot: '',
+        timing: '',
         admission_fee: Number(formData.admission_fee) || 0,
         monthly_fee: Number(formData.monthly_fee) || 0,
         joined_date: formData.joined_date,
@@ -555,19 +542,11 @@ const CoachingStudents = () => {
                   </div>
 
                   {(student.contact || student.contact_number) && (
-                    <div className="mt-2.5 flex items-center justify-between text-xs text-slate-600 font-mono">
-                      <div className="flex items-center gap-1.5">
-                        <Phone size={12} className="text-slate-400" />
-                        <a href={`tel:${student.contact || student.contact_number}`} className="hover:text-emerald-600 hover:underline">
-                          {student.contact || student.contact_number}
-                        </a>
-                      </div>
-                      {(student.timeslot || student.timing) && (
-                        <div className="flex items-center gap-1 text-[11px] text-slate-400">
-                          <Clock size={11} />
-                          <span>{student.timeslot || student.timing}</span>
-                        </div>
-                      )}
+                    <div className="mt-2.5 flex items-center gap-1.5 text-xs text-slate-600 font-mono">
+                      <Phone size={12} className="text-slate-400" />
+                      <a href={`tel:${student.contact || student.contact_number}`} className="hover:text-emerald-600 hover:underline">
+                        {student.contact || student.contact_number}
+                      </a>
                     </div>
                   )}
                 </div>
@@ -869,39 +848,7 @@ const CoachingStudents = () => {
                   </div>
                 )}
 
-                {/* 7. Class Type */}
-                <div>
-                  <label className="block text-xs font-semibold text-slate-600 mb-1">Class Type *</label>
-                  <select
-                    name="class_type"
-                    value={formData.class_type}
-                    onChange={handleChange}
-                    required
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all cursor-pointer font-medium"
-                  >
-                    <option value="">Select Class Type</option>
-                    <option value="Regular (1 Hour)">Regular (1 Hour)</option>
-                    <option value="Alternate (2 Hours)">Alternate (2 Hours)</option>
-                  </select>
-                </div>
 
-                {/* 8. Timeslot */}
-                <div>
-                  <label className="block text-xs font-semibold text-slate-600 mb-1">Timeslot *</label>
-                  <select
-                    name="timeslot"
-                    value={formData.timeslot}
-                    onChange={handleChange}
-                    required
-                    disabled={!formData.class_type}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all disabled:opacity-50 cursor-pointer font-medium"
-                  >
-                    <option value="">Select Timeslot</option>
-                    {getTimeslotOptions(formData.class_type).map(slot => (
-                      <option key={slot} value={slot}>{slot}</option>
-                    ))}
-                  </select>
-                </div>
 
                 {/* 9. Admission Date */}
                 <div>
@@ -1046,18 +993,6 @@ const CoachingStudents = () => {
                 <div className="flex justify-between py-1 border-b border-slate-200/60">
                   <span className="text-slate-500 font-medium">Gender:</span>
                   <span className="font-bold text-slate-800">{viewingStudent.gender}</span>
-                </div>
-              )}
-              {viewingStudent.class_type && (
-                <div className="flex justify-between py-1 border-b border-slate-200/60">
-                  <span className="text-slate-500 font-medium">Class Type:</span>
-                  <span className="font-semibold text-slate-800">{viewingStudent.class_type}</span>
-                </div>
-              )}
-              {(viewingStudent.timeslot || viewingStudent.timing) && (
-                <div className="flex justify-between py-1 border-b border-slate-200/60">
-                  <span className="text-slate-500 font-medium">Timeslot:</span>
-                  <span className="font-mono font-bold text-emerald-800">{viewingStudent.timeslot || viewingStudent.timing}</span>
                 </div>
               )}
               <div className="flex justify-between py-1 border-b border-slate-200/60">
