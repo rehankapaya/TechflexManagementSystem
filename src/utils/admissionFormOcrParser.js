@@ -14,6 +14,26 @@ export const COACHING_GRADES = [
   'General Coaching'
 ];
 
+export const COACHING_FIELDS = [
+  'Science',
+  'Commerce',
+  'Computer Science (ICS)',
+  'Pre-Medical',
+  'Pre-Engineering',
+  'Arts / Humanities',
+  'General Science',
+  'Other'
+];
+
+export const isClassAboveEight = (grade) => {
+  if (!grade) return false;
+  const g = grade.trim().toLowerCase();
+  if (/class\s*[5678]\b/i.test(g) || /^(?:5|6|7|8|v|vi|vii|viii)$/i.test(g)) {
+    return false;
+  }
+  return true;
+};
+
 export const QUALIFICATION_OPTIONS = [
   'Primary (Below Class 5)',
   'Class 4',
@@ -157,7 +177,23 @@ export const matchCourseAndGrade = (extractedCourseOrClass, fullText = '', cours
     }
   }
 
-  return { matchedCourseId, matchedGrade };
+  // 3. Coaching Field / Group Detection (Commerce, Science, etc.)
+  let matchedField = '';
+  if (/\b(?:commerce|b\.?com|i\.?com)\b/i.test(pool)) {
+    matchedField = 'Commerce';
+  } else if (/\b(?:pre[-\s]?med(?:ical)?)\b/i.test(pool)) {
+    matchedField = 'Pre-Medical';
+  } else if (/\b(?:pre[-\s]?eng(?:ineering)?)\b/i.test(pool)) {
+    matchedField = 'Pre-Engineering';
+  } else if (/\b(?:computer\s*science|ics)\b/i.test(pool)) {
+    matchedField = 'Computer Science (ICS)';
+  } else if (/\b(?:arts|humanities)\b/i.test(pool)) {
+    matchedField = 'Arts / Humanities';
+  } else if (/\b(?:science|general\s*science)\b/i.test(pool)) {
+    matchedField = 'Science';
+  }
+
+  return { matchedCourseId, matchedGrade, matchedField };
 };
 
 /**
@@ -318,9 +354,10 @@ export const parseAdmissionFormLocal = (rawText, courses = [], coachingGrades = 
   }
 
   // Match course & grade
-  const { matchedCourseId, matchedGrade } = matchCourseAndGrade(result.course_or_class, bodyText, courses, coachingGrades);
+  const { matchedCourseId, matchedGrade, matchedField } = matchCourseAndGrade(result.course_or_class, bodyText, courses, coachingGrades);
   result.matchedCourseId = matchedCourseId;
   result.matchedGrade = matchedGrade;
+  result.field = matchedField || '';
 
   // 11. Timing / Timeslot
   const timingMatch = bodyText.match(/(?:Timimg|Timing|Time)[\s:\-_]+([0-9:\sAPMapm\-a-z]+)/i);
@@ -476,9 +513,10 @@ JSON Schema:
   };
 
   // Match Course & Grade
-  const { matchedCourseId, matchedGrade } = matchCourseAndGrade(parsed.course_or_class, rawOcrText, courses, coachingGrades);
+  const { matchedCourseId, matchedGrade, matchedField } = matchCourseAndGrade(parsed.course_or_class, rawOcrText, courses, coachingGrades);
   parsed.matchedCourseId = matchedCourseId;
   parsed.matchedGrade = matchedGrade;
+  parsed.field = matchedField || '';
 
   return parsed;
 };
@@ -641,9 +679,10 @@ Output MUST be strictly valid JSON without any markdown formatting, backticks, o
   };
 
   // Match Course & Grade
-  const { matchedCourseId, matchedGrade } = matchCourseAndGrade(parsed.course_or_class, textResponse, courses, coachingGrades);
+  const { matchedCourseId, matchedGrade, matchedField } = matchCourseAndGrade(parsed.course_or_class, textResponse, courses, coachingGrades);
   parsed.matchedCourseId = matchedCourseId;
   parsed.matchedGrade = matchedGrade;
+  parsed.field = matchedField || '';
 
   return parsed;
 };

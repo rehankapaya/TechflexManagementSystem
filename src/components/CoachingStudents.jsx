@@ -7,8 +7,12 @@ import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import ImageCropModal from './ImageCropModal';
 import AdmissionFormScannerModal from './AdmissionFormScannerModal';
-import { QUALIFICATION_OPTIONS, matchQualification } from '../utils/admissionFormOcrParser';
-export { QUALIFICATION_OPTIONS };
+import {
+  COACHING_GRADES,
+  COACHING_FIELDS,
+  isClassAboveEight
+} from '../utils/admissionFormOcrParser';
+export { COACHING_GRADES, COACHING_FIELDS, isClassAboveEight };
 import {
   GraduationCap,
   Users,
@@ -29,22 +33,32 @@ import {
   DollarSign,
   ArrowRight,
   Filter,
-  FileText
+  FileText,
+  Upload,
+  MessageCircle,
+  Clock,
+  Smartphone
 } from 'lucide-react';
 
-export const COACHING_GRADES = [
-  "Class 5",
-  "Class 6",
-  "Class 7",
-  "Class 8",
-  "Class 9 (Matric I)",
-  "Class 10 (Matric II)",
-  "1st Year (Inter I)",
-  "2nd Year (Inter II)",
-  "O-Levels",
-  "A-Levels",
-  "General Coaching"
-];
+export const getTimeslotOptions = (classType) => {
+  if (classType === 'Regular (1 Hour)') {
+    return [
+      "3:00 PM - 4:00 PM", "4:00 PM - 5:00 PM", "5:00 PM - 6:00 PM",
+      "6:00 PM - 7:00 PM", "7:00 PM - 8:00 PM", "8:00 PM - 9:00 PM",
+      "9:00 PM - 10:00 PM"
+    ];
+  } else if (classType === 'Alternate (2 Hours)') {
+    return [
+      "3:00 PM - 5:00 PM", "4:00 PM - 6:00 PM", "5:00 PM - 7:00 PM",
+      "5:30 PM - 7:30 PM", "6:00 PM - 8:00 PM", "7:00 PM - 9:00 PM",
+      "8:00 PM - 10:00 PM"
+    ];
+  }
+  return [
+    "3:00 PM - 5:00 PM", "5:00 PM - 7:00 PM", "5:30 PM - 7:30 PM",
+    "6:00 PM - 8:00 PM", "7:00 PM - 9:00 PM"
+  ];
+};
 
 export const getNextCoachingRollNo = (studentsList) => {
   if (!studentsList || studentsList.length === 0) return 'TFC-001';
@@ -72,28 +86,24 @@ const CoachingStudents = () => {
   const [editingStudent, setEditingStudent] = useState(null);
   const [viewingStudent, setViewingStudent] = useState(null);
 
-  // Form State
+  const today = new Date().toISOString().split('T')[0];
+  const [showSecondaryContact, setShowSecondaryContact] = useState(false);
+
+  // Form State - Streamlined matching computer students form (course -> class, no laptop, field if class > 8)
   const initialFormState = {
     roll_no: '',
     name: '',
-    father_name: '',
+    contact: '',
+    secondary_contact: '',
     gender: 'Male',
-    dob: '',
-    cnic: '',
-    religion: 'Islam',
     grade: COACHING_GRADES[4], // Class 9 default
-    timing: '',
-    last_qualification: '',
-    school_college: '',
-    monthly_fee: '',
+    field: 'Science',
+    class_type: 'Regular (1 Hour)',
+    timeslot: '5:00 PM - 6:00 PM',
     admission_fee: '0',
-    contact_number: '',
-    guardian_contact: '',
-    email: '',
-    batch_code: '',
-    address: '',
+    monthly_fee: '',
+    joined_date: today,
     status: 'active',
-    joined_date: new Date().toISOString().split('T')[0],
     profile_image: ''
   };
 
@@ -112,8 +122,30 @@ const CoachingStudents = () => {
 
   const [isAdmissionScannerOpen, setIsAdmissionScannerOpen] = useState(false);
 
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setFormData(prev => {
+      const updated = { ...prev, [name]: value };
+      if (name === 'grade') {
+        if (!isClassAboveEight(value)) {
+          updated.field = '';
+        } else if (!updated.field) {
+          updated.field = 'Science';
+        }
+      }
+      if (name === 'class_type') {
+        const slots = getTimeslotOptions(value);
+        if (slots.length > 0 && !slots.includes(prev.timeslot)) {
+          updated.timeslot = slots[0];
+        }
+      }
+      return updated;
+    });
+  };
+
   const handleOpenAddModal = () => {
     setEditingStudent(null);
+    setShowSecondaryContact(false);
     setFormData({
       ...initialFormState,
       roll_no: autoRollNo,
@@ -125,54 +157,51 @@ const CoachingStudents = () => {
   const handleAdmissionFormApplied = (extracted) => {
     if (!extracted) return;
     setEditingStudent(null);
+    const resolvedGrade = extracted.matchedGrade || extracted.grade || COACHING_GRADES[4];
     setFormData(prev => ({
       ...prev,
       roll_no: extracted.reg_no || prev.roll_no || autoRollNo,
       name: extracted.name || prev.name,
-      father_name: extracted.father_name || prev.father_name,
-      gender: extracted.gender || prev.gender || 'Male',
-      dob: extracted.dob || prev.dob || '',
-      cnic: extracted.cnic || prev.cnic || '',
-      religion: extracted.religion || prev.religion || 'Islam',
-      grade: extracted.matchedGrade || prev.grade || COACHING_GRADES[4],
-      timing: extracted.timing || extracted.timeslot || prev.timing || '',
-      last_qualification: matchQualification(extracted.last_qualification || extracted.qualification) || prev.last_qualification || '',
-      contact_number: extracted.contact || prev.contact_number,
-      guardian_contact: extracted.secondary_contact || prev.guardian_contact,
-      address: extracted.address || prev.address,
-      email: extracted.email || prev.email || '',
-      batch_code: extracted.batch_code || prev.batch_code || '',
+      contact: extracted.contact || prev.contact,
+      secondary_contact: extracted.secondary_contact || prev.secondary_contact,
+      gender: (extracted.gender === 'Male' || extracted.gender === 'Female' || extracted.gender === 'Other') ? extracted.gender : prev.gender,
+      grade: resolvedGrade,
+      field: isClassAboveEight(resolvedGrade) ? (extracted.field || prev.field || 'Science') : '',
+      class_type: extracted.class_type || prev.class_type,
+      timeslot: extracted.timing || extracted.timeslot || prev.timeslot,
       joined_date: extracted.admission_date || prev.joined_date
     }));
+    if (extracted.secondary_contact) {
+      setShowSecondaryContact(true);
+    }
     setShowAddModal(true);
     toast.success(`Form details loaded for ${extracted.name || 'coaching student'}! Review and complete enrollment.`);
   };
 
   const handleEdit = (student) => {
     setEditingStudent(student);
+    const resolvedGrade = student.grade || COACHING_GRADES[4];
     setFormData({
       roll_no: student.roll_no || student.student_id || '',
       name: student.name || '',
-      father_name: student.father_name || '',
+      contact: student.contact || student.contact_number || '',
+      secondary_contact: student.secondary_contact || student.guardian_contact || '',
       gender: student.gender || 'Male',
-      dob: student.dob || '',
-      cnic: student.cnic || '',
-      religion: student.religion || 'Islam',
-      grade: student.grade || COACHING_GRADES[0],
-      timing: student.timing || student.timeslot || '',
-      last_qualification: student.last_qualification || '',
-      school_college: student.school_college || '',
+      grade: resolvedGrade,
+      field: student.field || (isClassAboveEight(resolvedGrade) ? 'Science' : ''),
+      class_type: student.class_type || 'Regular (1 Hour)',
+      timeslot: student.timeslot || student.timing || '5:00 PM - 6:00 PM',
       monthly_fee: student.monthly_fee || '',
       admission_fee: student.admission_fee || '0',
-      contact_number: student.contact_number || '',
-      guardian_contact: student.guardian_contact || '',
-      email: student.email || '',
-      batch_code: student.batch_code || '',
-      address: student.address || '',
       status: student.status || 'active',
       joined_date: student.joined_date || (student.createdAt ? student.createdAt.split('T')[0] : new Date().toISOString().split('T')[0]),
       profile_image: student.profile_image || student.photo || ''
     });
+    if (student.secondary_contact || student.guardian_contact) {
+      setShowSecondaryContact(true);
+    } else {
+      setShowSecondaryContact(false);
+    }
     setShowAddModal(true);
   };
 
@@ -217,24 +246,20 @@ const CoachingStudents = () => {
       const studentPayload = {
         roll_no: formData.roll_no.trim() || autoRollNo,
         name: formData.name.trim(),
-        father_name: formData.father_name.trim(),
+        contact: formData.contact.trim(),
+        contact_number: formData.contact.trim(),
+        secondary_contact: formData.secondary_contact.trim(),
+        guardian_contact: formData.secondary_contact.trim(),
         gender: formData.gender || 'Male',
-        dob: formData.dob ? formData.dob.trim() : '',
-        cnic: formData.cnic ? formData.cnic.trim() : '',
-        religion: formData.religion ? formData.religion.trim() : 'Islam',
         grade: formData.grade,
-        timing: formData.timing ? formData.timing.trim() : '',
-        last_qualification: formData.last_qualification ? formData.last_qualification.trim() : '',
-        school_college: formData.school_college.trim(),
-        monthly_fee: Number(formData.monthly_fee) || 0,
+        field: isClassAboveEight(formData.grade) ? (formData.field ? formData.field.trim() : '') : '',
+        class_type: formData.class_type || 'Regular (1 Hour)',
+        timeslot: formData.timeslot.trim(),
+        timing: formData.timeslot.trim(),
         admission_fee: Number(formData.admission_fee) || 0,
-        contact_number: formData.contact_number.trim(),
-        guardian_contact: formData.guardian_contact.trim(),
-        email: formData.email ? formData.email.trim() : '',
-        batch_code: formData.batch_code ? formData.batch_code.trim() : '',
-        address: formData.address.trim(),
-        status: formData.status || 'active',
+        monthly_fee: Number(formData.monthly_fee) || 0,
         joined_date: formData.joined_date,
+        status: formData.status || 'active',
         profile_image: formData.profile_image || '',
         photo: formData.profile_image || ''
       };
@@ -296,10 +321,12 @@ const CoachingStudents = () => {
         !searchTerm ||
         (s.name && s.name.toLowerCase().includes(q)) ||
         (s.roll_no && s.roll_no.toLowerCase().includes(q)) ||
-        (s.father_name && s.father_name.toLowerCase().includes(q)) ||
-        (s.cnic && s.cnic.includes(q)) ||
+        (s.student_id && s.student_id.toLowerCase().includes(q)) ||
+        (s.contact && s.contact.includes(q)) ||
         (s.contact_number && s.contact_number.includes(q)) ||
-        (s.guardian_contact && s.guardian_contact.includes(q));
+        (s.secondary_contact && s.secondary_contact.includes(q)) ||
+        (s.guardian_contact && s.guardian_contact.includes(q)) ||
+        (s.field && s.field.toLowerCase().includes(q));
 
       const matchGrade = selectedGrade === 'ALL' || s.grade === selectedGrade;
       const matchStatus = selectedStatus === 'ALL' || s.status === selectedStatus;
@@ -476,15 +503,17 @@ const CoachingStudents = () => {
                         </div>
                       )}
                       <div>
-                        <span className="inline-block px-2 py-0.5 rounded-md font-mono text-[10px] font-bold text-emerald-800 bg-emerald-50 border border-emerald-200">
-                          {rollNo}
-                        </span>
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className="inline-block px-2 py-0.5 rounded-md font-mono text-[10px] font-bold text-emerald-800 bg-emerald-50 border border-emerald-200">
+                            {rollNo}
+                          </span>
+                          <span className="text-[10px] font-semibold text-slate-500">
+                            {student.gender || 'Male'}
+                          </span>
+                        </div>
                         <h3 className="font-extrabold text-slate-900 text-sm leading-tight mt-1">
                           {student.name}
                         </h3>
-                        {student.father_name && (
-                          <p className="text-[11px] text-slate-500 font-medium">S/O {student.father_name}</p>
-                        )}
                       </div>
                     </div>
 
@@ -507,7 +536,14 @@ const CoachingStudents = () => {
                   <div className="mt-3.5 grid grid-cols-2 gap-2 text-xs">
                     <div className="p-2 rounded-xl bg-slate-50 border border-slate-100">
                       <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Class / Grade</span>
-                      <span className="font-bold text-slate-800 truncate block mt-0.5">{student.grade || '—'}</span>
+                      <div className="flex items-center gap-1 flex-wrap mt-0.5">
+                        <span className="font-bold text-slate-800">{student.grade || '—'}</span>
+                        {student.field && (
+                          <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-emerald-100 text-emerald-800 border border-emerald-200">
+                            {student.field}
+                          </span>
+                        )}
+                      </div>
                     </div>
 
                     <div className="p-2 rounded-xl bg-emerald-50/70 border border-emerald-100">
@@ -518,12 +554,20 @@ const CoachingStudents = () => {
                     </div>
                   </div>
 
-                  {student.contact_number && (
-                    <div className="mt-2.5 flex items-center gap-1.5 text-xs text-slate-600 font-mono">
-                      <Phone size={12} className="text-slate-400" />
-                      <a href={`tel:${student.contact_number}`} className="hover:text-emerald-600 hover:underline">
-                        {student.contact_number}
-                      </a>
+                  {(student.contact || student.contact_number) && (
+                    <div className="mt-2.5 flex items-center justify-between text-xs text-slate-600 font-mono">
+                      <div className="flex items-center gap-1.5">
+                        <Phone size={12} className="text-slate-400" />
+                        <a href={`tel:${student.contact || student.contact_number}`} className="hover:text-emerald-600 hover:underline">
+                          {student.contact || student.contact_number}
+                        </a>
+                      </div>
+                      {(student.timeslot || student.timing) && (
+                        <div className="flex items-center gap-1 text-[11px] text-slate-400">
+                          <Clock size={11} />
+                          <span>{student.timeslot || student.timing}</span>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
@@ -674,340 +718,261 @@ const CoachingStudents = () => {
                 </div>
               </div>
 
-              {/* FORM SECTIONS */}
-              <div className="space-y-4 max-h-[62vh] overflow-y-auto pr-1">
-                {/* 1. Academic Enrollment Section */}
-                <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-3">
-                  <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
-                    <BookOpen size={13} className="text-emerald-600" />
-                    <span>Academic & Class Enrollment</span>
-                  </span>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div>
-                      <label className="block text-[11px] font-bold text-slate-600 uppercase tracking-wider mb-1">
-                        Student Roll Number *
-                      </label>
-                      <input
-                        type="text"
-                        value={formData.roll_no}
-                        onChange={(e) => setFormData({ ...formData, roll_no: e.target.value })}
-                        required
-                        placeholder="e.g. TFC-001"
-                        className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white text-xs font-mono font-bold text-emerald-800 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-[11px] font-bold text-slate-600 uppercase tracking-wider mb-1">
-                        Class / Grade *
-                      </label>
-                      <select
-                        value={formData.grade}
-                        onChange={(e) => setFormData({ ...formData, grade: e.target.value })}
-                        required
-                        className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 cursor-pointer"
-                      >
-                        {COACHING_GRADES.map(g => (
-                          <option key={g} value={g}>{g}</option>
-                        ))}
-                      </select>
-                    </div>
-
-                    <div>
-                      <label className="block text-[11px] font-bold text-slate-600 uppercase tracking-wider mb-1">
-                        Class Timing / Batch Slot
-                      </label>
-                      <input
-                        type="text"
-                        placeholder="e.g. 5:30 PM - 7:30 PM or 6-8"
-                        value={formData.timing}
-                        onChange={(e) => setFormData({ ...formData, timing: e.target.value })}
-                        className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white text-xs font-mono font-medium focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-[11px] font-bold text-slate-600 uppercase tracking-wider mb-1">
-                        Batch Code <span className="text-slate-400 font-normal">(Optional)</span>
-                      </label>
-                      <input
-                        type="text"
-                        placeholder="e.g. 2 or B-01"
-                        value={formData.batch_code}
-                        onChange={(e) => setFormData({ ...formData, batch_code: e.target.value })}
-                        className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white text-xs font-mono font-medium focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
-                      />
-                    </div>
-                  </div>
+              {/* FORM FIELDS - Matching Students.jsx structure */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3.5 max-h-[62vh] overflow-y-auto pr-1">
+                {/* 1. Full Name */}
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 mb-1">Full Name *</label>
+                  <input
+                    type="text"
+                    name="name"
+                    placeholder="e.g. Abdul Rehman"
+                    value={formData.name}
+                    onChange={handleChange}
+                    required
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all font-medium"
+                  />
                 </div>
 
-                {/* 2. Student & Parent Information */}
-                <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-3">
-                  <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
-                    <GraduationCap size={13} className="text-emerald-600" />
-                    <span>Student Profile & Parent Information</span>
-                  </span>
+                {/* 2. Primary Phone */}
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-xs font-semibold text-slate-600">Primary Phone *</label>
+                    {!showSecondaryContact && (
+                      <button
+                        type="button"
+                        onClick={() => setShowSecondaryContact(true)}
+                        className="text-[11px] font-semibold text-emerald-600 hover:text-emerald-700 hover:underline cursor-pointer flex items-center gap-0.5"
+                      >
+                        <Plus size={11} />
+                        <span>2nd Number</span>
+                      </button>
+                    )}
+                  </div>
+                  <input
+                    type="text"
+                    name="contact"
+                    placeholder="03001234567"
+                    value={formData.contact}
+                    onChange={handleChange}
+                    required
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all font-mono"
+                  />
+                </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div>
-                      <label className="block text-[11px] font-bold text-slate-600 uppercase tracking-wider mb-1">
-                        Student Full Name *
+                {/* 3. Secondary Phone (Expandable) */}
+                {showSecondaryContact && (
+                  <div className="animate-in fade-in slide-in-from-top-1">
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="block text-xs font-semibold text-slate-600">
+                        2nd / Parent Phone <span className="text-slate-400 font-normal">(Optional)</span>
                       </label>
-                      <input
-                        type="text"
-                        placeholder="e.g. Abdul Rehman"
-                        value={formData.name}
-                        onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                        required
-                        className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white text-xs font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-[11px] font-bold text-slate-600 uppercase tracking-wider mb-1">
-                        Father's Name
-                      </label>
-                      <input
-                        type="text"
-                        placeholder="e.g. M. Owais Ajmeri"
-                        value={formData.father_name}
-                        onChange={(e) => setFormData({ ...formData, father_name: e.target.value })}
-                        className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white text-xs font-medium focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-[11px] font-bold text-slate-600 uppercase tracking-wider mb-1">
-                        Gender
-                      </label>
-                      <div className="flex gap-2">
-                        {['Male', 'Female'].map(g => (
-                          <button
-                            key={g}
-                            type="button"
-                            onClick={() => setFormData({ ...formData, gender: g })}
-                            className={`flex-1 py-1.5 text-xs font-bold rounded-xl border transition-all cursor-pointer ${
-                              formData.gender === g
-                                ? 'bg-emerald-600 text-white border-emerald-600 shadow-xs'
-                                : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
-                            }`}
-                          >
-                            {g}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-
-                    <div>
-                      <label className="block text-[11px] font-bold text-slate-600 uppercase tracking-wider mb-1">
-                        Date of Birth (D.O.B)
-                      </label>
-                      <input
-                        type="text"
-                        placeholder="e.g. 4-11-2010 or DD/MM/YYYY"
-                        value={formData.dob}
-                        onChange={(e) => setFormData({ ...formData, dob: e.target.value })}
-                        className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white text-xs font-mono focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-[11px] font-bold text-slate-600 uppercase tracking-wider mb-1">
-                        N.I.C / B-Form Number
-                      </label>
-                      <input
-                        type="text"
-                        placeholder="e.g. 42301-0195991-5"
-                        value={formData.cnic}
-                        onChange={(e) => setFormData({ ...formData, cnic: e.target.value })}
-                        className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white text-xs font-mono font-medium focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-[11px] font-bold text-slate-600 uppercase tracking-wider mb-1">
-                        Religion
-                      </label>
-                      <input
-                        type="text"
-                        placeholder="e.g. Islam"
-                        value={formData.religion}
-                        onChange={(e) => setFormData({ ...formData, religion: e.target.value })}
-                        className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white text-xs font-medium focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-[11px] font-bold text-slate-600 uppercase tracking-wider mb-1">
-                        Last Qualification
-                      </label>
-                      <select
-                        value={
-                          QUALIFICATION_OPTIONS.includes(formData.last_qualification)
-                            ? formData.last_qualification
-                            : (formData.last_qualification ? 'Other' : '')
-                        }
-                        onChange={(e) => {
-                          const val = e.target.value;
-                          if (val === 'Other') {
-                            if (QUALIFICATION_OPTIONS.includes(formData.last_qualification)) {
-                              setFormData({ ...formData, last_qualification: '' });
-                            }
-                          } else {
-                            setFormData({ ...formData, last_qualification: val });
-                          }
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowSecondaryContact(false);
+                          setFormData(prev => ({ ...prev, secondary_contact: '' }));
                         }}
-                        className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white text-xs font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 cursor-pointer"
+                        className="text-[11px] text-rose-500 hover:text-rose-700 hover:underline cursor-pointer flex items-center gap-0.5"
+                        title="Remove secondary phone"
                       >
-                        <option value="">Select Qualification (Optional)</option>
-                        {QUALIFICATION_OPTIONS.map((q) => (
-                          <option key={q} value={q}>{q}</option>
-                        ))}
-                      </select>
-                      {(!QUALIFICATION_OPTIONS.includes(formData.last_qualification) || formData.last_qualification === 'Other') && (
-                        <input
-                          type="text"
-                          placeholder="Specify custom qualification (e.g. DAE, Hafiz-e-Quran)..."
-                          value={formData.last_qualification === 'Other' ? '' : formData.last_qualification}
-                          onChange={(e) => setFormData({ ...formData, last_qualification: e.target.value })}
-                          className="w-full mt-1.5 px-3 py-2 rounded-xl border border-slate-200 bg-white text-xs font-medium focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
-                        />
-                      )}
+                        <X size={11} />
+                        <span>Remove</span>
+                      </button>
                     </div>
+                    <input
+                      type="text"
+                      name="secondary_contact"
+                      placeholder="03007654321 (Parent/Alt)"
+                      value={formData.secondary_contact}
+                      onChange={handleChange}
+                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all font-mono"
+                    />
+                  </div>
+                )}
 
-                    <div>
-                      <label className="block text-[11px] font-bold text-slate-600 uppercase tracking-wider mb-1">
-                        School / College Name
-                      </label>
+                {/* 4. Gender */}
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 mb-1">Gender *</label>
+                  <select
+                    name="gender"
+                    value={formData.gender}
+                    onChange={handleChange}
+                    required
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all cursor-pointer font-medium"
+                  >
+                    <option value="">Select Gender</option>
+                    <option value="Male">Male</option>
+                    <option value="Female">Female</option>
+                    <option value="Other">Other</option>
+                  </select>
+                </div>
+
+                {/* 5. Class / Grade (replaces Course, No Laptop Field!) */}
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 mb-1">Class *</label>
+                  <select
+                    name="grade"
+                    value={formData.grade}
+                    onChange={handleChange}
+                    required
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all cursor-pointer font-semibold text-slate-800"
+                  >
+                    <option value="">Select Class</option>
+                    {COACHING_GRADES.map(g => (
+                      <option key={g} value={g}>{g}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* 6. Option field if user selects class above 8 (Commerce, Science, etc.) */}
+                {isClassAboveEight(formData.grade) && (
+                  <div className="animate-in fade-in slide-in-from-top-1">
+                    <label className="block text-xs font-semibold text-slate-600 mb-1">
+                      Field / Group * <span className="text-emerald-600 font-medium">(Commerce, Science, etc.)</span>
+                    </label>
+                    <select
+                      name="field"
+                      value={
+                        COACHING_FIELDS.includes(formData.field)
+                          ? formData.field
+                          : (formData.field ? 'Other' : '')
+                      }
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        if (val === 'Other') {
+                          if (COACHING_FIELDS.includes(formData.field)) {
+                            setFormData(prev => ({ ...prev, field: '' }));
+                          }
+                        } else {
+                          setFormData(prev => ({ ...prev, field: val }));
+                        }
+                      }}
+                      required
+                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all cursor-pointer font-semibold text-slate-800"
+                    >
+                      <option value="">Select Field / Group</option>
+                      {COACHING_FIELDS.map(f => (
+                        <option key={f} value={f}>{f}</option>
+                      ))}
+                    </select>
+                    {(!COACHING_FIELDS.includes(formData.field) || formData.field === 'Other') && (
                       <input
                         type="text"
-                        placeholder="e.g. Govt Degree College"
-                        value={formData.school_college}
-                        onChange={(e) => setFormData({ ...formData, school_college: e.target.value })}
-                        className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white text-xs font-medium focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                {/* 3. Contact & Residential Details */}
-                <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-3">
-                  <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
-                    <Phone size={13} className="text-emerald-600" />
-                    <span>Contact Details & Residence</span>
-                  </span>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div>
-                      <label className="block text-[11px] font-bold text-slate-600 uppercase tracking-wider mb-1">
-                        Student Contact / Phone *
-                      </label>
-                      <div className="relative">
-                        <Phone className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={13} />
-                        <input
-                          type="tel"
-                          placeholder="e.g. 0331-2118429"
-                          value={formData.contact_number}
-                          onChange={(e) => setFormData({ ...formData, contact_number: e.target.value })}
-                          required
-                          className="w-full pl-8 pr-3 py-2 rounded-xl border border-slate-200 bg-white text-xs font-mono font-medium focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
-                        />
-                      </div>
-                    </div>
-
-                    <div>
-                      <label className="block text-[11px] font-bold text-slate-600 uppercase tracking-wider mb-1">
-                        WhatsApp / Guardian Phone
-                      </label>
-                      <div className="relative">
-                        <Phone className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={13} />
-                        <input
-                          type="tel"
-                          placeholder="e.g. 0321-9876543"
-                          value={formData.guardian_contact}
-                          onChange={(e) => setFormData({ ...formData, guardian_contact: e.target.value })}
-                          className="w-full pl-8 pr-3 py-2 rounded-xl border border-slate-200 bg-white text-xs font-mono font-medium focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
-                        />
-                      </div>
-                    </div>
-
-                    <div className="sm:col-span-2">
-                      <label className="block text-[11px] font-bold text-slate-600 uppercase tracking-wider mb-1">
-                        Email Address <span className="text-slate-400 font-normal">(Optional)</span>
-                      </label>
-                      <input
-                        type="email"
-                        placeholder="e.g. student@gmail.com"
-                        value={formData.email}
-                        onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                        className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white text-xs font-medium focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
-                      />
-                    </div>
-
-                    <div className="sm:col-span-2">
-                      <label className="block text-[11px] font-bold text-slate-600 uppercase tracking-wider mb-1">
-                        Residential Address
-                      </label>
-                      <textarea
-                        rows={2}
-                        placeholder="e.g. Haji Suleiman Abdullah Bldg, 3rd Floor, Gari Khata, Karachi..."
-                        value={formData.address}
-                        onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-                        className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white text-xs font-medium focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 resize-none"
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                {/* 4. Tuition Fee & Commitment */}
-                <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-3">
-                  <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
-                    <DollarSign size={13} className="text-emerald-600" />
-                    <span>Tuition Fee Commitment & Admission Info</span>
-                  </span>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                    <div>
-                      <label className="block text-[11px] font-bold text-slate-600 uppercase tracking-wider mb-1">
-                        Monthly Fee (PKR) *
-                      </label>
-                      <input
-                        type="number"
-                        placeholder="e.g. 3000"
-                        value={formData.monthly_fee}
-                        onChange={(e) => setFormData({ ...formData, monthly_fee: e.target.value })}
+                        placeholder="Specify field (e.g. Fine Arts, DAE)..."
+                        value={formData.field === 'Other' ? '' : formData.field}
+                        onChange={(e) => setFormData(prev => ({ ...prev, field: e.target.value }))}
                         required
-                        className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white text-xs font-mono font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
+                        className="w-full mt-1.5 px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all"
                       />
-                    </div>
-
-                    <div>
-                      <label className="block text-[11px] font-bold text-slate-600 uppercase tracking-wider mb-1">
-                        Admission Fee (PKR)
-                      </label>
-                      <input
-                        type="number"
-                        placeholder="e.g. 500"
-                        value={formData.admission_fee}
-                        onChange={(e) => setFormData({ ...formData, admission_fee: e.target.value })}
-                        className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white text-xs font-mono font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-[11px] font-bold text-slate-600 uppercase tracking-wider mb-1">
-                        Admission / Joining Date
-                      </label>
-                      <input
-                        type="date"
-                        value={formData.joined_date}
-                        onChange={(e) => setFormData({ ...formData, joined_date: e.target.value })}
-                        className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white text-xs font-medium focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
-                      />
-                    </div>
+                    )}
                   </div>
+                )}
+
+                {/* 7. Class Type */}
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 mb-1">Class Type *</label>
+                  <select
+                    name="class_type"
+                    value={formData.class_type}
+                    onChange={handleChange}
+                    required
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all cursor-pointer font-medium"
+                  >
+                    <option value="">Select Class Type</option>
+                    <option value="Regular (1 Hour)">Regular (1 Hour)</option>
+                    <option value="Alternate (2 Hours)">Alternate (2 Hours)</option>
+                  </select>
                 </div>
+
+                {/* 8. Timeslot */}
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 mb-1">Timeslot *</label>
+                  <select
+                    name="timeslot"
+                    value={formData.timeslot}
+                    onChange={handleChange}
+                    required
+                    disabled={!formData.class_type}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all disabled:opacity-50 cursor-pointer font-medium"
+                  >
+                    <option value="">Select Timeslot</option>
+                    {getTimeslotOptions(formData.class_type).map(slot => (
+                      <option key={slot} value={slot}>{slot}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* 9. Admission Date */}
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 mb-1">Admission Date *</label>
+                  <input
+                    type="date"
+                    name="joined_date"
+                    value={formData.joined_date}
+                    onChange={handleChange}
+                    required
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all font-medium"
+                  />
+                </div>
+
+                {/* 10. Admission Fee */}
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 mb-1">Admission Fee (PKR)</label>
+                  <input
+                    type="number"
+                    name="admission_fee"
+                    placeholder="e.g. 500"
+                    value={formData.admission_fee}
+                    onChange={handleChange}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all font-mono"
+                  />
+                </div>
+
+                {/* 11. Agreed Monthly Fee */}
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 mb-1">Agreed Monthly Fee (PKR) *</label>
+                  <input
+                    type="number"
+                    name="monthly_fee"
+                    placeholder="e.g. 3000"
+                    value={formData.monthly_fee}
+                    onChange={handleChange}
+                    required
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all font-mono font-bold text-slate-900"
+                  />
+                </div>
+
+                {/* 12. Roll Number */}
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 mb-1">
+                    Roll Number <span className="text-slate-400 font-normal">({autoRollNo})</span>
+                  </label>
+                  <input
+                    type="text"
+                    name="roll_no"
+                    placeholder={autoRollNo}
+                    value={formData.roll_no}
+                    onChange={handleChange}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all font-mono font-bold text-emerald-700"
+                  />
+                </div>
+
+                {/* 13. Status (Edit Mode Only) */}
+                {editingStudent && (
+                  <div>
+                    <label className="block text-xs font-semibold text-slate-600 mb-1">Enrollment Status</label>
+                    <select
+                      name="status"
+                      value={formData.status}
+                      onChange={handleChange}
+                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all cursor-pointer font-medium"
+                    >
+                      <option value="active">Active</option>
+                      <option value="inactive">Inactive</option>
+                    </select>
+                  </div>
+                )}
               </div>
 
               <div className="flex gap-2.5 justify-end pt-3 border-t border-slate-100">
@@ -1053,7 +1018,9 @@ const CoachingStudents = () => {
                     {viewingStudent.roll_no || viewingStudent.student_id}
                   </span>
                   <h3 className="font-extrabold text-slate-900 text-base mt-1 leading-tight">{viewingStudent.name}</h3>
-                  <p className="text-xs text-slate-500 font-medium">S/O {viewingStudent.father_name || '—'}</p>
+                  {viewingStudent.father_name && (
+                    <p className="text-xs text-slate-500 font-medium">S/O {viewingStudent.father_name}</p>
+                  )}
                 </div>
               </div>
               <button
@@ -1069,34 +1036,28 @@ const CoachingStudents = () => {
                 <span className="text-slate-500 font-medium">Class / Grade:</span>
                 <span className="font-bold text-slate-800">{viewingStudent.grade || '—'}</span>
               </div>
+              {viewingStudent.field && (
+                <div className="flex justify-between py-1 border-b border-slate-200/60">
+                  <span className="text-slate-500 font-medium">Field / Group:</span>
+                  <span className="font-bold text-emerald-700">{viewingStudent.field}</span>
+                </div>
+              )}
               {viewingStudent.gender && (
                 <div className="flex justify-between py-1 border-b border-slate-200/60">
                   <span className="text-slate-500 font-medium">Gender:</span>
                   <span className="font-bold text-slate-800">{viewingStudent.gender}</span>
                 </div>
               )}
-              {viewingStudent.cnic && (
+              {viewingStudent.class_type && (
                 <div className="flex justify-between py-1 border-b border-slate-200/60">
-                  <span className="text-slate-500 font-medium">N.I.C / B-Form:</span>
-                  <span className="font-mono font-bold text-slate-800">{viewingStudent.cnic}</span>
+                  <span className="text-slate-500 font-medium">Class Type:</span>
+                  <span className="font-semibold text-slate-800">{viewingStudent.class_type}</span>
                 </div>
               )}
-              {viewingStudent.dob && (
+              {(viewingStudent.timeslot || viewingStudent.timing) && (
                 <div className="flex justify-between py-1 border-b border-slate-200/60">
-                  <span className="text-slate-500 font-medium">Date of Birth:</span>
-                  <span className="font-mono font-bold text-slate-800">{viewingStudent.dob}</span>
-                </div>
-              )}
-              {viewingStudent.religion && (
-                <div className="flex justify-between py-1 border-b border-slate-200/60">
-                  <span className="text-slate-500 font-medium">Religion:</span>
-                  <span className="font-medium text-slate-800">{viewingStudent.religion}</span>
-                </div>
-              )}
-              {viewingStudent.timing && (
-                <div className="flex justify-between py-1 border-b border-slate-200/60">
-                  <span className="text-slate-500 font-medium">Class Timing:</span>
-                  <span className="font-mono font-bold text-emerald-800">{viewingStudent.timing}</span>
+                  <span className="text-slate-500 font-medium">Timeslot:</span>
+                  <span className="font-mono font-bold text-emerald-800">{viewingStudent.timeslot || viewingStudent.timing}</span>
                 </div>
               )}
               <div className="flex justify-between py-1 border-b border-slate-200/60">
@@ -1108,33 +1069,31 @@ const CoachingStudents = () => {
                 <span className="font-mono font-bold text-slate-800">PKR {Number(viewingStudent.admission_fee || 0).toLocaleString()}</span>
               </div>
               <div className="flex justify-between py-1 border-b border-slate-200/60">
-                <span className="text-slate-500 font-medium">Student Contact:</span>
-                <span className="font-mono font-bold text-slate-800">{viewingStudent.contact_number || '—'}</span>
+                <span className="text-slate-500 font-medium">Primary Contact:</span>
+                <span className="font-mono font-bold text-slate-800">{viewingStudent.contact || viewingStudent.contact_number || '—'}</span>
               </div>
-              <div className="flex justify-between py-1 border-b border-slate-200/60">
-                <span className="text-slate-500 font-medium">Guardian Contact:</span>
-                <span className="font-mono font-bold text-slate-800">{viewingStudent.guardian_contact || '—'}</span>
-              </div>
-              {viewingStudent.last_qualification && (
+              {(viewingStudent.secondary_contact || viewingStudent.guardian_contact) && (
                 <div className="flex justify-between py-1 border-b border-slate-200/60">
-                  <span className="text-slate-500 font-medium">Last Qualification:</span>
-                  <span className="font-medium text-slate-800">{viewingStudent.last_qualification}</span>
-                </div>
-              )}
-              <div className="flex justify-between py-1 border-b border-slate-200/60">
-                <span className="text-slate-500 font-medium">School / College:</span>
-                <span className="font-bold text-slate-800">{viewingStudent.school_college || '—'}</span>
-              </div>
-              {viewingStudent.address && (
-                <div className="flex justify-between py-1 border-b border-slate-200/60">
-                  <span className="text-slate-500 font-medium">Address:</span>
-                  <span className="font-medium text-slate-800 text-right max-w-[200px]">{viewingStudent.address}</span>
+                  <span className="text-slate-500 font-medium">2nd / Guardian Contact:</span>
+                  <span className="font-mono font-bold text-slate-800">{viewingStudent.secondary_contact || viewingStudent.guardian_contact}</span>
                 </div>
               )}
               {viewingStudent.joined_date && (
                 <div className="flex justify-between py-1 border-b border-slate-200/60">
                   <span className="text-slate-500 font-medium">Admission Date:</span>
                   <span className="font-mono text-slate-800">{viewingStudent.joined_date}</span>
+                </div>
+              )}
+              {viewingStudent.cnic && (
+                <div className="flex justify-between py-1 border-b border-slate-200/60">
+                  <span className="text-slate-500 font-medium">N.I.C / B-Form:</span>
+                  <span className="font-mono font-bold text-slate-800">{viewingStudent.cnic}</span>
+                </div>
+              )}
+              {viewingStudent.address && (
+                <div className="flex justify-between py-1 border-b border-slate-200/60">
+                  <span className="text-slate-500 font-medium">Address:</span>
+                  <span className="font-medium text-slate-800 text-right max-w-[200px]">{viewingStudent.address}</span>
                 </div>
               )}
               <div className="flex justify-between py-1">

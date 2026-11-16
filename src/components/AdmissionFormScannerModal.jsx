@@ -6,6 +6,8 @@ import {
   parseAdmissionFormWithGroqAI,
   parseAdmissionFormWithGeminiAI,
   COACHING_GRADES,
+  COACHING_FIELDS,
+  isClassAboveEight,
   QUALIFICATION_OPTIONS,
   matchQualification
 } from '../utils/admissionFormOcrParser';
@@ -279,6 +281,7 @@ const AdmissionFormScannerModal = ({
       course_or_class: extractedData.course_or_class || '',
       matchedCourseId: extractedData.matchedCourseId || '',
       matchedGrade: extractedData.matchedGrade || '',
+      field: extractedData.field || '',
       timeslot: extractedData.timeslot || extractedData.timing || '',
       timing: extractedData.timing || extractedData.timeslot || '',
       class_type: extractedData.class_type || '',
@@ -826,6 +829,25 @@ const AdmissionFormScannerModal = ({
                                 <option value="">-- Select Coaching Grade --</option>
                                 {coachingGrades.map(g => (
                                   <option key={g} value={g}>{g}</option>
+                                ))}
+                              </select>
+                            </div>
+                          )}
+
+                          {/* Coaching Field / Group (if class > 8) */}
+                          {mode !== 'computer' && isClassAboveEight(extractedData.matchedGrade) && (
+                            <div>
+                              <label className="block text-[11px] font-semibold text-slate-600 mb-1">
+                                Field / Group (Commerce, Science, etc.)
+                              </label>
+                              <select
+                                value={extractedData.field || ''}
+                                onChange={(e) => handleFieldChange('field', e.target.value)}
+                                className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 cursor-pointer"
+                              >
+                                <option value="">-- Select Field / Group --</option>
+                                {COACHING_FIELDS.map(f => (
+                                  <option key={f} value={f}>{f}</option>
                                 ))}
                               </select>
                             </div>
