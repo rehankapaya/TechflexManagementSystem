@@ -1,11 +1,12 @@
 import ExcelJS from 'exceljs';
-import { saveAs } from 'file-saver';
+import fileSaver from 'file-saver';
+const saveAs = fileSaver?.saveAs || fileSaver;
 import * as XLSX from 'xlsx';
 import {
   COACHING_GRADES,
   COACHING_FIELDS,
   isClassAboveEight
-} from './admissionFormOcrParser';
+} from './admissionFormOcrParser.js';
 
 // === SAMPLE DOWNLOADS ===
 
@@ -310,16 +311,113 @@ export const downloadCoachingStudentSample = async () => {
 
 /**
  * Flexible Excel / CSV parser for bulk coaching students import.
- * Supports .xlsx, .xls, and .csv with automatic header detection and sequential roll number assignment.
+ * Supports:
+ * 1) Standard Coaching Bulk Upload Template (.xlsx, .csv)
+ * 2) Multi-sheet Legacy Coaching Workbook (e.g., 'Science' & 'Commerce' sheets with 'Student Name' and 'Column1')
+ * Seamlessly resolves classes, fields, fees, dates, and automatically detects existing students to avoid duplicates.
  */
 export const parseCoachingStudentUpload = async (file, existingStudents = []) => {
   return new Promise(async (resolve, reject) => {
     try {
       const arrayBuffer = await file.arrayBuffer();
       const wb = XLSX.read(arrayBuffer, { type: 'array', cellDates: true });
-      const sheetName = wb.SheetNames[0];
-      const ws = wb.Sheets[sheetName];
-      const rawRows = XLSX.utils.sheet_to_json(ws, { defval: '', raw: false });
+
+      // Check if multi-sheet legacy coaching workbook (has Science / Commerce sheets)
+      const legacyCoachingSheets = wb.SheetNames.filter(s => {
+        const l = s.trim().toLowerCase();
+        return l === 'science' || l === 'commerce';
+      });
+
+      let rawRows = [];
+
+      if (legacyCoachingSheets.length > 0) {
+        // Sort to process Science first (keeps TFC-001..029 order), then Commerce (TFC-030..033)
+        const sortedSheets = [...legacyCoachingSheets].sort((a, b) => b.trim().localeCompare(a.trim()));
+        for (const sheetName of sortedSheets) {
+          const trimmed = sheetName.trim().toLowerCase();
+          const isCommerce = trimmed === 'commerce';
+          const ws = wb.Sheets[sheetName];
+          const grid = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
+
+          let headerIdx = -1;
+          let nameCol = -1, fatherCol = -1, monthCol = -1, classCol = -1, feeCol = -1;
+
+          for (let r = 0; r < Math.min(grid.length, 10); r++) {
+            const row = grid[r];
+            if (!Array.isArray(row)) continue;
+            const nCol = row.findIndex(c => String(c).trim().toLowerCase() === 'student name');
+            if (nCol !== -1) {
+              headerIdx = r;
+              nameCol = nCol;
+              fatherCol = row.findIndex(c => String(c).trim().toLowerCase() === 'column1');
+              monthCol = row.findIndex(c => String(c).trim().toLowerCase() === 'admission month');
+              classCol = row.findIndex(c => String(c).trim().toLowerCase() === 'class');
+              feeCol = row.findIndex(c => String(c).trim().toLowerCase() === 'fees');
+              break;
+            }
+          }
+
+          if (headerIdx === -1) continue;
+
+          for (let r = headerIdx + 1; r < grid.length; r++) {
+            const row = grid[r];
+            if (!row || !row[nameCol]) continue;
+            const sName = String(row[nameCol]).trim();
+            if (!sName || sName.toLowerCase() === 'total') continue;
+
+            const fName = fatherCol !== -1 && row[fatherCol] ? String(row[fatherCol]).trim() : '';
+            const fullName = fName ? `${sName} ${fName}` : sName;
+            let rawClass = classCol !== -1 && row[classCol] ? String(row[classCol]).trim() : '';
+            if (!rawClass && isCommerce) rawClass = '1st Year (Inter I)';
+
+            let rawField = '';
+            if (isCommerce) rawField = 'Commerce';
+            else if (rawClass.toLowerCase().includes('commerce')) rawField = 'Commerce';
+            else if (/9|10|1st|2nd|inter|matric/i.test(rawClass)) rawField = 'Science';
+
+            const fee = feeCol !== -1 && row[feeCol] !== undefined ? Number(String(row[feeCol]).replace(/[^0-9.]/g, '')) || 0 : 0;
+
+            // Status detection
+            let status = 'active';
+            if (fatherCol !== -1 && row[fatherCol + 1]) {
+              const val = String(row[fatherCol + 1]).toLowerCase().trim();
+              if (val === 'inactive' || val === 'left' || val === 'drop') status = 'inactive';
+            } else if (isCommerce && row[0]) {
+              const val = String(row[0]).toLowerCase().trim();
+              if (val === 'drop' || val === 'left' || val === 'inactive') status = 'inactive';
+            }
+
+            const rawMonth = monthCol !== -1 && row[monthCol] ? String(row[monthCol]).trim() : '';
+            let admDate = '2024-09-01';
+            if (rawMonth) {
+              const mLower = rawMonth.toLowerCase();
+              if (mLower.includes('oct')) admDate = '2024-10-01';
+              else if (mLower.includes('nov')) admDate = '2024-11-01';
+              else if (mLower.includes('dec')) admDate = '2024-12-01';
+              else if (mLower.includes('jan')) admDate = '2025-01-01';
+              else if (mLower.includes('feb')) admDate = '2025-02-01';
+            }
+
+            rawRows.push({
+              'Student Full Name': fullName,
+              'Class / Grade': rawClass,
+              'Field / Group': rawField,
+              'Monthly Fee': fee,
+              'Admission Fee': 0,
+              'Gender': 'Male',
+              'Admission Date': admDate,
+              'Status': status,
+              'Primary Phone': '',
+              'Guardian / 2nd Phone': '',
+              'Roll Number': ''
+            });
+          }
+        }
+      } else {
+        const sheetName = wb.SheetNames[0];
+        const ws = wb.Sheets[sheetName];
+        rawRows = XLSX.utils.sheet_to_json(ws, { defval: '', raw: false });
+      }
 
       if (!rawRows || rawRows.length === 0) {
         throw new Error('The uploaded file contains no data rows.');
@@ -390,18 +488,18 @@ export const parseCoachingStudentUpload = async (file, existingStudents = []) =>
           if (matchedG) {
             resolvedGrade = matchedG;
           } else {
-            if (/matric\s*ii|10th|class\s*10/i.test(rawGrade)) resolvedGrade = 'Class 10 (Matric II)';
-            else if (/matric\s*i|9th|class\s*9/i.test(rawGrade)) resolvedGrade = 'Class 9 (Matric I)';
+            if (/matric\s*ii|10th|class\s*10|\b10\b/i.test(rawGrade)) resolvedGrade = 'Class 10 (Matric II)';
+            else if (/matric\s*i|9th|class\s*9|\b9\b/i.test(rawGrade)) resolvedGrade = 'Class 9 (Matric I)';
             else if (/inter\s*i\b|1st\s*year|first\s*year/i.test(rawGrade)) resolvedGrade = '1st Year (Inter I)';
             else if (/inter\s*ii\b|2nd\s*year|second\s*year/i.test(rawGrade)) resolvedGrade = '2nd Year (Inter II)';
-            else if (/class\s*8|8th/i.test(rawGrade)) resolvedGrade = 'Class 8';
-            else if (/class\s*7|7th/i.test(rawGrade)) resolvedGrade = 'Class 7';
-            else if (/class\s*6|6th/i.test(rawGrade)) resolvedGrade = 'Class 6';
-            else if (/class\s*5|5th|five/i.test(rawGrade)) resolvedGrade = 'Class 5';
-            else if (/class\s*4|4th|four/i.test(rawGrade)) resolvedGrade = 'Class 4';
-            else if (/class\s*3|3rd|three/i.test(rawGrade)) resolvedGrade = 'Class 3';
-            else if (/class\s*2|2nd|two/i.test(rawGrade)) resolvedGrade = 'Class 2';
-            else if (/class\s*1|1st|one/i.test(rawGrade)) resolvedGrade = 'Class 1';
+            else if (/class\s*8|8th|\b8\b/i.test(rawGrade)) resolvedGrade = 'Class 8';
+            else if (/class\s*7|7th|\b7\b/i.test(rawGrade)) resolvedGrade = 'Class 7';
+            else if (/class\s*6|6th|\b6\b/i.test(rawGrade)) resolvedGrade = 'Class 6';
+            else if (/class\s*5|5th|five|\b5\b/i.test(rawGrade)) resolvedGrade = 'Class 5';
+            else if (/class\s*4|4th|four|primary|\b4\b/i.test(rawGrade)) resolvedGrade = 'Class 4';
+            else if (/class\s*3|3rd|three|\b3\b/i.test(rawGrade)) resolvedGrade = 'Class 3';
+            else if (/class\s*2|2nd|two|\b2\b/i.test(rawGrade)) resolvedGrade = 'Class 2';
+            else if (/class\s*1|1st|one|\b1\b/i.test(rawGrade)) resolvedGrade = 'Class 1';
             else if (/playgroup|nursery/i.test(rawGrade)) resolvedGrade = 'Playgroup / Nursery';
             else if (/kg|prep/i.test(rawGrade)) resolvedGrade = 'KG / Prep';
             else if (/o[-\s]?level/i.test(rawGrade)) resolvedGrade = 'O-Levels';
@@ -437,9 +535,27 @@ export const parseCoachingStudentUpload = async (file, existingStudents = []) =>
         const numMonthly = Number(String(rawMonthly).replace(/[^0-9.]/g, '')) || 0;
         const numAdm = Number(String(rawAdm).replace(/[^0-9.]/g, '')) || 0;
 
-        // Resolve Roll Number (auto sequential if omitted)
+        // Check against existing students (by roll number OR normalized name)
+        const normalizedName = rawName.trim().toLowerCase().replace(/\s+/g, ' ');
+        const existingStudent = (existingStudents || []).find(s => {
+          if (rawRoll) {
+            const rVal = (s.roll_no || s.student_id || '').toLowerCase().trim();
+            if (rVal && rVal === rawRoll.toLowerCase().trim()) return true;
+          }
+          const sName = (s.name || '').trim().toLowerCase().replace(/\s+/g, ' ');
+          return sName && (sName === normalizedName || sName.includes(normalizedName) || normalizedName.includes(sName));
+        });
+
+        // Resolve Roll Number
         let assignedRoll = '';
-        if (rawRoll) {
+        let isExisting = false;
+        let existingId = null;
+
+        if (existingStudent) {
+          isExisting = true;
+          existingId = existingStudent.id || existingStudent.key || null;
+          assignedRoll = existingStudent.roll_no || existingStudent.student_id || rawRoll;
+        } else if (rawRoll) {
           const m = rawRoll.match(/TFC-(\d+)/i);
           if (m) {
             assignedRoll = `TFC-${String(parseInt(m[1], 10)).padStart(3, '0')}`;
@@ -456,7 +572,7 @@ export const parseCoachingStudentUpload = async (file, existingStudents = []) =>
         // Resolve Status
         let resolvedStatus = 'active';
         if (rawStatus && /inactive|left|dropped|complete/i.test(rawStatus)) {
-          resolvedStatus = rawStatus.toLowerCase();
+          resolvedStatus = 'inactive';
         }
 
         // Format Date
@@ -492,7 +608,9 @@ export const parseCoachingStudentUpload = async (file, existingStudents = []) =>
           status: resolvedStatus,
           class_type: 'Regular',
           timeslot: '',
-          timing: ''
+          timing: '',
+          isExisting,
+          existingId
         });
       });
 

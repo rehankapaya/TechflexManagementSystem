@@ -10,10 +10,11 @@ import {
   Search,
   Users,
   Loader2,
-  Trash2
+  Trash2,
+  RefreshCw
 } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { ref, push, set } from 'firebase/database';
+import { ref, push, set, update } from 'firebase/database';
 import { db } from '../firebase';
 import {
   downloadCoachingStudentSample,
@@ -90,7 +91,8 @@ const CoachingBulkUploadModal = ({
     setIsImporting(true);
     try {
       const timestamp = new Date().toISOString();
-      let importedCount = 0;
+      let newCount = 0;
+      let updateCount = 0;
 
       for (const row of parsedData.validRows) {
         const studentPayload = {
@@ -112,15 +114,25 @@ const CoachingBulkUploadModal = ({
           status: row.status || 'active',
           profile_image: '',
           photo: '',
-          createdAt: timestamp
+          updatedAt: timestamp
         };
 
-        const newStudentRef = push(ref(db, 'coaching_students'));
-        await set(newStudentRef, studentPayload);
-        importedCount++;
+        if (row.isExisting && row.existingId) {
+          await update(ref(db, `coaching_students/${row.existingId}`), studentPayload);
+          updateCount++;
+        } else {
+          studentPayload.createdAt = timestamp;
+          const newStudentRef = push(ref(db, 'coaching_students'));
+          await set(newStudentRef, studentPayload);
+          newCount++;
+        }
       }
 
-      toast.success(`Successfully enrolled ${importedCount} coaching student(s)!`);
+      const summaryMsg = updateCount > 0
+        ? `Successfully saved ${newCount} new student(s) and synced ${updateCount} existing record(s)!`
+        : `Successfully enrolled ${newCount} coaching student(s)!`;
+      toast.success(summaryMsg);
+
       if (onSuccess) onSuccess();
       handleClear();
       onClose();
@@ -273,11 +285,17 @@ const CoachingBulkUploadModal = ({
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2 self-end sm:self-auto">
+                <div className="flex items-center gap-2 self-end sm:self-auto flex-wrap">
                   <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
                     <CheckCircle2 size={12} />
-                    <span>{parsedData.validRows.length} Valid</span>
+                    <span>{parsedData.validRows.filter(r => !r.isExisting).length} New</span>
                   </span>
+                  {parsedData.validRows.some(r => r.isExisting) && (
+                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold bg-blue-100 text-blue-800 border border-blue-200">
+                      <RefreshCw size={12} />
+                      <span>{parsedData.validRows.filter(r => r.isExisting).length} Existing Sync</span>
+                    </span>
+                  )}
                   {parsedData.invalidRows.length > 0 && (
                     <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold bg-amber-100 text-amber-800 border border-amber-200">
                       <AlertTriangle size={12} />
@@ -344,6 +362,7 @@ const CoachingBulkUploadModal = ({
                           <th className="py-2.5 px-3">Field / Group</th>
                           <th className="py-2.5 px-3 text-right">Monthly Fee</th>
                           <th className="py-2.5 px-3">Contact</th>
+                          <th className="py-2.5 px-3">Action</th>
                           <th className="py-2.5 px-3">Status</th>
                         </tr>
                       </thead>
@@ -380,7 +399,24 @@ const CoachingBulkUploadModal = ({
                               {st.contact || <span className="text-slate-300">—</span>}
                             </td>
                             <td className="py-2 px-3">
-                              <span className="px-2 py-0.5 rounded-full text-[9px] font-bold uppercase bg-emerald-100 text-emerald-800">
+                              {st.isExisting ? (
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-bold uppercase bg-blue-100 text-blue-800 border border-blue-200">
+                                  <RefreshCw size={9} />
+                                  <span>Sync</span>
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-bold uppercase bg-emerald-100 text-emerald-800 border border-emerald-200">
+                                  <CheckCircle2 size={9} />
+                                  <span>New</span>
+                                </span>
+                              )}
+                            </td>
+                            <td className="py-2 px-3">
+                              <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold uppercase ${
+                                (st.status || 'active') === 'active'
+                                  ? 'bg-emerald-100 text-emerald-800'
+                                  : 'bg-slate-100 text-slate-600'
+                              }`}>
                                 {st.status || 'active'}
                               </span>
                             </td>
@@ -427,13 +463,17 @@ const CoachingBulkUploadModal = ({
               {isImporting ? (
                 <>
                   <Loader2 size={14} className="animate-spin" />
-                  <span>Importing Students...</span>
+                  <span>Enrolling Students...</span>
                 </>
               ) : (
                 <>
                   <Upload size={14} />
                   <span>
-                    Confirm & Enroll {parsedData?.validRows?.length ? `(${parsedData.validRows.length})` : ''}
+                    {parsedData?.validRows?.length
+                      ? parsedData.validRows.some(r => r.isExisting)
+                        ? `Confirm & Save (${parsedData.validRows.filter(r => !r.isExisting).length} New, ${parsedData.validRows.filter(r => r.isExisting).length} Sync)`
+                        : `Confirm & Enroll (${parsedData.validRows.length})`
+                      : 'Confirm & Enroll'}
                   </span>
                 </>
               )}
@@ -447,3 +487,4 @@ const CoachingBulkUploadModal = ({
 };
 
 export default CoachingBulkUploadModal;
+
