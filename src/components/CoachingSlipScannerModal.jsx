@@ -257,11 +257,10 @@ const CoachingSlipScannerModal = ({ isOpen, onClose, onApply, coachingStudents =
                 <button
                   type="button"
                   onClick={() => setEngine('local')}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-bold transition-all cursor-pointer ${
-                    engine === 'local'
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-bold transition-all cursor-pointer ${engine === 'local'
                       ? 'bg-emerald-600 text-white shadow-xs'
                       : 'text-slate-600 hover:text-slate-900'
-                  }`}
+                    }`}
                 >
                   <Cpu size={14} />
                   <span>Local Engine (Tesseract)</span>
@@ -269,11 +268,10 @@ const CoachingSlipScannerModal = ({ isOpen, onClose, onApply, coachingStudents =
                 <button
                   type="button"
                   onClick={() => setEngine('gemini')}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-bold transition-all cursor-pointer ${
-                    engine === 'gemini'
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-bold transition-all cursor-pointer ${engine === 'gemini'
                       ? 'bg-blue-600 text-white shadow-xs'
                       : 'text-slate-600 hover:text-slate-900'
-                  }`}
+                    }`}
                 >
                   <Sparkles size={14} />
                   <span>Gemini AI Vision</span>
@@ -461,11 +459,10 @@ const CoachingSlipScannerModal = ({ isOpen, onClose, onApply, coachingStudents =
                       <span>Extracted Fee Slip Fields</span>
                     </div>
                     {extractedData && (
-                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                        extractedData.matchedStudent
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${extractedData.matchedStudent
                           ? 'bg-emerald-100 text-emerald-800 border border-emerald-200'
                           : 'bg-amber-100 text-amber-800 border border-amber-200'
-                      }`}>
+                        }`}>
                         {extractedData.matchedStudent ? 'Student Matched' : 'Verify Student'}
                       </span>
                     )}
@@ -649,11 +646,10 @@ const CoachingSlipScannerModal = ({ isOpen, onClose, onApply, coachingStudents =
             type="button"
             onClick={handleApplyForm}
             disabled={!extractedData}
-            className={`flex items-center gap-2 px-6 py-2.5 rounded-xl text-xs font-extrabold text-white transition-all shadow-md active:scale-95 cursor-pointer ${
-              extractedData
+            className={`flex items-center gap-2 px-6 py-2.5 rounded-xl text-xs font-extrabold text-white transition-all shadow-md active:scale-95 cursor-pointer ${extractedData
                 ? 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-600/25'
                 : 'bg-slate-400 opacity-60 cursor-not-allowed'
-            }`}
+              }`}
           >
             <CheckCircle2 size={16} />
             <span>Apply to Fee Form</span>
@@ -665,3 +661,4 @@ const CoachingSlipScannerModal = ({ isOpen, onClose, onApply, coachingStudents =
 };
 
 export default CoachingSlipScannerModal;
+

@@ -345,7 +345,7 @@ Output MUST be strictly valid JSON without any markdown formatting or commentary
     if (!parsed.matchedStudent && parsed.studentName) {
       const target = parsed.studentName.toLowerCase().trim();
       const byName = coachingStudents.find(s => s.name && s.name.toLowerCase().trim() === target) ||
-                     coachingStudents.find(s => s.name && (s.name.toLowerCase().includes(target) || target.includes(s.name.toLowerCase())));
+        coachingStudents.find(s => s.name && (s.name.toLowerCase().includes(target) || target.includes(s.name.toLowerCase())));
       if (byName) {
         parsed.matchedStudent = byName;
         parsed.rollNo = byName.roll_no || byName.student_id || '';
@@ -356,3 +356,4 @@ Output MUST be strictly valid JSON without any markdown formatting or commentary
 
   return parsed;
 };
+

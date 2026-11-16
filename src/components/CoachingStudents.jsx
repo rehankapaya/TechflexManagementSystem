@@ -6,6 +6,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import ImageCropModal from './ImageCropModal';
+import AdmissionFormScannerModal from './AdmissionFormScannerModal';
 import {
   GraduationCap,
   Users,
@@ -25,7 +26,8 @@ import {
   BookOpen,
   DollarSign,
   ArrowRight,
-  Filter
+  Filter,
+  FileText
 } from 'lucide-react';
 
 export const COACHING_GRADES = [
@@ -97,6 +99,8 @@ const CoachingStudents = () => {
     return getNextCoachingRollNo(coachingStudents);
   }, [coachingStudents]);
 
+  const [isAdmissionScannerOpen, setIsAdmissionScannerOpen] = useState(false);
+
   const handleOpenAddModal = () => {
     setEditingStudent(null);
     setFormData({
@@ -105,6 +109,25 @@ const CoachingStudents = () => {
       joined_date: new Date().toISOString().split('T')[0]
     });
     setShowAddModal(true);
+  };
+
+  const handleAdmissionFormApplied = (extracted) => {
+    if (!extracted) return;
+    setEditingStudent(null);
+    setFormData(prev => ({
+      ...prev,
+      roll_no: extracted.reg_no || prev.roll_no || autoRollNo,
+      name: extracted.name || prev.name,
+      father_name: extracted.father_name || prev.father_name,
+      grade: extracted.matchedGrade || prev.grade || COACHING_GRADES[0],
+      contact_number: extracted.contact || prev.contact_number,
+      guardian_contact: extracted.secondary_contact || prev.guardian_contact,
+      school_college: extracted.qualification || prev.school_college,
+      address: extracted.address || prev.address,
+      joined_date: extracted.admission_date || prev.joined_date
+    }));
+    setShowAddModal(true);
+    toast.success(`Form details loaded for ${extracted.name || 'coaching student'}! Review and complete enrollment.`);
   };
 
   const handleEdit = (student) => {
@@ -292,13 +315,25 @@ const CoachingStudents = () => {
           </div>
         </div>
 
-        <button
-          onClick={handleOpenAddModal}
-          className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-md shadow-emerald-600/20 active:scale-95 transition-all cursor-pointer w-fit"
-        >
-          <Plus size={16} />
-          <span>New Coaching Student</span>
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setIsAdmissionScannerOpen(true)}
+            className="flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200/80 font-bold text-xs shadow-xs active:scale-95 transition-all cursor-pointer"
+            title="Scan student admission form (Camera, Photo, or PDF)"
+          >
+            <FileText size={16} />
+            <span className="hidden sm:inline">Scan Admission Form</span>
+            <span className="sm:hidden">Scan Form</span>
+          </button>
+
+          <button
+            onClick={handleOpenAddModal}
+            className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-md shadow-emerald-600/20 active:scale-95 transition-all cursor-pointer w-fit"
+          >
+            <Plus size={16} />
+            <span>New Coaching Student</span>
+          </button>
+        </div>
       </div>
 
       {/* KPI METRIC CARDS */}
@@ -542,12 +577,25 @@ const CoachingStudents = () => {
                   </span>
                 </div>
               </div>
-              <button
-                onClick={() => setShowAddModal(false)}
-                className="p-1.5 text-slate-400 hover:text-slate-700 rounded-lg cursor-pointer"
-              >
-                <X size={18} />
-              </button>
+              <div className="flex items-center gap-2">
+                {!editingStudent && (
+                  <button
+                    type="button"
+                    onClick={() => setIsAdmissionScannerOpen(true)}
+                    className="flex items-center gap-1.5 px-3 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded-lg text-xs font-bold transition-all cursor-pointer"
+                    title="Scan filled admission form"
+                  >
+                    <FileText size={13} />
+                    <span>Scan Form</span>
+                  </button>
+                )}
+                <button
+                  onClick={() => setShowAddModal(false)}
+                  className="p-1.5 text-slate-400 hover:text-slate-700 rounded-lg cursor-pointer"
+                >
+                  <X size={18} />
+                </button>
+              </div>
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-4">
@@ -874,6 +922,15 @@ const CoachingStudents = () => {
         imageSrc={cropModalData.imageSrc}
         onClose={() => setCropModalData({ isOpen: false, imageSrc: '' })}
         onCropComplete={handleCropComplete}
+      />
+
+      {/* ADMISSION FORM SCANNER MODAL */}
+      <AdmissionFormScannerModal
+        isOpen={isAdmissionScannerOpen}
+        onClose={() => setIsAdmissionScannerOpen(false)}
+        onApply={handleAdmissionFormApplied}
+        coachingGrades={COACHING_GRADES}
+        mode="coaching"
       />
     </div>
   );

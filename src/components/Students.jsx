@@ -34,11 +34,13 @@ import {
   Upload,
   Crop,
   ZoomIn,
-  Filter
+  Filter,
+  FileText
 } from 'lucide-react';
 import { parseLocalDateMidday } from '../utils/monthUtils';
 import ContactSyncModal from './ContactSyncModal';
 import ImageCropModal from './ImageCropModal';
+import AdmissionFormScannerModal from './AdmissionFormScannerModal';
 import { syncStudentToGoogleContacts, normalizePhoneNumber } from '../services/contactSyncService';
 import { processProfileImage } from '../utils/imageUtils';
 
@@ -95,6 +97,28 @@ const Students = () => {
     imageSrc: '',
     target: null // 'form' or studentId string
   });
+
+  const [isAdmissionScannerOpen, setIsAdmissionScannerOpen] = useState(false);
+
+  const handleAdmissionFormApplied = (extracted) => {
+    if (!extracted) return;
+    setShowQuickEnroll(true);
+    setFormData(prev => ({
+      ...prev,
+      name: extracted.name || prev.name,
+      contact: extracted.contact || prev.contact,
+      secondary_contact: extracted.secondary_contact || prev.secondary_contact,
+      gender: (extracted.gender === 'Male' || extracted.gender === 'Female') ? extracted.gender : prev.gender,
+      courseId: extracted.matchedCourseId || prev.courseId,
+      timeslot: extracted.timeslot || prev.timeslot,
+      class_type: extracted.class_type || prev.class_type,
+      createdAt: extracted.admission_date || prev.createdAt
+    }));
+    if (extracted.secondary_contact) {
+      setShowSecondaryContact(true);
+    }
+    toast.success(`Form details loaded for ${extracted.name || 'student'}! Review and complete enrollment.`);
+  };
 
   const handleSelectImageToCrop = (e, target = 'form') => {
     const file = e.target.files?.[0];
@@ -443,6 +467,13 @@ const Students = () => {
 
         <div className="flex items-center gap-1.5">
           <button
+            onClick={() => setIsAdmissionScannerOpen(true)}
+            className="p-2 bg-indigo-50 border border-indigo-200 text-indigo-700 rounded-xl active:scale-95 transition-transform cursor-pointer"
+            title="Scan Filled Admission Form"
+          >
+            <FileText size={16} />
+          </button>
+          <button
             onClick={() => setShowContactSyncModal(true)}
             className="p-2 bg-slate-900 text-white rounded-xl active:scale-95 transition-transform cursor-pointer"
             title="Sync Contacts to Phone"
@@ -494,6 +525,15 @@ const Students = () => {
           </div>
 
           <button
+            onClick={() => setIsAdmissionScannerOpen(true)}
+            className="flex items-center gap-2 px-3.5 py-2.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200/80 rounded-xl text-sm font-semibold transition-all shadow-xs cursor-pointer"
+            title="Scan student admission form (Camera, Photo, or PDF)"
+          >
+            <FileText size={16} />
+            <span>Scan Admission Form</span>
+          </button>
+
+          <button
             onClick={() => setShowContactSyncModal(true)}
             className="flex items-center gap-2 px-3.5 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-sm font-semibold transition-all shadow-sm cursor-pointer"
             title="Sync Student Contacts to Phone & WhatsApp (STU-012 Name TECHFLEX)"
@@ -528,7 +568,18 @@ const Students = () => {
               <User size={18} />
               <span>Quick Student Enrollment</span>
             </div>
-            <span className="text-xs text-slate-400">Basic fields required • Photo optional</span>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setIsAdmissionScannerOpen(true)}
+                className="flex items-center gap-1.5 px-3 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded-lg text-xs font-bold transition-all cursor-pointer"
+                title="Scan admission form to pre-fill"
+              >
+                <Camera size={13} />
+                <span>Scan Form</span>
+              </button>
+              <span className="text-xs text-slate-400 hidden sm:inline">Basic fields required • Photo optional</span>
+            </div>
           </div>
 
           <form onSubmit={handleSubmit} className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3.5">
@@ -2056,6 +2107,15 @@ const Students = () => {
         isOpen={showContactSyncModal}
         onClose={() => setShowContactSyncModal(false)}
         students={students}
+      />
+
+      {/* ADMISSION FORM SCANNER MODAL */}
+      <AdmissionFormScannerModal
+        isOpen={isAdmissionScannerOpen}
+        onClose={() => setIsAdmissionScannerOpen(false)}
+        onApply={handleAdmissionFormApplied}
+        courses={courses}
+        mode="computer"
       />
 
       {/* INTERACTIVE SQUARE IMAGE CROP MODAL */}
