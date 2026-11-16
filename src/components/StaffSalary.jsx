@@ -2,9 +2,10 @@ import React, { useState } from 'react';
 import { db } from '../firebase';
 import { useAuth } from '../contexts/AuthContext';
 import { useData } from '../contexts/DataContext';
-import { ref, push, set, remove } from 'firebase/database';
+import { ref, push, set, remove, update } from 'firebase/database';
 import toast from 'react-hot-toast';
 import { MONTHS_FULL, normalizeMonth } from '../utils/monthUtils';
+import ImageCropModal from './ImageCropModal';
 import {
   Banknote,
   Users,
@@ -17,7 +18,9 @@ import {
   CheckCircle2,
   Contact,
   UserCheck,
-  UserX
+  UserX,
+  Phone,
+  Camera
 } from 'lucide-react';
 
 const StaffSalary = () => {
@@ -27,6 +30,9 @@ const StaffSalary = () => {
   const [showStaffModal, setShowStaffModal] = useState(false);
   const [newStaffName, setNewStaffName] = useState('');
   const [newStaffRole, setNewStaffRole] = useState('');
+  const [newStaffPhone, setNewStaffPhone] = useState('');
+  const [newStaffImage, setNewStaffImage] = useState('');
+  const [cropModalData, setCropModalData] = useState({ isOpen: false, imageSrc: '' });
   const [editingStaffId, setEditingStaffId] = useState(null);
   const [showEditSalaryModal, setShowEditSalaryModal] = useState(false);
   const [editFormData, setEditFormData] = useState(null);
@@ -54,10 +60,41 @@ const StaffSalary = () => {
 
   const handleChange = (e) => setFormData({ ...formData, [e.target.name]: e.target.value });
 
+  const handleImageFileChange = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      toast.error("Please select a valid image file");
+      e.target.value = '';
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      setCropModalData({
+        isOpen: true,
+        imageSrc: event.target.result
+      });
+    };
+    reader.readAsDataURL(file);
+    e.target.value = '';
+  };
+
+  const handleCropComplete = (croppedBase64) => {
+    if (croppedBase64) {
+      setNewStaffImage(croppedBase64);
+      toast.success("Staff photo selected");
+    }
+    setCropModalData({ isOpen: false, imageSrc: '' });
+  };
+
   const handleEditStaff = (staff) => {
     setEditingStaffId(staff.id);
-    setNewStaffName(staff.name);
+    setNewStaffName(staff.name || '');
     setNewStaffRole(staff.role || '');
+    setNewStaffPhone(staff.phone || staff.contact || '');
+    setNewStaffImage(staff.image || staff.profile_image || '');
   };
 
   const handleDeleteStaff = async (id) => {
@@ -72,14 +109,24 @@ const StaffSalary = () => {
     if (!newStaffName.trim()) return;
     try {
       if (editingStaffId) {
-        await set(ref(db, `staff_directory/${editingStaffId}/name`), newStaffName.trim());
-        await set(ref(db, `staff_directory/${editingStaffId}/role`), newStaffRole.trim() || 'Staff');
+        await update(ref(db, `staff_directory/${editingStaffId}`), {
+          name: newStaffName.trim(),
+          role: newStaffRole.trim() || 'Staff',
+          phone: newStaffPhone.trim() || '',
+          contact: newStaffPhone.trim() || '',
+          image: newStaffImage || '',
+          profile_image: newStaffImage || ''
+        });
         toast.success("Staff updated");
         setEditingStaffId(null);
       } else {
         await set(push(ref(db, 'staff_directory')), {
           name: newStaffName.trim(),
           role: newStaffRole.trim() || 'Staff',
+          phone: newStaffPhone.trim() || '',
+          contact: newStaffPhone.trim() || '',
+          image: newStaffImage || '',
+          profile_image: newStaffImage || '',
           status: 'active',
           createdAt: new Date().toISOString()
         });
@@ -87,6 +134,8 @@ const StaffSalary = () => {
       }
       setNewStaffName('');
       setNewStaffRole('');
+      setNewStaffPhone('');
+      setNewStaffImage('');
     } catch (err) {
       toast.error("Error saving staff");
     }
@@ -383,45 +432,63 @@ const StaffSalary = () => {
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {filteredSalaries.length > 0 ? (
-                  filteredSalaries.map(s => (
-                    <tr key={s.id} className="hover:bg-slate-50/70 transition-colors">
-                      <td className="py-3.5 px-4 font-bold text-slate-900">
-                        {s.staffName}
-                        {s.description && (
-                          <div className="text-[11px] font-normal text-slate-500 mt-0.5">{s.description}</div>
-                        )}
-                      </td>
-                      <td className="py-3.5 px-4 font-mono font-medium text-slate-700">
-                        {typeof s.salaryMonth === 'number' ? monthsFull[s.salaryMonth - 1] : s.salaryMonth} {s.salaryYear}
-                      </td>
-                      <td className="py-3.5 px-4 text-right font-mono font-bold text-emerald-700">
-                        PKR {Number(s.amount).toLocaleString()}
-                      </td>
-                      <td className="py-3.5 px-4 font-mono text-slate-500 text-[11px]">
-                        {new Date(s.date).toLocaleDateString('en-GB')}
-                      </td>
-                      {isAdmin && (
-                        <td className="py-3.5 px-4 text-center">
-                          <div className="inline-flex items-center gap-1">
-                            <button
-                              onClick={() => handleEditSalary(s)}
-                              className="p-1.5 rounded-lg text-blue-600 hover:bg-blue-50 transition-colors"
-                              title="Edit Salary"
-                            >
-                              <Pencil size={14} />
-                            </button>
-                            <button
-                              onClick={() => handleDeleteSalary(s.id)}
-                              className="p-1.5 rounded-lg text-rose-600 hover:bg-rose-50 transition-colors"
-                              title="Delete Salary"
-                            >
-                              <Trash2 size={14} />
-                            </button>
+                  filteredSalaries.map(s => {
+                    const staffMember = staffDirectory.find(st => st.id === s.staffId || st.name === s.staffName);
+                    return (
+                      <tr key={s.id} className="hover:bg-slate-50/70 transition-colors">
+                        <td className="py-3.5 px-4 font-bold text-slate-900">
+                          <div className="flex items-center gap-2.5">
+                            {staffMember?.image || staffMember?.profile_image ? (
+                              <img
+                                src={staffMember.image || staffMember.profile_image}
+                                alt={s.staffName}
+                                className="w-8 h-8 rounded-lg object-cover border border-slate-200 shrink-0 shadow-2xs"
+                              />
+                            ) : (
+                              <div className="w-8 h-8 rounded-lg bg-slate-800 text-white flex items-center justify-center font-bold text-[11px] shrink-0">
+                                {s.staffName?.charAt(0) || 'S'}
+                              </div>
+                            )}
+                            <div>
+                              <div>{s.staffName}</div>
+                              {s.description && (
+                                <div className="text-[11px] font-normal text-slate-500 mt-0.5">{s.description}</div>
+                              )}
+                            </div>
                           </div>
                         </td>
-                      )}
-                    </tr>
-                  ))
+                        <td className="py-3.5 px-4 font-mono font-medium text-slate-700">
+                          {typeof s.salaryMonth === 'number' ? monthsFull[s.salaryMonth - 1] : s.salaryMonth} {s.salaryYear}
+                        </td>
+                        <td className="py-3.5 px-4 text-right font-mono font-bold text-emerald-700">
+                          PKR {Number(s.amount).toLocaleString()}
+                        </td>
+                        <td className="py-3.5 px-4 font-mono text-slate-500 text-[11px]">
+                          {new Date(s.date).toLocaleDateString('en-GB')}
+                        </td>
+                        {isAdmin && (
+                          <td className="py-3.5 px-4 text-center">
+                            <div className="inline-flex items-center gap-1">
+                              <button
+                                onClick={() => handleEditSalary(s)}
+                                className="p-1.5 rounded-lg text-blue-600 hover:bg-blue-50 transition-colors cursor-pointer"
+                                title="Edit Salary"
+                              >
+                                <Pencil size={14} />
+                              </button>
+                              <button
+                                onClick={() => handleDeleteSalary(s.id)}
+                                className="p-1.5 rounded-lg text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
+                                title="Delete Salary"
+                              >
+                                <Trash2 size={14} />
+                              </button>
+                            </div>
+                          </td>
+                        )}
+                      </tr>
+                    );
+                  })
                 ) : (
                   <tr>
                     <td colSpan={isAdmin ? 5 : 4} className="py-12 text-center text-slate-400 text-xs">
@@ -556,7 +623,7 @@ const StaffSalary = () => {
       {/* MANAGE STAFF DIRECTORY MODAL */}
       {showStaffModal && (
         <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl border border-slate-200 shadow-2xl p-6 w-full max-w-lg space-y-5 animate-in fade-in zoom-in-95">
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-2xl p-6 w-full max-w-xl space-y-5 animate-in fade-in zoom-in-95">
             <div className="flex items-center justify-between pb-3 border-b border-slate-100">
               <h3 className="text-base font-bold text-slate-900 tracking-tight flex items-center gap-2">
                 <Users size={18} className="text-blue-600" />
@@ -564,71 +631,186 @@ const StaffSalary = () => {
               </h3>
               <button
                 onClick={() => setShowStaffModal(false)}
-                className="p-1.5 text-slate-400 hover:text-slate-700 rounded-lg"
+                className="p-1.5 text-slate-400 hover:text-slate-700 rounded-lg cursor-pointer"
               >
                 <X size={18} />
               </button>
             </div>
 
             {/* Add or Edit Staff Member */}
-            <form onSubmit={handleAddStaff} className="flex gap-2.5">
-              <input
-                type="text"
-                placeholder="Full Name..."
-                value={newStaffName}
-                onChange={(e) => setNewStaffName(e.target.value)}
-                required
-                className="flex-1 px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 text-xs font-medium focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-              />
-              <input
-                type="text"
-                placeholder="Role (e.g. Teacher, Admin)..."
-                value={newStaffRole}
-                onChange={(e) => setNewStaffRole(e.target.value)}
-                className="flex-1 px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 text-xs font-medium focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20"
-              />
-              <button
-                type="submit"
-                className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-xs"
-              >
-                {editingStaffId ? "Update" : "Add"}
-              </button>
-              {editingStaffId && (
+            <form onSubmit={handleAddStaff} className="p-4 bg-slate-50/80 rounded-2xl border border-slate-200/80 space-y-3.5">
+              <div className="flex items-center gap-3">
+                {/* Photo Upload Thumbnail / Avatar Picker */}
+                <div className="relative group shrink-0">
+                  <div className="w-14 h-14 rounded-2xl overflow-hidden bg-slate-200 border-2 border-dashed border-slate-300 flex items-center justify-center shadow-inner">
+                    {newStaffImage ? (
+                      <img
+                        src={newStaffImage}
+                        alt="Staff Preview"
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <Users className="text-slate-400" size={24} />
+                    )}
+                  </div>
+                  <label
+                    htmlFor="staff-image-input"
+                    className="absolute -bottom-1 -right-1 p-1.5 rounded-full bg-blue-600 hover:bg-blue-700 text-white shadow-xs cursor-pointer active:scale-95 transition-all"
+                    title="Upload Staff Photo"
+                  >
+                    <Camera size={12} />
+                  </label>
+                  <input
+                    type="file"
+                    id="staff-image-input"
+                    accept="image/*"
+                    onChange={handleImageFileChange}
+                    className="hidden"
+                  />
+                </div>
+
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-slate-800">
+                      {editingStaffId ? "Edit Staff Details" : "Add New Staff Member"}
+                    </span>
+                    {newStaffImage && (
+                      <button
+                        type="button"
+                        onClick={() => setNewStaffImage('')}
+                        className="text-[10px] font-bold text-rose-600 hover:text-rose-700 hover:underline cursor-pointer"
+                      >
+                        Remove Photo
+                      </button>
+                    )}
+                  </div>
+                  <p className="text-[11px] text-slate-500 mt-0.5">
+                    Upload a profile photo (stored in Base64) and enter contact details.
+                  </p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-600 uppercase tracking-wider mb-1">
+                    Full Name *
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Sir Ahmed Khan"
+                    value={newStaffName}
+                    onChange={(e) => setNewStaffName(e.target.value)}
+                    required
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white text-xs font-medium focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-600 uppercase tracking-wider mb-1">
+                    Designation / Role
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Senior Teacher, Admin"
+                    value={newStaffRole}
+                    onChange={(e) => setNewStaffRole(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white text-xs font-medium focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                  />
+                </div>
+
+                <div className="sm:col-span-2">
+                  <label className="block text-[10px] font-bold text-slate-600 uppercase tracking-wider mb-1">
+                    Contact / Phone Number
+                  </label>
+                  <div className="relative">
+                    <Phone className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={13} />
+                    <input
+                      type="tel"
+                      placeholder="e.g. 0300-1234567"
+                      value={newStaffPhone}
+                      onChange={(e) => setNewStaffPhone(e.target.value)}
+                      className="w-full pl-8 pr-3 py-2 rounded-xl border border-slate-200 bg-white text-xs font-mono font-medium focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex gap-2 justify-end pt-1">
+                {editingStaffId && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEditingStaffId(null);
+                      setNewStaffName('');
+                      setNewStaffRole('');
+                      setNewStaffPhone('');
+                      setNewStaffImage('');
+                    }}
+                    className="px-3 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-100 text-slate-600 text-xs font-bold transition-all cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                )}
                 <button
-                  type="button"
-                  onClick={() => { setEditingStaffId(null); setNewStaffName(''); setNewStaffRole(''); }}
-                  className="px-3 py-2 rounded-xl border border-slate-200 bg-slate-100 text-slate-600 text-xs font-bold"
+                  type="submit"
+                  className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-xs transition-all cursor-pointer"
                 >
-                  Cancel
+                  {editingStaffId ? "Update Staff" : "Add Staff"}
                 </button>
-              )}
+              </div>
             </form>
 
             {/* Staff Directory List */}
             <div className="max-h-72 overflow-y-auto rounded-xl border border-slate-200 divide-y divide-slate-100">
               {staffDirectory.length > 0 ? (
                 staffDirectory.map(staff => (
-                  <div key={staff.id} className="p-3 flex items-center justify-between gap-3 text-xs hover:bg-slate-50/70">
-                    <div>
-                      <span className="font-bold text-slate-900">{staff.name}</span>
-                      <span className="text-[11px] text-slate-400 font-normal ml-2">({staff.role || 'Staff'})</span>
+                  <div key={staff.id} className="p-3 flex items-center justify-between gap-3 text-xs hover:bg-slate-50/70 transition-colors">
+                    <div className="flex items-center gap-3 min-w-0">
+                      {staff.image || staff.profile_image ? (
+                        <img
+                          src={staff.image || staff.profile_image}
+                          alt={staff.name}
+                          className="w-10 h-10 rounded-xl object-cover border border-slate-200 shrink-0 shadow-2xs"
+                        />
+                      ) : (
+                        <div className="w-10 h-10 rounded-xl bg-slate-900 text-white flex items-center justify-center font-bold text-xs shrink-0">
+                          {staff.name?.charAt(0) || 'S'}
+                        </div>
+                      )}
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className="font-bold text-slate-900 truncate">{staff.name}</span>
+                          <span className="text-[10px] text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded font-medium">
+                            {staff.role || 'Staff'}
+                          </span>
+                        </div>
+                        {(staff.phone || staff.contact) ? (
+                          <div className="flex items-center gap-1 text-[11px] text-slate-600 font-mono mt-0.5">
+                            <Phone size={11} className="text-slate-400" />
+                            <a href={`tel:${staff.phone || staff.contact}`} className="hover:text-blue-600 hover:underline">
+                              {staff.phone || staff.contact}
+                            </a>
+                          </div>
+                        ) : (
+                          <span className="text-[10px] text-slate-400 italic">No contact number</span>
+                        )}
+                      </div>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1.5 shrink-0">
                       <button
                         type="button"
                         onClick={() => handleToggleStaffStatus(staff.id, staff.status)}
-                        className={`px-2 py-0.5 rounded-md text-[10px] font-bold border ${
-                          staff.status === 'active'
-                            ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                            : 'bg-slate-100 text-slate-600 border-slate-200'
-                        }`}
+                        className={`px-2 py-1 rounded-lg text-[10px] font-bold border transition-all cursor-pointer ${staff.status === 'active'
+                            ? 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100'
+                            : 'bg-slate-100 text-slate-600 border-slate-200 hover:bg-slate-200'
+                          }`}
                       >
                         {staff.status === 'active' ? 'Active' : 'Inactive'}
                       </button>
                       <button
                         type="button"
                         onClick={() => handleEditStaff(staff)}
-                        className="p-1 rounded-md text-blue-600 hover:bg-blue-50"
+                        className="p-1.5 rounded-lg text-blue-600 hover:bg-blue-50 border border-transparent hover:border-blue-100 transition-all cursor-pointer"
                         title="Edit Staff"
                       >
                         <Pencil size={13} />
@@ -636,7 +818,7 @@ const StaffSalary = () => {
                       <button
                         type="button"
                         onClick={() => handleDeleteStaff(staff.id)}
-                        className="p-1 rounded-md text-rose-600 hover:bg-rose-50"
+                        className="p-1.5 rounded-lg text-rose-600 hover:bg-rose-50 border border-transparent hover:border-rose-100 transition-all cursor-pointer"
                         title="Delete Staff"
                       >
                         <Trash2 size={13} />
@@ -651,6 +833,14 @@ const StaffSalary = () => {
           </div>
         </div>
       )}
+
+      {/* IMAGE CROP MODAL FOR STAFF IMAGE */}
+      <ImageCropModal
+        isOpen={cropModalData.isOpen}
+        imageSrc={cropModalData.imageSrc}
+        onClose={() => setCropModalData({ isOpen: false, imageSrc: '' })}
+        onCropComplete={handleCropComplete}
+      />
     </div>
   );
 };

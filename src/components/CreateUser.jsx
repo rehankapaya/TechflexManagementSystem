@@ -4,6 +4,7 @@ import { useData } from '../contexts/DataContext';
 import { createUserWithEmailAndPassword, sendPasswordResetEmail } from 'firebase/auth';
 import { ref, set, remove, update } from 'firebase/database';
 import toast from 'react-hot-toast';
+import ImageCropModal from './ImageCropModal';
 import {
   UserPlus,
   Users,
@@ -17,7 +18,9 @@ import {
   CheckCircle2,
   Mail,
   Lock,
-  UserCheck
+  UserCheck,
+  Phone,
+  Camera
 } from 'lucide-react';
 
 const CreateUser = () => {
@@ -26,9 +29,17 @@ const CreateUser = () => {
     name: '',
     email: '',
     password: '',
-    role: 'teacher'
+    role: 'teacher',
+    phone: '',
+    profile_image: ''
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const [cropModalData, setCropModalData] = useState({
+    isOpen: false,
+    imageSrc: '',
+    target: null // 'form' or 'edit'
+  });
 
   const [showEditModal, setShowEditModal] = useState(false);
   const [editFormData, setEditFormData] = useState(null);
@@ -47,6 +58,41 @@ const CreateUser = () => {
     }));
   };
 
+  const handleImageFileChange = (e, target = 'form') => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      toast.error("Please select a valid image file");
+      e.target.value = '';
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      setCropModalData({
+        isOpen: true,
+        imageSrc: event.target.result,
+        target: target
+      });
+    };
+    reader.readAsDataURL(file);
+    e.target.value = '';
+  };
+
+  const handleCropComplete = (croppedBase64) => {
+    if (croppedBase64) {
+      if (cropModalData.target === 'form') {
+        setFormData(prev => ({ ...prev, profile_image: croppedBase64 }));
+        toast.success("Profile photo selected");
+      } else if (cropModalData.target === 'edit') {
+        setEditFormData(prev => ({ ...prev, profile_image: croppedBase64 }));
+        toast.success("Profile photo updated");
+      }
+    }
+    setCropModalData({ isOpen: false, imageSrc: '', target: null });
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsSubmitting(true);
@@ -63,12 +109,15 @@ const CreateUser = () => {
         name: formData.name,
         email: formData.email,
         role: formData.role,
+        phone: formData.phone || '',
+        contact: formData.phone || '',
+        profile_image: formData.profile_image || '',
         createdAt: new Date().toISOString(),
         uid: user.uid
       });
 
       toast.success(`User ${formData.name} created successfully!`);
-      setFormData({ name: '', email: '', password: '', role: 'teacher' });
+      setFormData({ name: '', email: '', password: '', role: 'teacher', phone: '', profile_image: '' });
 
     } catch (err) {
       if (err.code === 'auth/email-already-in-use') toast.error("Email already exists.");
@@ -105,7 +154,9 @@ const CreateUser = () => {
       uid: user.uid,
       name: user.name,
       role: user.role,
-      email: user.email
+      email: user.email,
+      phone: user.phone || user.contact || '',
+      profile_image: user.profile_image || ''
     });
     setShowEditModal(true);
   };
@@ -115,7 +166,10 @@ const CreateUser = () => {
     try {
       await update(ref(db, `users/${editFormData.uid}`), {
         name: editFormData.name,
-        role: editFormData.role
+        role: editFormData.role,
+        phone: editFormData.phone || '',
+        contact: editFormData.phone || '',
+        profile_image: editFormData.profile_image || ''
       });
       toast.success("User profile updated successfully");
       setShowEditModal(false);
@@ -146,9 +200,58 @@ const CreateUser = () => {
           </h2>
 
           <form onSubmit={handleSubmit} className="space-y-4">
+            {/* Staff Profile Photo Picker */}
+            <div className="flex items-center gap-3.5 p-3 rounded-xl bg-slate-50 border border-slate-200">
+              <div className="relative group shrink-0">
+                <div className="w-14 h-14 rounded-2xl overflow-hidden bg-slate-200 border-2 border-dashed border-slate-300 flex items-center justify-center shadow-inner">
+                  {formData.profile_image ? (
+                    <img
+                      src={formData.profile_image}
+                      alt="Staff Preview"
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <Users className="text-slate-400" size={24} />
+                  )}
+                </div>
+                <label
+                  htmlFor="user-image-input"
+                  className="absolute -bottom-1 -right-1 p-1.5 rounded-full bg-blue-600 hover:bg-blue-700 text-white shadow-xs cursor-pointer active:scale-95 transition-all"
+                  title="Upload Profile Photo"
+                >
+                  <Camera size={12} />
+                </label>
+                <input
+                  type="file"
+                  id="user-image-input"
+                  accept="image/*"
+                  onChange={(e) => handleImageFileChange(e, 'form')}
+                  className="hidden"
+                />
+              </div>
+
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-slate-800">Staff Photo</span>
+                  {formData.profile_image && (
+                    <button
+                      type="button"
+                      onClick={() => setFormData(prev => ({ ...prev, profile_image: '' }))}
+                      className="text-[10px] font-bold text-rose-600 hover:text-rose-700 hover:underline cursor-pointer"
+                    >
+                      Remove
+                    </button>
+                  )}
+                </div>
+                <p className="text-[11px] text-slate-500 mt-0.5">
+                  Square cropped avatar, stored in Base64.
+                </p>
+              </div>
+            </div>
+
             <div>
               <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wider">
-                Full Name
+                Full Name *
               </label>
               <input
                 type="text"
@@ -159,6 +262,23 @@ const CreateUser = () => {
                 required
                 className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-xs font-medium focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
               />
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wider">
+                Contact / Phone Number
+              </label>
+              <div className="relative">
+                <Phone className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={15} />
+                <input
+                  type="tel"
+                  name="phone"
+                  value={formData.phone}
+                  onChange={handleChange}
+                  placeholder="e.g. 0300-1234567"
+                  className="w-full pl-9 pr-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-xs font-mono font-medium focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
+                />
+              </div>
             </div>
 
             <div>
@@ -258,9 +378,17 @@ const CreateUser = () => {
                     className="p-3.5 rounded-xl border border-slate-100 bg-white hover:bg-slate-50/80 transition-colors flex items-center justify-between gap-3 shadow-2xs"
                   >
                     <div className="flex items-center gap-3 min-w-0">
-                      <div className="w-10 h-10 rounded-xl bg-slate-900 text-white flex items-center justify-center font-bold text-sm shrink-0">
-                        {user.name?.charAt(0) || 'U'}
-                      </div>
+                      {user.profile_image ? (
+                        <img
+                          src={user.profile_image}
+                          alt={user.name}
+                          className="w-10 h-10 rounded-xl object-cover border border-slate-200 shrink-0 shadow-2xs"
+                        />
+                      ) : (
+                        <div className="w-10 h-10 rounded-xl bg-slate-900 text-white flex items-center justify-center font-bold text-sm shrink-0">
+                          {user.name?.charAt(0) || 'U'}
+                        </div>
+                      )}
                       <div className="min-w-0">
                         <div className="flex items-center gap-2">
                           <h4 className="text-xs font-bold text-slate-900 truncate">{user.name}</h4>
@@ -269,6 +397,14 @@ const CreateUser = () => {
                           </span>
                         </div>
                         <p className="text-[11px] text-slate-500 font-mono truncate">{user.email}</p>
+                        {(user.phone || user.contact) && (
+                          <div className="flex items-center gap-1 text-[11px] text-slate-600 font-mono mt-0.5">
+                            <Phone size={10} className="text-slate-400" />
+                            <a href={`tel:${user.phone || user.contact}`} className="hover:text-blue-600 hover:underline">
+                              {user.phone || user.contact}
+                            </a>
+                          </div>
+                        )}
                       </div>
                     </div>
 
@@ -322,6 +458,55 @@ const CreateUser = () => {
             </div>
 
             <form onSubmit={handleUpdateUser} className="space-y-4">
+              {/* Photo picker in edit modal */}
+              <div className="flex items-center gap-3.5 p-3 rounded-xl bg-slate-50 border border-slate-200">
+                <div className="relative group shrink-0">
+                  <div className="w-14 h-14 rounded-2xl overflow-hidden bg-slate-200 border-2 border-dashed border-slate-300 flex items-center justify-center shadow-inner">
+                    {editFormData.profile_image ? (
+                      <img
+                        src={editFormData.profile_image}
+                        alt="Staff Preview"
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <Users className="text-slate-400" size={24} />
+                    )}
+                  </div>
+                  <label
+                    htmlFor="edit-user-image-input"
+                    className="absolute -bottom-1 -right-1 p-1.5 rounded-full bg-blue-600 hover:bg-blue-700 text-white shadow-xs cursor-pointer active:scale-95 transition-all"
+                    title="Change Profile Photo"
+                  >
+                    <Camera size={12} />
+                  </label>
+                  <input
+                    type="file"
+                    id="edit-user-image-input"
+                    accept="image/*"
+                    onChange={(e) => handleImageFileChange(e, 'edit')}
+                    className="hidden"
+                  />
+                </div>
+
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-slate-800">Staff Photo</span>
+                    {editFormData.profile_image && (
+                      <button
+                        type="button"
+                        onClick={() => setEditFormData(prev => ({ ...prev, profile_image: '' }))}
+                        className="text-[10px] font-bold text-rose-600 hover:text-rose-700 hover:underline cursor-pointer"
+                      >
+                        Remove
+                      </button>
+                    )}
+                  </div>
+                  <p className="text-[11px] text-slate-500 mt-0.5">
+                    Click camera to upload/crop a new photo.
+                  </p>
+                </div>
+              </div>
+
               <div>
                 <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wider">
                   Email (Read-Only)
@@ -349,6 +534,22 @@ const CreateUser = () => {
 
               <div>
                 <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wider">
+                  Contact / Phone Number
+                </label>
+                <div className="relative">
+                  <Phone className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={15} />
+                  <input
+                    type="tel"
+                    value={editFormData.phone || ''}
+                    onChange={(e) => setEditFormData({ ...editFormData, phone: e.target.value })}
+                    placeholder="e.g. 0300-1234567"
+                    className="w-full pl-9 pr-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-xs font-mono font-medium focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wider">
                   Role
                 </label>
                 <select
@@ -365,14 +566,14 @@ const CreateUser = () => {
               <div className="flex gap-2.5 pt-2">
                 <button
                   type="submit"
-                  className="flex-1 py-3 px-4 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-xs"
+                  className="flex-1 py-3 px-4 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-xs cursor-pointer"
                 >
                   Save Changes
                 </button>
                 <button
                   type="button"
                   onClick={() => setShowEditModal(false)}
-                  className="px-4 py-3 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-700 text-xs font-bold"
+                  className="px-4 py-3 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-700 text-xs font-bold cursor-pointer"
                 >
                   Cancel
                 </button>
@@ -381,6 +582,14 @@ const CreateUser = () => {
           </div>
         </div>
       )}
+
+      {/* CROP MODAL FOR USER / STAFF IMAGE */}
+      <ImageCropModal
+        isOpen={cropModalData.isOpen}
+        imageSrc={cropModalData.imageSrc}
+        onClose={() => setCropModalData({ isOpen: false, imageSrc: '', target: null })}
+        onCropComplete={handleCropComplete}
+      />
     </div>
   );
 };

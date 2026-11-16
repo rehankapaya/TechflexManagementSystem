@@ -34,12 +34,15 @@ import {
   Grid,
   Layers,
   Sparkles,
-  Smartphone
+  Smartphone,
+  Monitor
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+import { useData } from '../contexts/DataContext';
 
 const Dashboard = () => {
   const { currentUser, logout, isAdmin } = useAuth();
+  const { activeInstitute = 'computer', setActiveInstitute } = useData();
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -64,6 +67,9 @@ const Dashboard = () => {
     if (path.startsWith('/dashboard/fees')) return 'Fee Entry';
     if (path.startsWith('/dashboard/feestatus')) return 'Fee Status';
     if (path.startsWith('/dashboard/overdue')) return 'Overdue';
+    if (path.startsWith('/dashboard/coaching-students')) return 'Coaching Students';
+    if (path.startsWith('/dashboard/coaching-fees')) return 'Coaching Fees';
+    if (path.startsWith('/dashboard/coaching-fee-status')) return 'Coaching Status';
     if (path.startsWith('/dashboard/expenses')) return 'Expenses';
     if (path.startsWith('/dashboard/courses')) return 'Courses';
     if (path.startsWith('/dashboard/courseenrollment')) return 'Enrollment';
@@ -135,70 +141,165 @@ const Dashboard = () => {
     <div className="flex h-screen bg-slate-50 overflow-hidden font-sans">
       {/* DESKTOP SIDEBAR (>= md) */}
       <aside
-        className={`hidden md:flex bg-[#0F172A] text-slate-300 flex-col transition-all duration-300 ease-in-out z-30 shadow-xl relative inset-y-0 left-0 ${
-          sidebarCollapsed ? 'w-20' : 'w-64'
-        }`}
+        className={`hidden md:flex bg-[#0F172A] text-slate-300 flex-col transition-all duration-300 ease-in-out z-30 shadow-xl relative inset-y-0 left-0 ${sidebarCollapsed ? 'w-20' : 'w-64'
+          }`}
       >
-        <div className="p-6 flex items-center gap-3 border-b border-slate-800/50">
-          <div className="w-10 h-10 rounded-xl overflow-hidden shadow-lg shadow-blue-500/20 bg-slate-900 flex items-center justify-center border border-slate-700/50 shrink-0">
-            <img src="/official-logo.jpg" alt="TechFlex Logo" className="w-full h-full object-cover" />
+        <div className="p-5 flex items-center justify-between border-b border-slate-800/60">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl overflow-hidden shadow-lg shadow-blue-500/20 bg-slate-900 flex items-center justify-center border border-slate-700/50 shrink-0">
+              <img src="/official-logo.jpg" alt="TechFlex Logo" className="w-full h-full object-cover" />
+            </div>
+            {!sidebarCollapsed && (
+              <div>
+                <span className="text-white font-extrabold text-lg tracking-tight block leading-tight">TechFlex</span>
+                <span className="text-[10px] text-blue-400 font-semibold tracking-wider uppercase">Portal Suite</span>
+              </div>
+            )}
           </div>
-          {!sidebarCollapsed && (
-            <span className="text-white font-bold text-xl tracking-tight">TechFlex</span>
-          )}
         </div>
 
-        <nav className="flex-1 py-6 overflow-y-auto overflow-x-hidden custom-scrollbar">
-          <div className="px-4 mb-6">
-            {!sidebarCollapsed && <p className="text-[10px] font-bold text-slate-500 tracking-widest mb-4 px-2">GENERAL</p>}
-            <SidebarLink
-              to="/dashboard"
-              icon={<LayoutDashboard size={20} />}
-              label="Overview"
-              collapsed={sidebarCollapsed}
-              active={location.pathname === '/dashboard'}
-            />
-            <SidebarLink
-              to="/dashboard/students"
-              icon={<Users size={20} />}
-              label="Students"
-              collapsed={sidebarCollapsed}
-              active={isActive('/dashboard/students')}
-            />
-            <SidebarLink
-              to="/dashboard/studentstatus"
-              icon={<UserCheck size={20} />}
-              label="Student Status"
-              collapsed={sidebarCollapsed}
-              active={isActive('/dashboard/studentstatus')}
-            />
+        {/* ACADEMY SWITCHER IN SIDEBAR */}
+        {!sidebarCollapsed ? (
+          <div className="px-4 pt-4 pb-1">
+            <div className="p-1 bg-slate-900/90 rounded-xl flex items-center border border-slate-800 shadow-inner">
+              <button
+                onClick={() => {
+                  setActiveInstitute('computer');
+                  if (['/dashboard/coaching-students', '/dashboard/coaching-fees', '/dashboard/coaching-fee-status'].includes(location.pathname)) {
+                    navigate('/dashboard/students');
+                  }
+                }}
+                className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-[11px] font-bold transition-all cursor-pointer ${
+                  activeInstitute === 'computer'
+                    ? 'bg-blue-600 text-white shadow-xs'
+                    : 'text-slate-400 hover:text-slate-200'
+                }`}
+              >
+                <Monitor size={13} />
+                <span>Computer</span>
+              </button>
+              <button
+                onClick={() => {
+                  setActiveInstitute('coaching');
+                  if (['/dashboard/students', '/dashboard/studentstatus', '/dashboard/fees', '/dashboard/feestatus', '/dashboard/overdue', '/dashboard/courses', '/dashboard/courseenrollment', '/dashboard/timeslot-analytics'].includes(location.pathname)) {
+                    navigate('/dashboard/coaching-students');
+                  }
+                }}
+                className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-[11px] font-bold transition-all cursor-pointer ${
+                  activeInstitute === 'coaching'
+                    ? 'bg-emerald-600 text-white shadow-xs'
+                    : 'text-slate-400 hover:text-slate-200'
+                }`}
+              >
+                <GraduationCap size={13} />
+                <span>Coaching</span>
+              </button>
+            </div>
           </div>
+        ) : (
+          <div className="flex justify-center pt-3 pb-1">
+            <button
+              onClick={() => {
+                const next = activeInstitute === 'computer' ? 'coaching' : 'computer';
+                setActiveInstitute(next);
+                if (next === 'coaching') navigate('/dashboard/coaching-students');
+                else navigate('/dashboard/students');
+              }}
+              title={`Switch to ${activeInstitute === 'computer' ? 'Coaching Center' : 'Computer Institute'}`}
+              className="w-10 h-10 rounded-xl bg-slate-800 border border-slate-700/80 flex items-center justify-center text-slate-300 hover:text-white hover:bg-slate-700 transition-all cursor-pointer"
+            >
+              {activeInstitute === 'computer' ? <Monitor size={18} className="text-blue-400" /> : <GraduationCap size={18} className="text-emerald-400" />}
+            </button>
+          </div>
+        )}
 
-          <div className="px-4 mb-6">
-            {!sidebarCollapsed && <p className="text-[10px] font-bold text-slate-500 tracking-widest mb-4 px-2">ACADEMICS</p>}
-            {isAdmin && (
-              <>
-                <SidebarLink to="/dashboard/courses" icon={<BookOpen size={20} />} label="Courses" collapsed={sidebarCollapsed} active={isActive('/dashboard/courses')} />
-                <SidebarLink to="/dashboard/courseenrollment" icon={<PenSquare size={20} />} label="Enrollment" collapsed={sidebarCollapsed} active={isActive('/dashboard/courseenrollment')} />
-              </>
-            )}
-            <SidebarLink to="/dashboard/timeslot-analytics" icon={<Clock size={20} />} label="Timeslots" collapsed={sidebarCollapsed} active={isActive('/dashboard/timeslot-analytics')} />
-          </div>
+        <nav className="flex-1 py-4 overflow-y-auto overflow-x-hidden custom-scrollbar">
+          {activeInstitute === 'computer' ? (
+            <>
+              {/* COMPUTER INSTITUTE NAVIGATION */}
+              <div className="px-4 mb-5">
+                {!sidebarCollapsed && <p className="text-[10px] font-bold text-slate-500 tracking-widest mb-3 px-2">GENERAL</p>}
+                <SidebarLink
+                  to="/dashboard"
+                  icon={<LayoutDashboard size={20} />}
+                  label="Overview"
+                  collapsed={sidebarCollapsed}
+                  active={location.pathname === '/dashboard'}
+                />
+                <SidebarLink
+                  to="/dashboard/students"
+                  icon={<Users size={20} />}
+                  label="Students"
+                  collapsed={sidebarCollapsed}
+                  active={isActive('/dashboard/students')}
+                />
+                <SidebarLink
+                  to="/dashboard/studentstatus"
+                  icon={<UserCheck size={20} />}
+                  label="Student Status"
+                  collapsed={sidebarCollapsed}
+                  active={isActive('/dashboard/studentstatus')}
+                />
+              </div>
 
-          <div className="px-4 mb-6">
-            {!sidebarCollapsed && <p className="text-[10px] font-bold text-slate-500 tracking-widest mb-4 px-2">FINANCE</p>}
-            <SidebarLink to="/dashboard/fees" icon={<CreditCard size={20} />} label="Fee Entry" collapsed={sidebarCollapsed} active={isActive('/dashboard/fees')} />
-            <SidebarLink to="/dashboard/feestatus" icon={<BadgeDollarSign size={20} />} label="Fee Status" collapsed={sidebarCollapsed} active={isActive('/dashboard/feestatus')} />
-            <SidebarLink to="/dashboard/overdue" icon={<AlertCircle size={20} />} label="Overdue Fees" collapsed={sidebarCollapsed} active={isActive('/dashboard/overdue')} />
-            <SidebarLink to="/dashboard/expenses" icon={<Receipt size={20} />} label="Expenses" collapsed={sidebarCollapsed} active={isActive('/dashboard/expenses')} />
-            {isAdmin && (
-              <SidebarLink to="/dashboard/salary" icon={<Banknote size={20} />} label="Staff Salary" collapsed={sidebarCollapsed} active={isActive('/dashboard/salary')} />
-            )}
-          </div>
+              <div className="px-4 mb-5">
+                {!sidebarCollapsed && <p className="text-[10px] font-bold text-slate-500 tracking-widest mb-3 px-2">ACADEMICS</p>}
+                {isAdmin && (
+                  <>
+                    <SidebarLink to="/dashboard/courses" icon={<BookOpen size={20} />} label="Courses" collapsed={sidebarCollapsed} active={isActive('/dashboard/courses')} />
+                    <SidebarLink to="/dashboard/courseenrollment" icon={<PenSquare size={20} />} label="Enrollment" collapsed={sidebarCollapsed} active={isActive('/dashboard/courseenrollment')} />
+                  </>
+                )}
+                <SidebarLink to="/dashboard/timeslot-analytics" icon={<Clock size={20} />} label="Timeslots" collapsed={sidebarCollapsed} active={isActive('/dashboard/timeslot-analytics')} />
+              </div>
+
+              <div className="px-4 mb-5">
+                {!sidebarCollapsed && <p className="text-[10px] font-bold text-slate-500 tracking-widest mb-3 px-2">FINANCE</p>}
+                <SidebarLink to="/dashboard/fees" icon={<CreditCard size={20} />} label="Fee Entry" collapsed={sidebarCollapsed} active={isActive('/dashboard/fees')} />
+                <SidebarLink to="/dashboard/feestatus" icon={<BadgeDollarSign size={20} />} label="Fee Status" collapsed={sidebarCollapsed} active={isActive('/dashboard/feestatus')} />
+                <SidebarLink to="/dashboard/overdue" icon={<AlertCircle size={20} />} label="Overdue Fees" collapsed={sidebarCollapsed} active={isActive('/dashboard/overdue')} />
+                <SidebarLink to="/dashboard/expenses" icon={<Receipt size={20} />} label="Expenses" collapsed={sidebarCollapsed} active={isActive('/dashboard/expenses')} />
+                {isAdmin && (
+                  <SidebarLink to="/dashboard/salary" icon={<Banknote size={20} />} label="Staff Salary" collapsed={sidebarCollapsed} active={isActive('/dashboard/salary')} />
+                )}
+              </div>
+            </>
+          ) : (
+            <>
+              {/* COACHING CENTER NAVIGATION */}
+              <div className="px-4 mb-5">
+                {!sidebarCollapsed && <p className="text-[10px] font-bold text-emerald-400 tracking-widest mb-3 px-2">COACHING CENTER</p>}
+                <SidebarLink
+                  to="/dashboard"
+                  icon={<LayoutDashboard size={20} />}
+                  label="Overview"
+                  collapsed={sidebarCollapsed}
+                  active={location.pathname === '/dashboard'}
+                />
+                <SidebarLink
+                  to="/dashboard/coaching-students"
+                  icon={<Users size={20} />}
+                  label="Coaching Students"
+                  collapsed={sidebarCollapsed}
+                  active={isActive('/dashboard/coaching-students')}
+                />
+              </div>
+
+              <div className="px-4 mb-5">
+                {!sidebarCollapsed && <p className="text-[10px] font-bold text-emerald-400 tracking-widest mb-3 px-2">COACHING FINANCE</p>}
+                <SidebarLink to="/dashboard/coaching-fees" icon={<CreditCard size={20} />} label="Fee Entry" collapsed={sidebarCollapsed} active={isActive('/dashboard/coaching-fees')} />
+                <SidebarLink to="/dashboard/coaching-fee-status" icon={<BadgeDollarSign size={20} />} label="Fee Status" collapsed={sidebarCollapsed} active={isActive('/dashboard/coaching-fee-status')} />
+                <SidebarLink to="/dashboard/expenses" icon={<Receipt size={20} />} label="Expenses (Shared)" collapsed={sidebarCollapsed} active={isActive('/dashboard/expenses')} />
+                {isAdmin && (
+                  <SidebarLink to="/dashboard/salary" icon={<Banknote size={20} />} label="Staff Salary" collapsed={sidebarCollapsed} active={isActive('/dashboard/salary')} />
+                )}
+              </div>
+            </>
+          )}
 
           {isAdmin && (
-            <div className="px-4 mb-6">
-              {!sidebarCollapsed && <p className="text-[10px] font-bold text-slate-500 tracking-widest mb-4 px-2">ADMIN</p>}
+            <div className="px-4 mb-5">
+              {!sidebarCollapsed && <p className="text-[10px] font-bold text-slate-500 tracking-widest mb-3 px-2">MANAGEMENT</p>}
               <SidebarLink
                 to="/dashboard/users"
                 icon={<UserCog size={20} />}
@@ -296,8 +397,12 @@ const Dashboard = () => {
               className="flex items-center gap-1 p-1 rounded-xl bg-slate-100 hover:bg-slate-200 active:scale-95 transition-all cursor-pointer border border-slate-300/80 shadow-2xs"
               title="Open TechFlex App Hub"
             >
-              <div className="w-7 h-7 rounded-lg bg-[#3B82F6] flex items-center justify-center text-white font-bold text-xs shadow-inner">
-                {getInitials(currentUser?.name)}
+              <div className="w-7 h-7 rounded-lg bg-[#3B82F6] flex items-center justify-center text-white font-bold text-xs shadow-inner overflow-hidden">
+                {currentUser?.profile_image ? (
+                  <img src={currentUser.profile_image} alt="User" className="w-full h-full object-cover" />
+                ) : (
+                  getInitials(currentUser?.name)
+                )}
               </div>
               <div className="w-2 h-2 rounded-full bg-emerald-500 mr-0.5 animate-pulse"></div>
             </button>
@@ -306,10 +411,48 @@ const Dashboard = () => {
 
         {/* DESKTOP HEADER (>= md) */}
         <header className="hidden md:flex h-16 sm:h-20 bg-white border-b border-slate-200 items-center justify-between px-8 z-10">
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-6">
             <span className="text-xl font-extrabold text-slate-800 tracking-tight">
               {getCurrentPageTitle(location.pathname)}
             </span>
+
+            {/* Segmented Academy Switcher */}
+            <div className="flex items-center bg-slate-100 p-1 rounded-xl border border-slate-200/90 shadow-2xs">
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveInstitute('computer');
+                  if (['/dashboard/coaching-students', '/dashboard/coaching-fees', '/dashboard/coaching-fee-status'].includes(location.pathname)) {
+                    navigate('/dashboard/students');
+                  }
+                }}
+                className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                  activeInstitute === 'computer'
+                    ? 'bg-white text-blue-700 shadow-xs ring-1 ring-black/5'
+                    : 'text-slate-500 hover:text-slate-800'
+                }`}
+              >
+                <Monitor size={14} className={activeInstitute === 'computer' ? 'text-blue-600' : 'text-slate-400'} />
+                <span>Computer Institute</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveInstitute('coaching');
+                  if (['/dashboard/students', '/dashboard/studentstatus', '/dashboard/fees', '/dashboard/feestatus', '/dashboard/overdue', '/dashboard/courses', '/dashboard/courseenrollment', '/dashboard/timeslot-analytics'].includes(location.pathname)) {
+                    navigate('/dashboard/coaching-students');
+                  }
+                }}
+                className={`flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                  activeInstitute === 'coaching'
+                    ? 'bg-emerald-600 text-white shadow-xs'
+                    : 'text-slate-500 hover:text-slate-800'
+                }`}
+              >
+                <GraduationCap size={14} className={activeInstitute === 'coaching' ? 'text-white' : 'text-slate-400'} />
+                <span>Coaching Center</span>
+              </button>
+            </div>
           </div>
 
           <div className="flex items-center gap-6">
@@ -331,8 +474,12 @@ const Dashboard = () => {
                 onClick={() => setShowProfileDropdown(!showProfileDropdown)}
                 className="flex items-center gap-3 p-1.5 hover:bg-slate-50 rounded-xl transition-all cursor-pointer"
               >
-                <div className="w-10 h-10 rounded-full bg-[#3B82F6] flex items-center justify-center text-white font-bold text-sm shadow-inner">
-                  {getInitials(currentUser?.name)}
+                <div className="w-10 h-10 rounded-full bg-[#3B82F6] flex items-center justify-center text-white font-bold text-sm shadow-inner overflow-hidden">
+                  {currentUser?.profile_image ? (
+                    <img src={currentUser.profile_image} alt="User" className="w-full h-full object-cover" />
+                  ) : (
+                    getInitials(currentUser?.name)
+                  )}
                 </div>
                 <div className="flex flex-col text-left">
                   <span className="text-sm font-semibold text-slate-800 leading-tight">{currentUser?.name || "User"}</span>
@@ -392,29 +539,53 @@ const Dashboard = () => {
             label="Home"
             active={location.pathname === '/dashboard'}
           />
-          <BottomNavLink
-            to="/dashboard/students"
-            icon={<Users size={20} />}
-            label="Students"
-            active={isActive('/dashboard/students')}
-          />
-          <BottomNavLink
-            to="/dashboard/fees"
-            icon={<CreditCard size={20} />}
-            label="Fees"
-            active={isActive('/dashboard/fees')}
-          />
-          <BottomNavLink
-            to="/dashboard/feestatus"
-            icon={<BadgeDollarSign size={20} />}
-            label="Status"
-            active={isActive('/dashboard/feestatus')}
-          />
+          {activeInstitute === 'computer' ? (
+            <>
+              <BottomNavLink
+                to="/dashboard/students"
+                icon={<Users size={20} />}
+                label="Students"
+                active={isActive('/dashboard/students')}
+              />
+              <BottomNavLink
+                to="/dashboard/fees"
+                icon={<CreditCard size={20} />}
+                label="Fees"
+                active={isActive('/dashboard/fees')}
+              />
+              <BottomNavLink
+                to="/dashboard/feestatus"
+                icon={<BadgeDollarSign size={20} />}
+                label="Status"
+                active={isActive('/dashboard/feestatus')}
+              />
+            </>
+          ) : (
+            <>
+              <BottomNavLink
+                to="/dashboard/coaching-students"
+                icon={<Users size={20} />}
+                label="Students"
+                active={isActive('/dashboard/coaching-students')}
+              />
+              <BottomNavLink
+                to="/dashboard/coaching-fees"
+                icon={<CreditCard size={20} />}
+                label="Fees"
+                active={isActive('/dashboard/coaching-fees')}
+              />
+              <BottomNavLink
+                to="/dashboard/coaching-fee-status"
+                icon={<BadgeDollarSign size={20} />}
+                label="Status"
+                active={isActive('/dashboard/coaching-fee-status')}
+              />
+            </>
+          )}
           <button
             onClick={() => setMobileHubOpen(true)}
-            className={`flex flex-col items-center justify-center py-1 px-3 rounded-xl transition-all cursor-pointer active:scale-95 ${
-              mobileHubOpen ? 'text-blue-600 font-bold' : 'text-slate-500 hover:text-slate-700'
-            }`}
+            className={`flex flex-col items-center justify-center py-1 px-3 rounded-xl transition-all cursor-pointer active:scale-95 ${mobileHubOpen ? 'text-blue-600 font-bold' : 'text-slate-500 hover:text-slate-700'
+              }`}
           >
             <div className={`p-1.5 rounded-xl transition-all ${mobileHubOpen ? 'bg-blue-600 text-white shadow-md shadow-blue-500/25 scale-105' : 'bg-slate-100 text-slate-600'}`}>
               <Grid size={18} />
@@ -458,11 +629,55 @@ const Dashboard = () => {
 
               {/* Sheet Content (Scrollable) */}
               <div className="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar pb-[max(2.5rem,env(safe-area-inset-bottom))]">
+                {/* ACADEMY SWITCHER IN MOBILE HUB */}
+                <div className="p-1 bg-slate-100 rounded-2xl flex items-center border border-slate-200/80 shadow-2xs">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setActiveInstitute('computer');
+                      if (['/dashboard/coaching-students', '/dashboard/coaching-fees', '/dashboard/coaching-fee-status'].includes(location.pathname)) {
+                        navigate('/dashboard/students');
+                      }
+                      setMobileHubOpen(false);
+                    }}
+                    className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-extrabold transition-all cursor-pointer ${
+                      activeInstitute === 'computer'
+                        ? 'bg-white text-blue-700 shadow-xs'
+                        : 'text-slate-500 hover:text-slate-800'
+                    }`}
+                  >
+                    <Monitor size={15} />
+                    <span>Computer Institute</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setActiveInstitute('coaching');
+                      if (['/dashboard/students', '/dashboard/studentstatus', '/dashboard/fees', '/dashboard/feestatus', '/dashboard/overdue', '/dashboard/courses', '/dashboard/courseenrollment', '/dashboard/timeslot-analytics'].includes(location.pathname)) {
+                        navigate('/dashboard/coaching-students');
+                      }
+                      setMobileHubOpen(false);
+                    }}
+                    className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-extrabold transition-all cursor-pointer ${
+                      activeInstitute === 'coaching'
+                        ? 'bg-emerald-600 text-white shadow-xs'
+                        : 'text-slate-500 hover:text-slate-800'
+                    }`}
+                  >
+                    <GraduationCap size={15} />
+                    <span>Coaching Center</span>
+                  </button>
+                </div>
+
                 {/* User Identity Card */}
                 <div className="p-3.5 rounded-2xl bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white shadow-md flex items-center justify-between">
                   <div className="flex items-center gap-3 min-w-0">
-                    <div className="w-11 h-11 rounded-2xl bg-blue-600 flex items-center justify-center font-bold text-base text-white shadow-inner shrink-0">
-                      {getInitials(currentUser?.name)}
+                    <div className="w-11 h-11 rounded-2xl bg-blue-600 flex items-center justify-center font-bold text-base text-white shadow-inner shrink-0 overflow-hidden">
+                      {currentUser?.profile_image ? (
+                        <img src={currentUser.profile_image} alt="User" className="w-full h-full object-cover" />
+                      ) : (
+                        getInitials(currentUser?.name)
+                      )}
                     </div>
                     <div className="min-w-0">
                       <div className="font-bold text-sm text-white truncate leading-tight">{currentUser?.name || 'User'}</div>
@@ -504,121 +719,184 @@ const Dashboard = () => {
 
                 {/* Categorized App Hub Tiles */}
                 <div className="space-y-4">
-                  {/* Finance Section */}
-                  <div>
-                    <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-2 px-1 flex items-center gap-1.5">
-                      <CreditCard size={12} className="text-blue-600" />
-                      <span>Finance & Accounts</span>
-                    </div>
-                    <div className="grid grid-cols-2 gap-2.5">
-                      <MobileHubTile
-                        to="/dashboard/fees"
-                        icon={<CreditCard size={18} className="text-blue-600" />}
-                        bg="bg-blue-50"
-                        title="Fee Entry"
-                        subtitle="Collect tuition"
-                        active={isActive('/dashboard/fees')}
-                        onClick={() => setMobileHubOpen(false)}
-                      />
-                      <MobileHubTile
-                        to="/dashboard/feestatus"
-                        icon={<BadgeDollarSign size={18} className="text-emerald-600" />}
-                        bg="bg-emerald-50"
-                        title="Fee Status"
-                        subtitle="Ledger & balances"
-                        active={isActive('/dashboard/feestatus')}
-                        onClick={() => setMobileHubOpen(false)}
-                      />
-                      <MobileHubTile
-                        to="/dashboard/overdue"
-                        icon={<AlertCircle size={18} className="text-rose-600" />}
-                        bg="bg-rose-50"
-                        title="Overdue Fees"
-                        subtitle="Reminders & calls"
-                        active={isActive('/dashboard/overdue')}
-                        onClick={() => setMobileHubOpen(false)}
-                      />
-                      <MobileHubTile
-                        to="/dashboard/expenses"
-                        icon={<Receipt size={18} className="text-amber-600" />}
-                        bg="bg-amber-50"
-                        title="Expenses"
-                        subtitle="Tracking & ledger"
-                        active={isActive('/dashboard/expenses')}
-                        onClick={() => setMobileHubOpen(false)}
-                      />
-                      {isAdmin && (
-                        <MobileHubTile
-                          to="/dashboard/salary"
-                          icon={<Banknote size={18} className="text-teal-600" />}
-                          bg="bg-teal-50"
-                          title="Staff Salary"
-                          subtitle="Payroll & slips"
-                          active={isActive('/dashboard/salary')}
-                          onClick={() => setMobileHubOpen(false)}
-                        />
-                      )}
-                    </div>
-                  </div>
+                  {activeInstitute === 'computer' ? (
+                    <>
+                      {/* Computer Finance Section */}
+                      <div>
+                        <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-2 px-1 flex items-center gap-1.5">
+                          <CreditCard size={12} className="text-blue-600" />
+                          <span>Finance & Accounts</span>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2.5">
+                          <MobileHubTile
+                            to="/dashboard/fees"
+                            icon={<CreditCard size={18} className="text-blue-600" />}
+                            bg="bg-blue-50"
+                            title="Fee Entry"
+                            subtitle="Collect tuition"
+                            active={isActive('/dashboard/fees')}
+                            onClick={() => setMobileHubOpen(false)}
+                          />
+                          <MobileHubTile
+                            to="/dashboard/feestatus"
+                            icon={<BadgeDollarSign size={18} className="text-emerald-600" />}
+                            bg="bg-emerald-50"
+                            title="Fee Status"
+                            subtitle="Ledger & balances"
+                            active={isActive('/dashboard/feestatus')}
+                            onClick={() => setMobileHubOpen(false)}
+                          />
+                          <MobileHubTile
+                            to="/dashboard/overdue"
+                            icon={<AlertCircle size={18} className="text-rose-600" />}
+                            bg="bg-rose-50"
+                            title="Overdue Fees"
+                            subtitle="Reminders & calls"
+                            active={isActive('/dashboard/overdue')}
+                            onClick={() => setMobileHubOpen(false)}
+                          />
+                          <MobileHubTile
+                            to="/dashboard/expenses"
+                            icon={<Receipt size={18} className="text-amber-600" />}
+                            bg="bg-amber-50"
+                            title="Expenses"
+                            subtitle="Tracking & ledger"
+                            active={isActive('/dashboard/expenses')}
+                            onClick={() => setMobileHubOpen(false)}
+                          />
+                          {isAdmin && (
+                            <MobileHubTile
+                              to="/dashboard/salary"
+                              icon={<Banknote size={18} className="text-teal-600" />}
+                              bg="bg-teal-50"
+                              title="Staff Salary"
+                              subtitle="Payroll & slips"
+                              active={isActive('/dashboard/salary')}
+                              onClick={() => setMobileHubOpen(false)}
+                            />
+                          )}
+                        </div>
+                      </div>
 
-                  {/* Academics Section */}
-                  <div>
-                    <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-2 px-1 flex items-center gap-1.5">
-                      <GraduationCap size={12} className="text-indigo-600" />
-                      <span>Academics & Students</span>
-                    </div>
-                    <div className="grid grid-cols-2 gap-2.5">
-                      <MobileHubTile
-                        to="/dashboard/students"
-                        icon={<Users size={18} className="text-indigo-600" />}
-                        bg="bg-indigo-50"
-                        title="Students"
-                        subtitle="Profiles & photos"
-                        active={isActive('/dashboard/students')}
-                        onClick={() => setMobileHubOpen(false)}
-                      />
-                      <MobileHubTile
-                        to="/dashboard/studentstatus"
-                        icon={<UserCheck size={18} className="text-emerald-600" />}
-                        bg="bg-emerald-50"
-                        title="Student Status"
-                        subtitle="Active & completed"
-                        active={isActive('/dashboard/studentstatus')}
-                        onClick={() => setMobileHubOpen(false)}
-                      />
-                      {isAdmin && (
-                        <>
+                      {/* Computer Academics Section */}
+                      <div>
+                        <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-2 px-1 flex items-center gap-1.5">
+                          <GraduationCap size={12} className="text-indigo-600" />
+                          <span>Academics & Students</span>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2.5">
                           <MobileHubTile
-                            to="/dashboard/courses"
-                            icon={<BookOpen size={18} className="text-purple-600" />}
-                            bg="bg-purple-50"
-                            title="Courses"
-                            subtitle="Curriculum fees"
-                            active={isActive('/dashboard/courses')}
+                            to="/dashboard/students"
+                            icon={<Users size={18} className="text-indigo-600" />}
+                            bg="bg-indigo-50"
+                            title="Students"
+                            subtitle="Profiles & photos"
+                            active={isActive('/dashboard/students')}
                             onClick={() => setMobileHubOpen(false)}
                           />
                           <MobileHubTile
-                            to="/dashboard/courseenrollment"
-                            icon={<PenSquare size={18} className="text-sky-600" />}
-                            bg="bg-sky-50"
-                            title="Enrollment"
-                            subtitle="Course batching"
-                            active={isActive('/dashboard/courseenrollment')}
+                            to="/dashboard/studentstatus"
+                            icon={<UserCheck size={18} className="text-emerald-600" />}
+                            bg="bg-emerald-50"
+                            title="Student Status"
+                            subtitle="Active & completed"
+                            active={isActive('/dashboard/studentstatus')}
                             onClick={() => setMobileHubOpen(false)}
                           />
-                        </>
-                      )}
-                      <MobileHubTile
-                        to="/dashboard/timeslot-analytics"
-                        icon={<Clock size={18} className="text-cyan-600" />}
-                        bg="bg-cyan-50"
-                        title="Timeslots"
-                        subtitle="Room schedules"
-                        active={isActive('/dashboard/timeslot-analytics')}
-                        onClick={() => setMobileHubOpen(false)}
-                      />
-                    </div>
-                  </div>
+                          {isAdmin && (
+                            <>
+                              <MobileHubTile
+                                to="/dashboard/courses"
+                                icon={<BookOpen size={18} className="text-purple-600" />}
+                                bg="bg-purple-50"
+                                title="Courses"
+                                subtitle="Curriculum fees"
+                                active={isActive('/dashboard/courses')}
+                                onClick={() => setMobileHubOpen(false)}
+                              />
+                              <MobileHubTile
+                                to="/dashboard/courseenrollment"
+                                icon={<PenSquare size={18} className="text-sky-600" />}
+                                bg="bg-sky-50"
+                                title="Enrollment"
+                                subtitle="Course batching"
+                                active={isActive('/dashboard/courseenrollment')}
+                                onClick={() => setMobileHubOpen(false)}
+                              />
+                            </>
+                          )}
+                          <MobileHubTile
+                            to="/dashboard/timeslot-analytics"
+                            icon={<Clock size={18} className="text-cyan-600" />}
+                            bg="bg-cyan-50"
+                            title="Timeslots"
+                            subtitle="Room schedules"
+                            active={isActive('/dashboard/timeslot-analytics')}
+                            onClick={() => setMobileHubOpen(false)}
+                          />
+                        </div>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      {/* Coaching Center Sections */}
+                      <div>
+                        <div className="text-[10px] font-bold uppercase tracking-wider text-emerald-600 mb-2 px-1 flex items-center gap-1.5">
+                          <GraduationCap size={12} className="text-emerald-600" />
+                          <span>Coaching Center</span>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2.5">
+                          <MobileHubTile
+                            to="/dashboard/coaching-students"
+                            icon={<Users size={18} className="text-emerald-600" />}
+                            bg="bg-emerald-50"
+                            title="Coaching Students"
+                            subtitle="TFC Roll No & Class"
+                            active={isActive('/dashboard/coaching-students')}
+                            onClick={() => setMobileHubOpen(false)}
+                          />
+                          <MobileHubTile
+                            to="/dashboard/coaching-fees"
+                            icon={<CreditCard size={18} className="text-blue-600" />}
+                            bg="bg-blue-50"
+                            title="Coaching Fee Entry"
+                            subtitle="Collect monthly fees"
+                            active={isActive('/dashboard/coaching-fees')}
+                            onClick={() => setMobileHubOpen(false)}
+                          />
+                          <MobileHubTile
+                            to="/dashboard/coaching-fee-status"
+                            icon={<BadgeDollarSign size={18} className="text-teal-600" />}
+                            bg="bg-teal-50"
+                            title="Coaching Status"
+                            subtitle="Realization & dues"
+                            active={isActive('/dashboard/coaching-fee-status')}
+                            onClick={() => setMobileHubOpen(false)}
+                          />
+                          <MobileHubTile
+                            to="/dashboard/expenses"
+                            icon={<Receipt size={18} className="text-amber-600" />}
+                            bg="bg-amber-50"
+                            title="Expenses"
+                            subtitle="Shared operations"
+                            active={isActive('/dashboard/expenses')}
+                            onClick={() => setMobileHubOpen(false)}
+                          />
+                          {isAdmin && (
+                            <MobileHubTile
+                              to="/dashboard/salary"
+                              icon={<Banknote size={18} className="text-teal-600" />}
+                              bg="bg-teal-50"
+                              title="Staff Salary"
+                              subtitle="Shared payroll"
+                              active={isActive('/dashboard/salary')}
+                              onClick={() => setMobileHubOpen(false)}
+                            />
+                          )}
+                        </div>
+                      </div>
+                    </>
+                  )}
 
                   {/* Intelligence & AI */}
                   {isAdmin && (
@@ -732,11 +1010,10 @@ const SidebarLink = ({ to, icon, label, collapsed, active, onClick }) => (
 const BottomNavLink = ({ to, icon, label, active }) => (
   <Link
     to={to}
-    className={`flex flex-col items-center justify-center py-1 px-3 rounded-xl transition-all active:scale-95 ${
-      active
+    className={`flex flex-col items-center justify-center py-1 px-3 rounded-xl transition-all active:scale-95 ${active
         ? 'text-blue-700 font-extrabold'
         : 'text-slate-500 hover:text-slate-800'
-    }`}
+      }`}
   >
     <div className={`p-1.5 rounded-xl transition-all ${active ? 'bg-blue-100 text-blue-700 scale-105 shadow-2xs' : ''}`}>
       {icon}
@@ -749,11 +1026,10 @@ const MobileHubTile = ({ to, icon, bg, title, subtitle, active, onClick }) => (
   <Link
     to={to}
     onClick={onClick}
-    className={`flex items-center gap-3 p-3 rounded-2xl border transition-all active:scale-98 shadow-xs ${
-      active
+    className={`flex items-center gap-3 p-3 rounded-2xl border transition-all active:scale-98 shadow-xs ${active
         ? 'bg-blue-50/90 border-blue-400 shadow-sm'
         : 'bg-white hover:bg-slate-50 border-slate-300/80 hover:border-slate-400'
-    }`}
+      }`}
   >
     <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 shadow-2xs ${bg}`}>
       {icon}

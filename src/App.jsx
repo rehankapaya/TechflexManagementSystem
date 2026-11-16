@@ -23,6 +23,9 @@ import Expenses from './components/Expenses';
 import Students from './components/Students';
 import CourseEnrollment from './components/CourseEnrollment';
 import TimeslotAnalytics from './components/TimeslotAnalytics';
+import CoachingStudents from './components/CoachingStudents';
+import CoachingFees from './components/CoachingFees';
+import CoachingFeeStatus from './components/CoachingFeeStatus';
 
 // IIC Imports
 import IICLayout from './components/iic/IICLayout';
@@ -187,6 +190,32 @@ function App() {
               element={
                 <ProtectedRoute>
                   <TimeslotAnalytics />
+                </ProtectedRoute>
+              }
+            />
+
+            {/* Coaching Center Routes */}
+            <Route
+              path="coaching-students"
+              element={
+                <ProtectedRoute>
+                  <CoachingStudents />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="coaching-fees"
+              element={
+                <ProtectedRoute>
+                  <CoachingFees />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="coaching-fee-status"
+              element={
+                <ProtectedRoute>
+                  <CoachingFeeStatus />
                 </ProtectedRoute>
               }
             />

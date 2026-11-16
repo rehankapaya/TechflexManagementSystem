@@ -22,6 +22,18 @@ export const DataProvider = ({ children }) => {
   const [staffDirectory, setStaffDirectory] = useState([]);
   const [users, setUsers] = useState([]);
   const [certificates, setCertificates] = useState([]);
+  const [coachingStudents, setCoachingStudents] = useState([]);
+  const [coachingStudentsRaw, setCoachingStudentsRaw] = useState({});
+  const [coachingFeeTransactions, setCoachingFeeTransactions] = useState({});
+
+  const [activeInstitute, setActiveInstituteState] = useState(() => {
+    return localStorage.getItem('techflex_active_institute') || 'computer';
+  });
+
+  const setActiveInstitute = (institute) => {
+    setActiveInstituteState(institute);
+    localStorage.setItem('techflex_active_institute', institute);
+  };
 
   const [loading, setLoading] = useState({
     students: true,
@@ -48,6 +60,9 @@ export const DataProvider = ({ children }) => {
       setStaffDirectory([]);
       setUsers([]);
       setCertificates([]);
+      setCoachingStudents([]);
+      setCoachingStudentsRaw({});
+      setCoachingFeeTransactions({});
       setLoading({
         students: true,
         courses: true,
@@ -127,6 +142,16 @@ export const DataProvider = ({ children }) => {
       setCertificates(data ? Object.keys(data).map(id => ({ id, ...data[id] })).reverse() : []);
     });
 
+    const unsubCoachingStudents = onValue(ref(db, 'coaching_students'), (snap) => {
+      const data = snap.val();
+      setCoachingStudentsRaw(data || {});
+      setCoachingStudents(data ? Object.keys(data).map(id => ({ id, ...data[id] })) : []);
+    });
+
+    const unsubCoachingFees = onValue(ref(db, 'coaching_fees'), (snap) => {
+      setCoachingFeeTransactions(snap.val() || {});
+    });
+
     return () => {
       unsubStudents();
       unsubCourses();
@@ -138,6 +163,8 @@ export const DataProvider = ({ children }) => {
       unsubStaffDir();
       unsubUsers();
       unsubCerts();
+      unsubCoachingStudents();
+      unsubCoachingFees();
     };
   }, [currentUser]);
 
@@ -158,6 +185,11 @@ export const DataProvider = ({ children }) => {
     staffDirectory,
     users,
     certificates,
+    coachingStudents,
+    coachingStudentsRaw,
+    coachingFeeTransactions,
+    activeInstitute,
+    setActiveInstitute,
     loading,
     isInitialLoading,
   };
