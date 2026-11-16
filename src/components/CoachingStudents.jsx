@@ -151,7 +151,7 @@ const CoachingStudents = () => {
     const resolvedGrade = extracted.matchedGrade || extracted.grade || COACHING_GRADES[4];
     setFormData(prev => ({
       ...prev,
-      roll_no: extracted.reg_no || prev.roll_no || autoRollNo,
+      roll_no: autoRollNo,
       name: extracted.name || prev.name,
       contact: extracted.contact || prev.contact,
       secondary_contact: extracted.secondary_contact || prev.secondary_contact,
@@ -231,7 +231,7 @@ const CoachingStudents = () => {
     setIsSubmitting(true);
     try {
       const studentPayload = {
-        roll_no: formData.roll_no.trim() || autoRollNo,
+        roll_no: editingStudent ? (editingStudent.roll_no || editingStudent.student_id || formData.roll_no || autoRollNo) : autoRollNo,
         name: formData.name.trim(),
         contact: formData.contact.trim(),
         contact_number: formData.contact.trim(),
@@ -890,18 +890,22 @@ const CoachingStudents = () => {
                   />
                 </div>
 
-                {/* 12. Roll Number */}
+                {/* 12. Roll Number (Non-editable) */}
                 <div>
-                  <label className="block text-xs font-semibold text-slate-600 mb-1">
-                    Roll Number <span className="text-slate-400 font-normal">({autoRollNo})</span>
-                  </label>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-xs font-semibold text-slate-600">Roll Number</label>
+                    <span className="text-[10px] text-emerald-700 font-semibold bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-200">
+                      Auto-generated
+                    </span>
+                  </div>
                   <input
                     type="text"
                     name="roll_no"
-                    placeholder={autoRollNo}
-                    value={formData.roll_no}
-                    onChange={handleChange}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all font-mono font-bold text-emerald-700"
+                    value={editingStudent ? (formData.roll_no || editingStudent.roll_no || autoRollNo) : autoRollNo}
+                    readOnly
+                    disabled
+                    className="w-full px-3 py-2 bg-slate-100 border border-slate-200 rounded-xl text-sm font-mono font-bold text-emerald-800 cursor-not-allowed select-none opacity-90 shadow-inner"
+                    title="Roll number is auto-generated and non-editable"
                   />
                 </div>
 

@@ -946,18 +946,20 @@ const AdmissionFormScannerModal = ({
                             />
                           </div>
 
-                          <div>
-                            <label className="block text-[11px] font-semibold text-slate-600 mb-1">
-                              Reg / Roll Number
-                            </label>
-                            <input
-                              type="text"
-                              value={extractedData.reg_no}
-                              onChange={(e) => handleFieldChange('reg_no', e.target.value)}
-                              placeholder="e.g. TFC-001 or STU-001"
-                              className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white text-xs font-mono font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
-                            />
-                          </div>
+                          {mode === 'computer' && (
+                            <div>
+                              <label className="block text-[11px] font-semibold text-slate-600 mb-1">
+                                Reg / Roll Number
+                              </label>
+                              <input
+                                type="text"
+                                value={extractedData.reg_no}
+                                onChange={(e) => handleFieldChange('reg_no', e.target.value)}
+                                placeholder="e.g. STU-001"
+                                className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-white text-xs font-mono font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+                              />
+                            </div>
+                          )}
 
                           <div>
                             <label className="block text-[11px] font-semibold text-slate-600 mb-1">
