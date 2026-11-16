@@ -1,6 +1,7 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
 export const COACHING_GRADES = [
+  'Class 5',
   'Class 6',
   'Class 7',
   'Class 8',
@@ -71,26 +72,41 @@ export const matchCourseAndGrade = (extractedCourseOrClass, fullText = '', cours
 
   // 2. Coaching Center Grade Match
   if (Array.isArray(coachingGrades) && coachingGrades.length > 0) {
+    // Exact or partial string match first
     for (const g of coachingGrades) {
       const cleanG = g.toLowerCase().replace(/[\(\)]/g, '').trim();
       const gLower = g.toLowerCase();
       if (extractedCourseOrClass && (extractedCourseOrClass.toLowerCase().includes(cleanG) || extractedCourseOrClass.toLowerCase().includes(gLower))) {
         matchedGrade = g;
         break;
-      } else if (pool.includes(cleanG) || pool.includes(gLower)) {
-        matchedGrade = g;
-        break;
       }
     }
 
+    // Heuristic & Roman Numeral / Handwritten mappings
     if (!matchedGrade) {
-      if (/matric\s*ii|class\s*10\b/i.test(pool)) matchedGrade = 'Class 10 (Matric II)';
-      else if (/matric\s*i\b|class\s*9\b/i.test(pool)) matchedGrade = 'Class 9 (Matric I)';
-      else if (/inter\s*i\b|1st\s*year/i.test(pool)) matchedGrade = '1st Year (Inter I)';
-      else if (/inter\s*ii\b|2nd\s*year/i.test(pool)) matchedGrade = '2nd Year (Inter II)';
-      else if (/class\s*8\b/i.test(pool)) matchedGrade = 'Class 8';
-      else if (/class\s*7\b/i.test(pool)) matchedGrade = 'Class 7';
-      else if (/class\s*6\b/i.test(pool)) matchedGrade = 'Class 6';
+      if (/\b(?:01\s*commerce|1st\s*year|first\s*year|inter\s*i\b|xi\b)/i.test(pool)) {
+        matchedGrade = '1st Year (Inter I)';
+      } else if (/\b(?:02\s*commerce|2nd\s*year|second\s*year|inter\s*ii\b|xii\b)/i.test(pool)) {
+        matchedGrade = '2nd Year (Inter II)';
+      } else if (/\b(?:matric\s*ii|class\s*10|10th|\bx\b)/i.test(pool)) {
+        matchedGrade = 'Class 10 (Matric II)';
+      } else if (/\b(?:matric\s*i\b|class\s*9|9th|ix\b)/i.test(pool)) {
+        matchedGrade = 'Class 9 (Matric I)';
+      } else if (/\b(?:class\s*8|8th|viii\b)/i.test(pool)) {
+        matchedGrade = 'Class 8';
+      } else if (/\b(?:class\s*7|7th|vii\b|\b07\b)/i.test(pool)) {
+        matchedGrade = 'Class 7';
+      } else if (/\b(?:class\s*6|6th|vi\b|\b06\b)/i.test(pool)) {
+        matchedGrade = 'Class 6';
+      } else if (/\b(?:class\s*5|5th|\bv\b|five\b|\b05\b)/i.test(pool)) {
+        matchedGrade = 'Class 5';
+      } else if (/\b(?:o[-\s]?levels?)\b/i.test(pool)) {
+        matchedGrade = 'O-Levels';
+      } else if (/\b(?:a[-\s]?levels?)\b/i.test(pool)) {
+        matchedGrade = 'A-Levels';
+      } else if (/\b(?:four|primary|coaching)\b/i.test(pool)) {
+        matchedGrade = 'General Coaching';
+      }
     }
   }
 
@@ -108,7 +124,7 @@ export const parseAdmissionFormLocal = (rawText, courses = [], coachingGrades = 
     gender: 'Male',
     dob: '',
     cnic: '',
-    religion: '',
+    religion: 'Islam',
     address: '',
     contact: '',
     secondary_contact: '',
@@ -143,16 +159,19 @@ export const parseAdmissionFormLocal = (rawText, courses = [], coachingGrades = 
     result.email = emailMatch[0].trim();
   }
 
-  // 2. CNIC / N.I.C (e.g. 42101-1234567-1 or 4210112345671)
+  // 2. CNIC / N.I.C (e.g. 42301-0195991-5 or 4210112345671)
   const cnicMatch = bodyText.match(/\b(\d{5}[-\s]?\d{7}[-\s]?\d)\b/);
   if (cnicMatch) {
     result.cnic = cnicMatch[1].replace(/\s+/g, '-');
   }
 
   // 3. Date of Birth (D.O.B)
-  const dobMatch = bodyText.match(/(?:D\.?O\.?B|Date\s*of\s*Birth)[\s:\-_]+(\d{1,2}[\/\-\.\s]\d{1,2}[\/\-\.\s](?:19\d{2}|20\d{2}))/i);
+  const dobMatch = bodyText.match(/(?:D\.?O\.?B|Date\s*of\s*Birth)[\s:\-_]+([0-9A-Za-z\/\-\.\s]{4,15})/i);
   if (dobMatch) {
-    result.dob = dobMatch[1].trim();
+    const dStr = dobMatch[1].trim();
+    if (!isLabelOrEmpty(dStr) && /\d/.test(dStr)) {
+      result.dob = dStr;
+    }
   }
 
   // 4. Contact Numbers (Primary & Secondary/WhatsApp)
@@ -162,20 +181,27 @@ export const parseAdmissionFormLocal = (rawText, courses = [], coachingGrades = 
     .filter(p => !INSTITUTE_PHONES.includes(p));
 
   // Check specific Contact line
-  const contactLineMatch = bodyText.match(/Contact[\s:\-_]+([0-9+\-\s]{10,16})/i);
+  const contactLineMatch = bodyText.match(/Contact[\s:\-_]+([0-9+\-\s/]{10,25})/i);
   if (contactLineMatch) {
-    const cClean = contactLineMatch[1].replace(/[-\s]/g, '');
-    if (!INSTITUTE_PHONES.includes(cClean) && cClean.length >= 10) {
-      result.contact = cClean;
+    const rawMatches = Array.from(contactLineMatch[1].matchAll(phoneRegex))
+      .map(m => m[0].replace(/[-\s]/g, ''))
+      .filter(p => !INSTITUTE_PHONES.includes(p));
+    if (rawMatches.length > 0) {
+      result.contact = rawMatches[0];
+      if (rawMatches.length > 1) {
+        result.secondary_contact = rawMatches[1];
+      }
     }
   }
 
   // Check specific WhatsApp line
-  const waMatch = bodyText.match(/(?:WhatsApp|Whatsapp)[\s:\-_]+([0-9+\-\s]{10,16})/i);
+  const waMatch = bodyText.match(/(?:WhatsApp|Whatsapp)[\s:\-_]+([0-9+\-\s/]{10,25})/i);
   if (waMatch) {
-    const waClean = waMatch[1].replace(/[-\s]/g, '');
-    if (!INSTITUTE_PHONES.includes(waClean) && waClean.length >= 10 && waClean !== result.contact) {
-      result.secondary_contact = waClean;
+    const rawWa = Array.from(waMatch[1].matchAll(phoneRegex))
+      .map(m => m[0].replace(/[-\s]/g, ''))
+      .filter(p => !INSTITUTE_PHONES.includes(p));
+    if (rawWa.length > 0) {
+      result.secondary_contact = rawWa[0];
     }
   }
 
@@ -250,7 +276,7 @@ export const parseAdmissionFormLocal = (rawText, courses = [], coachingGrades = 
   result.matchedGrade = matchedGrade;
 
   // 11. Timing / Timeslot
-  const timingMatch = bodyText.match(/(?:Timimg|Timing|Time)[\s:\-_]+([0-9:\sAPMapm\-]+)/i);
+  const timingMatch = bodyText.match(/(?:Timimg|Timing|Time)[\s:\-_]+([0-9:\sAPMapm\-a-z]+)/i);
   if (timingMatch) {
     const clean = cleanFieldValue(timingMatch[1], ['last', 'qualification', 'email']);
     if (clean && !isLabelOrEmpty(clean)) {
@@ -289,14 +315,15 @@ export const parseAdmissionFormLocal = (rawText, courses = [], coachingGrades = 
   }
 
   // 15. Admission Date
-  const dateMatch = bodyText.match(/(?:Date)[\s:\-_]+(\d{1,2}[\/\-\.\s]\d{1,2}[\/\-\.\s](?:202[4-9]|203[0-5]))/i);
+  const dateMatch = bodyText.match(/(?:Date)[\s:\-_]+(\d{1,2}[\/\-\.\s]\d{1,2}[\/\-\.\s](?:202[0-9]|20[0-9]{2}))/i);
   if (dateMatch) {
     const dStr = dateMatch[1].trim();
     const parts = dStr.split(/[\/\-\.\s]+/);
     if (parts.length === 3) {
       const day = parseInt(parts[0], 10);
       const month = parseInt(parts[1], 10);
-      const year = parts[2];
+      let year = parts[2];
+      if (year.length === 2) year = `20${year}`;
       if (day >= 1 && day <= 31 && month >= 1 && month <= 12) {
         result.admission_date = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
       }
@@ -332,8 +359,8 @@ JSON Schema:
   "student_name": "string",
   "father_name": "string",
   "gender": "Male" or "Female",
-  "dob": "string (DD/MM/YYYY or YYYY-MM-DD)",
-  "cnic": "string (42101-XXXXXXX-X)",
+  "dob": "string",
+  "cnic": "string (XXXXX-XXXXXXX-X)",
   "religion": "string",
   "address": "string",
   "contact": "string",
@@ -383,7 +410,7 @@ JSON Schema:
     gender: data.gender === 'Female' ? 'Female' : 'Male',
     dob: data.dob || '',
     cnic: data.cnic || '',
-    religion: data.religion || '',
+    religion: data.religion || 'Islam',
     address: data.address || '',
     contact: data.contact || '',
     secondary_contact: data.whatsapp || '',
@@ -391,6 +418,7 @@ JSON Schema:
     matchedCourseId: '',
     matchedGrade: '',
     timeslot: data.timing || '',
+    timing: data.timing || '',
     class_type: data.timing?.includes('2') ? 'Alternate (2 Hours)' : 'Regular (1 Hour)',
     qualification: data.qualification || '',
     email: data.email || '',
@@ -411,28 +439,73 @@ JSON Schema:
 /**
  * Gemini AI Multimodal Vision Parser
  * Directly reads handwritten camera snapshots and image files
+ * Implements dynamic model discovery and automatic fallback to prevent 404 errors
  */
 export const parseAdmissionFormWithGeminiAI = async (base64Image, apiKey, courses = [], coachingGrades = COACHING_GRADES) => {
   if (!apiKey) {
-    throw new Error("Gemini API key is required for AI Vision extraction.");
+    throw new Error('Gemini API key is required for AI Vision extraction.');
   }
-
-  const genAI = new GoogleGenerativeAI(apiKey);
-  const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
 
   const cleanB64 = base64Image.replace(/^data:image\/\w+;base64,/, '');
 
-  const prompt = `You are an automated document data extractor for TechFlex Institute's Student Admission Form.
-Examine this admission form photo or scan carefully. Extract the filled fields as a single JSON object.
+  // Determine mimeType
+  let mimeType = 'image/jpeg';
+  if (base64Image.startsWith('data:image/png')) {
+    mimeType = 'image/png';
+  } else if (base64Image.startsWith('data:image/webp')) {
+    mimeType = 'image/webp';
+  }
 
-CRITICAL RULES:
-1. Extract ONLY actual user-filled handwritten or typed text. If a field was left blank/empty by the user, return an empty string ""!
-2. NEVER return the form labels as values (e.g. if Father's Name is blank, do NOT return "Religion" or "N.I.C")!
-3. The phone number in the institute header "03403002715" belongs to the institute. DO NOT use it as the student contact!
-4. Student contact should be in "contact", WhatsApp in "whatsapp".
-5. Return strictly valid JSON without any markdown formatting or commentary.
+  // 1. Dynamic Model Discovery for the user's specific API key
+  let candidateModels = [
+    'gemini-1.5-flash-latest',
+    'gemini-2.0-flash',
+    'gemini-1.5-flash',
+    'gemini-2.5-flash',
+    'gemini-1.5-pro',
+    'gemini-1.5-flash-8b',
+    'gemini-2.0-flash-exp'
+  ];
 
-JSON Output Schema:
+  try {
+    const listRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`);
+    if (listRes.ok) {
+      const listData = await listRes.json();
+      const validModels = (listData.models || [])
+        .filter(m => Array.isArray(m.supportedGenerationMethods) && m.supportedGenerationMethods.includes('generateContent'))
+        .map(m => m.name.replace(/^models\//, ''));
+      
+      const prioritized = validModels.filter(m => m.includes('flash') || m.includes('gemini'));
+      if (prioritized.length > 0) {
+        // Prepend discovered working models
+        candidateModels = [...new Set([...prioritized, ...candidateModels])];
+      }
+    }
+  } catch (err) {
+    console.warn('Gemini model discovery error, using candidate sequence:', err);
+  }
+
+  const prompt = `You are an expert document OCR data extractor for TechFlex Institute's handwritten student admission form.
+Examine this photo or scan of a filled admission form carefully. The form is filled by hand with pen ink (in English or Urdu).
+
+Form Layout & Field Extraction Details:
+1. "Name of Student": Handwritten student full name (e.g. "Abdul Rehman", "Muhammad Ahmad", "Mohammad Shaayan", "Qasim Muhammad Hassan", "Sakina Ashiq", "Rehan Sajid", "عمران اللہ").
+2. "Father's Name": Handwritten father's name (e.g. "M. Owais Ajmeri", "Hussain Ahmad", "Abdul Aleem", "Ghulam Mujtaba", "Ashiq Hussain", "عبد اللہ").
+3. "Religion": Handwritten religion (e.g. "Islam", "Muslim", "اسلام").
+4. "N.I.C": 13-digit Pakistani CNIC or B-Form written inside the individual digit boxes (e.g. 42301-0195991-5). Format as XXXXX-XXXXXXX-X.
+5. "D.O.B": Date of birth written inside the D.O.B box (e.g. "4-11-2010", "3rd Jan 2013", "17-1-10", "10/6/2009").
+6. "Gender": Look for a checkmark (✓), tick, circle, or underline near "Male" or "Female". If checked on Female, return "Female"; if checked on Male or unchecked boy photo, return "Male".
+7. "Residential Address": Full street / apartment address written in English or Urdu (e.g. "Haji Suleiman Abdullah bldg 3rd floor Gari Khata Karachi", "Mustafa Masjid Arambagh", "بلال چائنا سینٹر...").
+8. "Contact": Primary phone number (e.g. "0331-2118429", "0343-8075590", "0324 2607407"). DO NOT extract the institute header number 03403002715!
+9. "WhatsApp": Secondary / WhatsApp phone number. If multiple numbers are written on Contact (e.g. 0331-2118429 / 0332-3363793), put the second number in whatsapp.
+10. "Course / Class": Coaching grade or course written on the form (e.g. "01 Commerce", "07", "VI", "9th", "IX - commerce", "8th", "Five").
+11. "Timing": Batch class timing (e.g. "6-8", "5:30 till 7:30", "5 onwards", "6pm till").
+12. "Last Qualification": Last class/school attended (e.g. "8 class", "06", "5 Class", "8th", "Four").
+13. "Email": Student email address (if filled, else "").
+14. "Batch Code": Batch code if filled (e.g. "2" or "").
+15. "Date": Admission / form date written on top left (e.g. "18-9-2024", "23/Sep/2021", "04/10/24") converted to YYYY-MM-DD.
+
+Output MUST be strictly valid JSON without any markdown formatting, backticks, or commentary:
 {
   "student_name": "string",
   "father_name": "string",
@@ -448,19 +521,44 @@ JSON Output Schema:
   "qualification": "string",
   "email": "string",
   "batch_code": "string",
-  "reg_no": "string",
   "admission_date": "YYYY-MM-DD"
 }`;
 
-  const imagePart = {
-    inlineData: {
-      data: cleanB64,
-      mimeType: 'image/png'
-    }
-  };
+  const genAI = new GoogleGenerativeAI(apiKey);
+  let lastError = null;
+  let textResponse = '';
 
-  const response = await model.generateContent([prompt, imagePart]);
-  const textResponse = response.response.text();
+  for (const modelName of candidateModels) {
+    try {
+      const model = genAI.getGenerativeModel({ model: modelName });
+      const imagePart = {
+        inlineData: {
+          data: cleanB64,
+          mimeType: mimeType
+        }
+      };
+
+      const response = await model.generateContent([prompt, imagePart]);
+      textResponse = response.response.text();
+      if (textResponse) {
+        break; // Successfully got response!
+      }
+    } catch (modelErr) {
+      lastError = modelErr;
+      const errMsg = (modelErr.message || '').toLowerCase();
+      // If 404 or model not supported, try the next candidate model
+      if (errMsg.includes('404') || errMsg.includes('not found') || errMsg.includes('is not supported')) {
+        console.warn(`Model ${modelName} not available (404), trying next candidate...`);
+        continue;
+      }
+      // If it's another error (e.g. quota or invalid key), rethrow
+      throw modelErr;
+    }
+  }
+
+  if (!textResponse && lastError) {
+    throw lastError;
+  }
 
   let cleanedJson = textResponse.trim();
   if (cleanedJson.startsWith('```json')) {
@@ -477,7 +575,7 @@ JSON Output Schema:
     gender: aiData.gender === 'Female' ? 'Female' : 'Male',
     dob: aiData.dob || '',
     cnic: aiData.cnic || '',
-    religion: aiData.religion || '',
+    religion: aiData.religion || 'Islam',
     address: aiData.address || '',
     contact: aiData.contact || '',
     secondary_contact: aiData.whatsapp || '',
@@ -485,6 +583,7 @@ JSON Output Schema:
     matchedCourseId: '',
     matchedGrade: '',
     timeslot: aiData.timing || '',
+    timing: aiData.timing || '',
     class_type: aiData.timing?.includes('2') ? 'Alternate (2 Hours)' : 'Regular (1 Hour)',
     qualification: aiData.qualification || '',
     email: aiData.email || '',

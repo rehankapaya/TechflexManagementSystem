@@ -3,6 +3,7 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 
 // Common Coaching Grades for matching
 export const COACHING_GRADES = [
+  'Class 5',
   'Class 6',
   'Class 7',
   'Class 8',
