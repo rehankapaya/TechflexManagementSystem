@@ -7,6 +7,8 @@ import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import ImageCropModal from './ImageCropModal';
 import AdmissionFormScannerModal from './AdmissionFormScannerModal';
+import CoachingBulkUploadModal from './CoachingBulkUploadModal';
+import { downloadCoachingStudentSample } from '../utils/bulkUpload';
 import {
   COACHING_GRADES,
   COACHING_FIELDS,
@@ -35,6 +37,8 @@ import {
   Filter,
   FileText,
   Upload,
+  Download,
+  FileSpreadsheet,
   MessageCircle,
   Smartphone
 } from 'lucide-react';
@@ -118,6 +122,7 @@ const CoachingStudents = () => {
   }, [coachingStudents]);
 
   const [isAdmissionScannerOpen, setIsAdmissionScannerOpen] = useState(false);
+  const [isBulkUploadOpen, setIsBulkUploadOpen] = useState(false);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -355,23 +360,43 @@ const CoachingStudents = () => {
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            onClick={downloadCoachingStudentSample}
+            className="flex items-center gap-1.5 px-3 py-2.5 rounded-xl bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 font-bold text-xs shadow-xs active:scale-95 transition-all cursor-pointer"
+            title="Download Excel template for coaching student entries"
+          >
+            <Download size={15} className="text-emerald-600" />
+            <span className="hidden sm:inline">Download Template</span>
+            <span className="sm:hidden">Template</span>
+          </button>
+
+          <button
+            onClick={() => setIsBulkUploadOpen(true)}
+            className="flex items-center gap-1.5 px-3 py-2.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200/80 font-bold text-xs shadow-xs active:scale-95 transition-all cursor-pointer"
+            title="Bulk upload coaching students from Excel (.xlsx) or CSV"
+          >
+            <Upload size={15} />
+            <span className="hidden sm:inline">Bulk Upload</span>
+            <span className="sm:hidden">Upload</span>
+          </button>
+
           <button
             onClick={() => setIsAdmissionScannerOpen(true)}
-            className="flex items-center gap-2 px-3.5 py-2.5 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200/80 font-bold text-xs shadow-xs active:scale-95 transition-all cursor-pointer"
+            className="flex items-center gap-1.5 px-3 py-2.5 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200/80 font-bold text-xs shadow-xs active:scale-95 transition-all cursor-pointer"
             title="Scan student admission form (Camera, Photo, or PDF)"
           >
-            <FileText size={16} />
-            <span className="hidden sm:inline">Scan Admission Form</span>
-            <span className="sm:hidden">Scan Form</span>
+            <FileText size={15} />
+            <span className="hidden sm:inline">Scan Form</span>
+            <span className="sm:hidden">Scan</span>
           </button>
 
           <button
             onClick={handleOpenAddModal}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-md shadow-emerald-600/20 active:scale-95 transition-all cursor-pointer w-fit"
+            className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-md shadow-emerald-600/20 active:scale-95 transition-all cursor-pointer w-fit"
           >
             <Plus size={16} />
-            <span>New Coaching Student</span>
+            <span>New Student</span>
           </button>
         </div>
       </div>
@@ -1083,6 +1108,13 @@ const CoachingStudents = () => {
         onApply={handleAdmissionFormApplied}
         coachingGrades={COACHING_GRADES}
         mode="coaching"
+      />
+
+      {/* BULK UPLOAD MODAL */}
+      <CoachingBulkUploadModal
+        isOpen={isBulkUploadOpen}
+        onClose={() => setIsBulkUploadOpen(false)}
+        existingStudents={coachingStudents}
       />
     </div>
   );
