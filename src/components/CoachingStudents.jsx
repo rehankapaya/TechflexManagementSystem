@@ -466,6 +466,15 @@ const CoachingStudents = () => {
           </button>
 
           <button
+            onClick={() => navigate('/dashboard/coaching-reenrollment')}
+            className="flex items-center gap-1.5 px-3 py-2.5 rounded-xl bg-purple-50 hover:bg-purple-100 text-purple-700 border border-purple-200/80 font-bold text-xs shadow-xs active:scale-95 transition-all cursor-pointer"
+            title="Open Coaching Re-enrollment & Session Promotion Center"
+          >
+            <GraduationCap size={15} />
+            <span className="hidden sm:inline">Re-enrollment</span>
+          </button>
+
+          <button
             onClick={handleOpenAddModal}
             className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-md shadow-emerald-600/20 active:scale-95 transition-all cursor-pointer w-fit"
           >

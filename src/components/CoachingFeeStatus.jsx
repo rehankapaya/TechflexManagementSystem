@@ -289,9 +289,8 @@ const CoachingFeeStatus = () => {
             <div className="flex-1 bg-slate-100 rounded-full h-2.5 overflow-hidden">
               <div
                 style={{ width: `${metrics.collectionRate}%` }}
-                className={`h-full rounded-full transition-all ${
-                  metrics.collectionRate >= 80 ? 'bg-emerald-500' : metrics.collectionRate >= 50 ? 'bg-amber-500' : 'bg-rose-500'
-                }`}
+                className={`h-full rounded-full transition-all ${metrics.collectionRate >= 80 ? 'bg-emerald-500' : metrics.collectionRate >= 50 ? 'bg-amber-500' : 'bg-rose-500'
+                  }`}
               />
             </div>
             <span className="font-mono text-xs font-bold text-slate-800">{metrics.collectionRate}%</span>

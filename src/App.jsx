@@ -24,6 +24,7 @@ import Students from './components/Students';
 import CourseEnrollment from './components/CourseEnrollment';
 import TimeslotAnalytics from './components/TimeslotAnalytics';
 import CoachingStudents from './components/CoachingStudents';
+import CoachingReenrollment from './components/CoachingReenrollment';
 import CoachingFees from './components/CoachingFees';
 import CoachingFeeStatus from './components/CoachingFeeStatus';
 
@@ -200,6 +201,14 @@ function App() {
               element={
                 <ProtectedRoute>
                   <CoachingStudents />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="coaching-reenrollment"
+              element={
+                <ProtectedRoute>
+                  <CoachingReenrollment />
                 </ProtectedRoute>
               }
             />

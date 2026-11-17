@@ -68,6 +68,7 @@ const Dashboard = () => {
     if (path.startsWith('/dashboard/feestatus')) return 'Fee Status';
     if (path.startsWith('/dashboard/overdue')) return 'Overdue';
     if (path.startsWith('/dashboard/coaching-students')) return 'Coaching Students';
+    if (path.startsWith('/dashboard/coaching-reenrollment')) return 'Coaching Re-enrollment';
     if (path.startsWith('/dashboard/coaching-fees')) return 'Coaching Fees';
     if (path.startsWith('/dashboard/coaching-fee-status')) return 'Coaching Status';
     if (path.startsWith('/dashboard/expenses')) return 'Expenses';
@@ -165,7 +166,7 @@ const Dashboard = () => {
               <button
                 onClick={() => {
                   setActiveInstitute('computer');
-                  if (['/dashboard/coaching-students', '/dashboard/coaching-fees', '/dashboard/coaching-fee-status'].includes(location.pathname)) {
+                  if (['/dashboard/coaching-students', '/dashboard/coaching-reenrollment', '/dashboard/coaching-fees', '/dashboard/coaching-fee-status'].includes(location.pathname)) {
                     navigate('/dashboard/students');
                   }
                 }}
@@ -282,6 +283,13 @@ const Dashboard = () => {
                   label="Coaching Students"
                   collapsed={sidebarCollapsed}
                   active={isActive('/dashboard/coaching-students')}
+                />
+                <SidebarLink
+                  to="/dashboard/coaching-reenrollment"
+                  icon={<GraduationCap size={20} />}
+                  label="Re-enrollment"
+                  collapsed={sidebarCollapsed}
+                  active={isActive('/dashboard/coaching-reenrollment')}
                 />
               </div>
 
@@ -422,7 +430,7 @@ const Dashboard = () => {
                 type="button"
                 onClick={() => {
                   setActiveInstitute('computer');
-                  if (['/dashboard/coaching-students', '/dashboard/coaching-fees', '/dashboard/coaching-fee-status'].includes(location.pathname)) {
+                  if (['/dashboard/coaching-students', '/dashboard/coaching-reenrollment', '/dashboard/coaching-fees', '/dashboard/coaching-fee-status'].includes(location.pathname)) {
                     navigate('/dashboard/students');
                   }
                 }}
@@ -635,7 +643,7 @@ const Dashboard = () => {
                     type="button"
                     onClick={() => {
                       setActiveInstitute('computer');
-                      if (['/dashboard/coaching-students', '/dashboard/coaching-fees', '/dashboard/coaching-fee-status'].includes(location.pathname)) {
+                      if (['/dashboard/coaching-students', '/dashboard/coaching-reenrollment', '/dashboard/coaching-fees', '/dashboard/coaching-fee-status'].includes(location.pathname)) {
                         navigate('/dashboard/students');
                       }
                       setMobileHubOpen(false);
@@ -853,6 +861,15 @@ const Dashboard = () => {
                             title="Coaching Students"
                             subtitle="TFC Roll No & Class"
                             active={isActive('/dashboard/coaching-students')}
+                            onClick={() => setMobileHubOpen(false)}
+                          />
+                          <MobileHubTile
+                            to="/dashboard/coaching-reenrollment"
+                            icon={<GraduationCap size={18} className="text-indigo-600" />}
+                            bg="bg-indigo-50"
+                            title="Re-enrollment"
+                            subtitle="Session Promotion"
+                            active={isActive('/dashboard/coaching-reenrollment')}
                             onClick={() => setMobileHubOpen(false)}
                           />
                           <MobileHubTile
