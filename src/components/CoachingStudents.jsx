@@ -362,7 +362,13 @@ const CoachingStudents = () => {
   };
 
   const handleToggleStatus = async (studentId, currentStatus) => {
-    const nextStatus = currentStatus === 'active' ? 'completed' : currentStatus === 'completed' ? 'left' : 'active';
+    const nextStatus = currentStatus === 'active'
+      ? 'completed'
+      : currentStatus === 'completed'
+        ? 'left'
+        : currentStatus === 'left'
+          ? 'inactive'
+          : 'active';
     const updatePayload = { status: nextStatus };
     // Do NOT automatically stamp today's date, preserving previous years' historical integrity
     try {
@@ -403,17 +409,49 @@ const CoachingStudents = () => {
 
   // Status Metrics
   const stats = useMemo(() => {
-    let active = 0, completed = 0, left = 0, totalReceivable = 0;
-    coachingStudents.forEach(s => {
-      if (s.status === 'completed') completed++;
-      else if (s.status === 'left') left++;
-      else {
+    // If a session filter is active (not 'ALL'), compute stats for that session
+    const list = selectedSession === 'ALL'
+      ? coachingStudents
+      : coachingStudents.filter(s =>
+          isSessionMatch(s.current_session || s.session, selectedSession) ||
+          (s.sessions && Object.keys(s.sessions).some(sessKey => isSessionMatch(sessKey, selectedSession)))
+        );
+
+    let active = 0, completed = 0, left = 0, inactive = 0, totalReceivable = 0;
+    list.forEach(s => {
+      let st = (s.status || '').toLowerCase().trim();
+      let fee = Number(s.monthly_fee) || 0;
+
+      // If a specific session is selected, check the session's own status & fee if available
+      if (selectedSession !== 'ALL' && s.sessions) {
+        const sessEntry = Object.entries(s.sessions).find(([k]) => isSessionMatch(k, selectedSession));
+        if (sessEntry && sessEntry[1]) {
+          if (sessEntry[1].status) st = String(sessEntry[1].status).toLowerCase().trim();
+          if (sessEntry[1].monthly_fee !== undefined) fee = Number(sessEntry[1].monthly_fee) || 0;
+        }
+      }
+
+      if (st === 'active') {
         active++;
-        totalReceivable += Number(s.monthly_fee) || 0;
+        totalReceivable += fee;
+      } else if (st === 'completed') {
+        completed++;
+      } else if (st === 'left' || st === 'dropped') {
+        left++;
+      } else {
+        inactive++;
       }
     });
-    return { active, completed, left, totalReceivable, total: coachingStudents.length };
-  }, [coachingStudents]);
+
+    return {
+      active,
+      completed,
+      left,
+      inactive,
+      totalReceivable,
+      total: list.length
+    };
+  }, [coachingStudents, selectedSession]);
 
   return (
     <div className="space-y-6 font-sans animate-fade-in pb-12">
@@ -489,7 +527,7 @@ const CoachingStudents = () => {
         <div className="p-4 rounded-2xl bg-white border border-slate-300 md:border-slate-200/80 shadow-[0_2px_10px_rgba(15,23,42,0.06)] md:shadow-xs">
           <div className="flex items-center justify-between">
             <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Active Students</span>
-            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+            <span className={`w-2 h-2 rounded-full ${stats.active > 0 ? 'bg-emerald-500 animate-pulse' : 'bg-slate-300'}`}></span>
           </div>
           <div className="text-2xl font-extrabold text-emerald-700 font-mono mt-1">{stats.active}</div>
           <p className="text-[11px] text-slate-400 mt-0.5">Currently attending classes</p>
@@ -513,9 +551,12 @@ const CoachingStudents = () => {
         </div>
 
         <div className="p-4 rounded-2xl bg-white border border-slate-300 md:border-slate-200/80 shadow-[0_2px_10px_rgba(15,23,42,0.06)] md:shadow-xs">
-          <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Dropped / Left</span>
-          <div className="text-2xl font-extrabold text-rose-700 font-mono mt-1">{stats.left}</div>
-          <p className="text-[11px] text-slate-400 mt-0.5">Discontinued coaching</p>
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Dropped / Inactive</span>
+            <span className="text-[10px] font-bold text-slate-400 font-mono">{stats.left} left • {stats.inactive} off</span>
+          </div>
+          <div className="text-2xl font-extrabold text-rose-700 font-mono mt-1">{stats.left + stats.inactive}</div>
+          <p className="text-[11px] text-slate-400 mt-0.5">{stats.left} dropped, {stats.inactive} inactive</p>
         </div>
       </div>
 
@@ -576,6 +617,7 @@ const CoachingStudents = () => {
             >
               <option value="ALL">All Status</option>
               <option value="active">Active Only</option>
+              <option value="inactive">Inactive</option>
               <option value="completed">Completed</option>
               <option value="left">Left</option>
             </select>
@@ -628,7 +670,7 @@ const CoachingStudents = () => {
                   key={`mob_${student.id}`}
                   className="bg-white rounded-2xl border border-slate-300 p-4 space-y-3.5 shadow-xs relative overflow-hidden"
                 >
-                  <div className={`absolute top-0 left-0 bottom-0 w-1.5 ${student.status === 'active' ? 'bg-emerald-500' : student.status === 'completed' ? 'bg-indigo-500' : 'bg-rose-500'}`} />
+                  <div className={`absolute top-0 left-0 bottom-0 w-1.5 ${student.status === 'active' ? 'bg-emerald-500' : student.status === 'completed' ? 'bg-indigo-500' : student.status === 'inactive' ? 'bg-amber-500' : 'bg-rose-500'}`} />
                   <div className="pl-1">
                     <div className="flex items-start justify-between gap-3">
                       <div className="flex items-center gap-3">
@@ -666,6 +708,8 @@ const CoachingStudents = () => {
                             ? 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100'
                             : student.status === 'completed'
                             ? 'bg-indigo-50 text-indigo-700 border-indigo-200 hover:bg-indigo-100'
+                            : student.status === 'inactive'
+                            ? 'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100'
                             : 'bg-rose-50 text-rose-700 border-rose-200 hover:bg-rose-100'
                         }`}
                         title="Click to change status"
@@ -944,6 +988,8 @@ const CoachingStudents = () => {
                                     ? 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100'
                                     : student.status === 'completed'
                                     ? 'bg-indigo-50 text-indigo-700 border-indigo-200 hover:bg-indigo-100'
+                                    : student.status === 'inactive'
+                                    ? 'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100'
                                     : 'bg-rose-50 text-rose-700 border-rose-200 hover:bg-rose-100'
                                 }`}
                                 title="Click to toggle status"
@@ -1083,6 +1129,8 @@ const CoachingStudents = () => {
                                 ? 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100'
                                 : student.status === 'completed'
                                 ? 'bg-indigo-50 text-indigo-700 border-indigo-200 hover:bg-indigo-100'
+                                : student.status === 'inactive'
+                                ? 'bg-amber-50 text-amber-700 border-amber-200 hover:bg-amber-100'
                                 : 'bg-rose-50 text-rose-700 border-rose-200 hover:bg-rose-100'
                             }`}
                             title="Click to change status"
@@ -1529,6 +1577,7 @@ const CoachingStudents = () => {
                     className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all cursor-pointer font-medium"
                   >
                     <option value="active">Active</option>
+                    <option value="inactive">Inactive</option>
                     <option value="completed">Completed</option>
                     <option value="left">Left</option>
                   </select>
@@ -1690,7 +1739,15 @@ const CoachingStudents = () => {
               )}
               <div className="flex justify-between py-1">
                 <span className="text-slate-500 font-medium">Status:</span>
-                <span className="font-bold uppercase text-emerald-700">{viewingStudent.status || 'ACTIVE'}</span>
+                <span className={`font-bold uppercase ${
+                  viewingStudent.status === 'active'
+                    ? 'text-emerald-700'
+                    : viewingStudent.status === 'completed'
+                    ? 'text-indigo-700'
+                    : viewingStudent.status === 'inactive'
+                    ? 'text-amber-700'
+                    : 'text-rose-700'
+                }`}>{viewingStudent.status || 'ACTIVE'}</span>
               </div>
 
               {/* Academic Sessions History */}

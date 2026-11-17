@@ -521,7 +521,9 @@ const CoachingReenrollment = () => {
 
                       <td className="py-3 px-4">
                         <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-bold border ${
-                          isSessionMatch(currentSess, '2025-2026')
+                          isSessionMatch(currentSess, '2026-2027')
+                            ? 'bg-purple-50 text-purple-700 border-purple-200'
+                            : isSessionMatch(currentSess, '2025-2026')
                             ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
                             : 'bg-indigo-50 text-indigo-700 border-indigo-200'
                         }`}>
@@ -702,3 +704,4 @@ const CoachingReenrollment = () => {
 };
 
 export default CoachingReenrollment;
+
