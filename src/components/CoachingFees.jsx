@@ -9,6 +9,7 @@ import { MONTHS_SHORT, normalizeMonthKey, getCanonicalShortMonth, MONTH_ORDER, n
 import CoachingSlipScannerModal from './CoachingSlipScannerModal';
 import CoachingFeeBulkUploadModal from './CoachingFeeBulkUploadModal';
 import { downloadCoachingFeeSample } from '../utils/bulkUpload';
+import { getStudentSessionForDate } from '../utils/sessionUtils';
 import {
   CreditCard,
   Search,
@@ -106,14 +107,43 @@ const CoachingFees = () => {
     setSelectedStudent(student);
     setSearchTerm('');
     setEditingTransaction(null);
-    const mFee = Number(student.monthly_fee) || 0;
-    setFormData({
+    const sessionData = getStudentSessionForDate(student, formData.month, formData.year);
+    const mFee = Number(sessionData.monthly_fee) || Number(student.monthly_fee) || 0;
+    setFormData(prev => ({
       ...initialFormState,
+      month: prev.month,
+      year: prev.year,
       payable: mFee,
       paid: mFee,
       waived: 0,
       payment_method: 'Cash',
       pay_date: getTodayDateStr()
+    }));
+  };
+
+  const handleMonthChange = (newMonth) => {
+    setFormData(prev => {
+      const updated = { ...prev, month: newMonth };
+      if (selectedStudent && !editingTransaction) {
+        const sess = getStudentSessionForDate(selectedStudent, newMonth, prev.year);
+        const mFee = Number(sess.monthly_fee) || Number(selectedStudent.monthly_fee) || 0;
+        updated.payable = mFee;
+        updated.paid = mFee;
+      }
+      return updated;
+    });
+  };
+
+  const handleYearChange = (newYear) => {
+    setFormData(prev => {
+      const updated = { ...prev, year: newYear };
+      if (selectedStudent && !editingTransaction) {
+        const sess = getStudentSessionForDate(selectedStudent, prev.month, newYear);
+        const mFee = Number(sess.monthly_fee) || Number(selectedStudent.monthly_fee) || 0;
+        updated.payable = mFee;
+        updated.paid = mFee;
+      }
+      return updated;
     });
   };
 
@@ -215,6 +245,7 @@ const CoachingFees = () => {
 
     const monthKey = `${formData.month}_${formData.year}`;
     const trxId = editingTransaction ? editingTransaction.id : monthKey;
+    const sessionData = getStudentSessionForDate(selectedStudent, formData.month, formData.year);
 
     setLoading(true);
     try {
@@ -224,7 +255,8 @@ const CoachingFees = () => {
         studentName: selectedStudent.name,
         rollNo: selectedStudent.roll_no || selectedStudent.student_id,
         serial_no: formData.serial_no ? formData.serial_no.trim() : '',
-        grade: selectedStudent.grade || '',
+        grade: sessionData.grade || selectedStudent.grade || '',
+        session: sessionData.session_name || selectedStudent.current_session || '2024-2025',
         month: formData.month,
         year: formData.year,
         month_key: monthKey,
@@ -534,7 +566,7 @@ const CoachingFees = () => {
                     </label>
                     <select
                       value={formData.month}
-                      onChange={e => setFormData({ ...formData, month: e.target.value })}
+                      onChange={e => handleMonthChange(e.target.value)}
                       className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 text-xs font-medium focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 cursor-pointer"
                     >
                       {MONTHS_SHORT.map(m => (
@@ -549,7 +581,7 @@ const CoachingFees = () => {
                     <input
                       type="number"
                       value={formData.year}
-                      onChange={e => setFormData({ ...formData, year: e.target.value })}
+                      onChange={e => handleYearChange(e.target.value)}
                       className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 text-xs font-mono font-medium focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
                     />
                   </div>

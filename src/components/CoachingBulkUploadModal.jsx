@@ -95,6 +95,7 @@ const CoachingBulkUploadModal = ({
       let updateCount = 0;
 
       for (const row of parsedData.validRows) {
+        const sessionKey = row.current_session || '2024-2025';
         const studentPayload = {
           roll_no: row.roll_no,
           name: row.name,
@@ -103,6 +104,20 @@ const CoachingBulkUploadModal = ({
           secondary_contact: row.secondary_contact || '',
           guardian_contact: row.guardian_contact || '',
           gender: row.gender || 'Male',
+          current_session: sessionKey,
+          sessions: row.sessions || {
+            [sessionKey]: {
+              session_name: sessionKey,
+              grade: row.grade,
+              field: row.field || '',
+              monthly_fee: Number(row.monthly_fee) || 0,
+              admission_fee: Number(row.admission_fee) || 0,
+              start_date: row.joined_date || timestamp.split('T')[0],
+              end_date: row.left_date || '',
+              status: row.status || 'active',
+              enrolled_at: timestamp
+            }
+          },
           grade: row.grade,
           field: row.field || '',
           class_type: 'Regular',

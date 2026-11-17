@@ -254,6 +254,7 @@ export const downloadCoachingStudentSample = async () => {
   ws.columns = [
     { header: 'Roll Number (Optional)', key: 'roll_no', width: 22 },
     { header: 'Student Full Name *', key: 'name', width: 28 },
+    { header: 'Academic Session', key: 'session', width: 20 },
     { header: 'Class / Grade *', key: 'grade', width: 24 },
     { header: 'Field / Group (Commerce, Science, etc.)', key: 'field', width: 34 },
     { header: 'Gender', key: 'gender', width: 14 },
@@ -269,6 +270,7 @@ export const downloadCoachingStudentSample = async () => {
   ws.addRow({
     roll_no: 'TFC-001',
     name: 'Abdul Rehman',
+    session: '2024-2025',
     grade: 'Class 9 (Matric I)',
     field: 'Commerce',
     gender: 'Male',
@@ -686,6 +688,9 @@ export const parseCoachingStudentUpload = async (file, existingStudents = []) =>
           }
         }
 
+        const rawSession = findField(row, 'Academic Session', 'Session', 'Academic Year');
+        const sessionKey = rawSession || '2024-2025';
+
         validRows.push({
           rowNumber: rowNum,
           roll_no: assignedRoll,
@@ -693,6 +698,20 @@ export const parseCoachingStudentUpload = async (file, existingStudents = []) =>
           grade: resolvedGrade,
           field: resolvedField,
           gender: resolvedGender,
+          current_session: sessionKey,
+          sessions: {
+            [sessionKey]: {
+              session_name: sessionKey,
+              grade: resolvedGrade,
+              field: resolvedField,
+              monthly_fee: numMonthly,
+              admission_fee: numAdm,
+              start_date: cleanDate,
+              end_date: cleanLeftDate,
+              status: resolvedStatus,
+              enrolled_at: new Date().toISOString()
+            }
+          },
           monthly_fee: numMonthly,
           admission_fee: numAdm,
           contact: rawContact,

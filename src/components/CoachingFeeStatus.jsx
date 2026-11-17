@@ -7,6 +7,10 @@ import { MONTHS_SHORT, getCanonicalShortMonth, getMonthIndex, getCoachingStudent
 import { COACHING_GRADES } from './CoachingStudents';
 import CoachingFeeBulkUploadModal from './CoachingFeeBulkUploadModal';
 import {
+  getStudentSessionForDate,
+  DEFAULT_ACADEMIC_SESSIONS
+} from '../utils/sessionUtils';
+import {
   FileSpreadsheet,
   Search,
   Filter,
@@ -31,6 +35,7 @@ const CoachingFeeStatus = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedGrade, setSelectedGrade] = useState('ALL');
   const [statusFilter, setStatusFilter] = useState('ALL'); // ALL, PAID, PARTIAL, UNPAID
+  const [selectedSession, setSelectedSession] = useState('ALL');
   const [isBulkUploadOpen, setIsBulkUploadOpen] = useState(false);
 
   const monthKey = `${month}_${year}`;
@@ -71,7 +76,9 @@ const CoachingFeeStatus = () => {
           }
         }
 
-        const payable = trx ? Number(trx.payable) : Number(student.monthly_fee) || 0;
+        // Resolve active session & fee for this specific month/year
+        const activeSessionData = getStudentSessionForDate(student, month, year);
+        const payable = trx ? Number(trx.payable) : Number(activeSessionData.monthly_fee) || 0;
         const paid = trx ? Number(trx.paid) : 0;
         const waived = trx ? Number(trx.waived) : 0;
         const balance = payable - paid - waived;
@@ -87,7 +94,8 @@ const CoachingFeeStatus = () => {
           roll_no: student.roll_no || student.student_id || 'TFC-???',
           name: student.name,
           father_name: student.father_name,
-          grade: student.grade || '—',
+          grade: trx?.grade || activeSessionData.grade || student.grade || '—',
+          session: activeSessionData.session_name || student.current_session || '2024-2025',
           contact: student.contact_number,
           profile_image: student.profile_image || student.photo,
           payable,
@@ -114,10 +122,11 @@ const CoachingFeeStatus = () => {
 
       const matchGrade = selectedGrade === 'ALL' || item.grade === selectedGrade;
       const matchStatus = statusFilter === 'ALL' || item.status === statusFilter;
+      const matchSession = selectedSession === 'ALL' || item.session === selectedSession;
 
-      return matchSearch && matchGrade && matchStatus;
+      return matchSearch && matchGrade && matchStatus && matchSession;
     });
-  }, [reportData, searchTerm, selectedGrade, statusFilter]);
+  }, [reportData, searchTerm, selectedGrade, statusFilter, selectedSession]);
 
   // Overall KPI metrics
   const metrics = useMemo(() => {
@@ -308,6 +317,17 @@ const CoachingFeeStatus = () => {
 
         <div className="flex items-center gap-2 overflow-x-auto pb-1 md:pb-0">
           <select
+            value={selectedSession}
+            onChange={(e) => setSelectedSession(e.target.value)}
+            className="px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 text-xs font-bold text-slate-700 outline-none cursor-pointer shrink-0"
+          >
+            <option value="ALL">All Sessions</option>
+            {DEFAULT_ACADEMIC_SESSIONS.map(sess => (
+              <option key={sess} value={sess}>Session {sess}</option>
+            ))}
+          </select>
+
+          <select
             value={selectedGrade}
             onChange={(e) => setSelectedGrade(e.target.value)}
             className="px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 text-xs font-bold text-slate-700 outline-none cursor-pointer shrink-0"
@@ -374,7 +394,10 @@ const CoachingFeeStatus = () => {
                       </td>
 
                       <td className="py-3.5 px-4 font-bold text-slate-700">
-                        {item.grade}
+                        <div>{item.grade}</div>
+                        <span className="inline-block mt-0.5 text-[9px] font-mono font-semibold px-1.5 py-0.2 rounded bg-indigo-50 text-indigo-700 border border-indigo-200">
+                          {item.session}
+                        </span>
                       </td>
 
                       <td className="py-3.5 px-4 text-right font-mono font-bold text-slate-800">

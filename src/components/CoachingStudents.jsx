@@ -8,6 +8,7 @@ import toast from 'react-hot-toast';
 import ImageCropModal from './ImageCropModal';
 import AdmissionFormScannerModal from './AdmissionFormScannerModal';
 import CoachingBulkUploadModal from './CoachingBulkUploadModal';
+import CoachingReenrollModal from './CoachingReenrollModal';
 import { downloadCoachingStudentSample } from '../utils/bulkUpload';
 import {
   COACHING_GRADES,
@@ -15,6 +16,10 @@ import {
   isClassAboveEight
 } from '../utils/admissionFormOcrParser';
 export { COACHING_GRADES, COACHING_FIELDS, isClassAboveEight };
+import {
+  DEFAULT_ACADEMIC_SESSIONS,
+  getCurrentAcademicSession
+} from '../utils/sessionUtils';
 import {
   GraduationCap,
   Users,
@@ -87,6 +92,7 @@ const CoachingStudents = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedGrade, setSelectedGrade] = useState('ALL');
   const [selectedStatus, setSelectedStatus] = useState('ALL');
+  const [selectedSession, setSelectedSession] = useState('ALL');
   const [desktopView, setDesktopView] = useState('table'); // 'table' | 'grid'
 
   // Helper: format dates consistently as dd-mm-yyyy
@@ -117,6 +123,7 @@ const CoachingStudents = () => {
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingStudent, setEditingStudent] = useState(null);
   const [viewingStudent, setViewingStudent] = useState(null);
+  const [reenrollingStudent, setReenrollingStudent] = useState(null);
 
   const today = new Date().toISOString().split('T')[0];
   const [showSecondaryContact, setShowSecondaryContact] = useState(false);
@@ -128,6 +135,7 @@ const CoachingStudents = () => {
     contact: '',
     secondary_contact: '',
     gender: 'Male',
+    academic_session: getCurrentAcademicSession(),
     grade: COACHING_GRADES.find(g => g.startsWith('Class 9')) || 'Class 9 (Matric I)',
     field: 'Science',
     admission_fee: '0',
@@ -212,6 +220,7 @@ const CoachingStudents = () => {
       contact: student.contact || student.contact_number || '',
       secondary_contact: student.secondary_contact || student.guardian_contact || '',
       gender: student.gender || 'Male',
+      academic_session: student.current_session || student.session || '2024-2025',
       grade: resolvedGrade,
       field: student.field || (isClassAboveEight(resolvedGrade) ? 'Science' : ''),
       monthly_fee: student.monthly_fee || '',
@@ -268,6 +277,22 @@ const CoachingStudents = () => {
 
     setIsSubmitting(true);
     try {
+      const sessionKey = formData.academic_session || (editingStudent?.current_session || getCurrentAcademicSession());
+      const existingSessions = editingStudent?.sessions || {};
+      const updatedSessions = { ...existingSessions };
+
+      updatedSessions[sessionKey] = {
+        session_name: sessionKey,
+        grade: formData.grade,
+        field: isClassAboveEight(formData.grade) ? (formData.field ? formData.field.trim() : '') : '',
+        monthly_fee: Number(formData.monthly_fee) || 0,
+        admission_fee: Number(formData.admission_fee) || 0,
+        start_date: formData.joined_date || editingStudent?.joined_date || today,
+        end_date: updatedSessions[sessionKey]?.end_date || '',
+        status: formData.status || 'active',
+        enrolled_at: updatedSessions[sessionKey]?.enrolled_at || new Date().toISOString()
+      };
+
       const studentPayload = {
         roll_no: editingStudent ? (editingStudent.roll_no || editingStudent.student_id || formData.roll_no || autoRollNo) : autoRollNo,
         name: formData.name.trim(),
@@ -276,6 +301,8 @@ const CoachingStudents = () => {
         secondary_contact: (formData.secondary_contact || '').trim(),
         guardian_contact: (formData.secondary_contact || '').trim(),
         gender: formData.gender || 'Male',
+        current_session: sessionKey,
+        sessions: updatedSessions,
         grade: formData.grade,
         field: isClassAboveEight(formData.grade) ? (formData.field ? formData.field.trim() : '') : '',
         class_type: 'Regular',
@@ -363,10 +390,13 @@ const CoachingStudents = () => {
 
       const matchGrade = selectedGrade === 'ALL' || s.grade === selectedGrade;
       const matchStatus = selectedStatus === 'ALL' || s.status === selectedStatus;
+      const matchSession = selectedSession === 'ALL' ||
+        (s.current_session || s.session || '2024-2025') === selectedSession ||
+        (s.sessions && Object.keys(s.sessions).includes(selectedSession));
 
-      return matchSearch && matchGrade && matchStatus;
+      return matchSearch && matchGrade && matchStatus && matchSession;
     });
-  }, [coachingStudents, searchTerm, selectedGrade, selectedStatus]);
+  }, [coachingStudents, searchTerm, selectedGrade, selectedStatus, selectedSession]);
 
   // Status Metrics
   const stats = useMemo(() => {
@@ -499,6 +529,19 @@ const CoachingStudents = () => {
         </div>
 
         <div className="flex items-center gap-2 overflow-x-auto pb-1 md:pb-0">
+          <div className="flex items-center gap-1.5 px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl shrink-0">
+            <select
+              value={selectedSession}
+              onChange={(e) => setSelectedSession(e.target.value)}
+              className="bg-transparent text-xs font-bold text-slate-700 outline-none cursor-pointer"
+            >
+              <option value="ALL">All Sessions</option>
+              {DEFAULT_ACADEMIC_SESSIONS.map(sess => (
+                <option key={sess} value={sess}>Session {sess}</option>
+              ))}
+            </select>
+          </div>
+
           <div className="flex items-center gap-1.5 px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl shrink-0">
             <Filter size={14} className="text-slate-400" />
             <select
@@ -668,6 +711,14 @@ const CoachingStudents = () => {
                     >
                       <CreditCard size={13} />
                       <span>Collect Fee</span>
+                    </button>
+
+                    <button
+                      onClick={() => setReenrollingStudent(student)}
+                      className="p-2 rounded-xl border border-slate-200 hover:bg-indigo-50 text-indigo-600 text-xs font-bold transition-colors cursor-pointer"
+                      title="Re-enroll / Promote in New Session"
+                    >
+                      <GraduationCap size={14} />
                     </button>
 
                     <button
@@ -926,6 +977,15 @@ const CoachingStudents = () => {
 
                                 <button
                                   type="button"
+                                  onClick={() => setReenrollingStudent(student)}
+                                  className="p-1.5 rounded-lg border border-slate-200 hover:bg-indigo-50 text-indigo-600 transition-colors cursor-pointer"
+                                  title="Re-enroll / Promote in New Academic Session"
+                                >
+                                  <GraduationCap size={14} />
+                                </button>
+
+                                <button
+                                  type="button"
                                   onClick={() => setViewingStudent(student)}
                                   className="p-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 text-slate-600 transition-colors cursor-pointer"
                                   title="View Full Profile"
@@ -1068,6 +1128,14 @@ const CoachingStudents = () => {
                         >
                           <CreditCard size={13} />
                           <span>Collect Fee</span>
+                        </button>
+
+                        <button
+                          onClick={() => setReenrollingStudent(student)}
+                          className="p-2 rounded-xl border border-slate-200 hover:bg-indigo-50 text-indigo-600 text-xs font-bold transition-colors cursor-pointer"
+                          title="Re-enroll / Promote in New Academic Session"
+                        >
+                          <GraduationCap size={14} />
                         </button>
 
                         <button
@@ -1301,7 +1369,23 @@ const CoachingStudents = () => {
                   </select>
                 </div>
 
-                {/* 5. Class / Grade (replaces Course, No Laptop Field!) */}
+                {/* 5. Academic Session */}
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 mb-1">Academic Session *</label>
+                  <select
+                    name="academic_session"
+                    value={formData.academic_session || '2024-2025'}
+                    onChange={handleChange}
+                    required
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all cursor-pointer font-semibold text-slate-800"
+                  >
+                    {DEFAULT_ACADEMIC_SESSIONS.map(sess => (
+                      <option key={sess} value={sess}>Session {sess}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* 6. Class / Grade (replaces Course, No Laptop Field!) */}
                 <div>
                   <label className="block text-xs font-semibold text-slate-600 mb-1">Class *</label>
                   <select
@@ -1535,6 +1619,12 @@ const CoachingStudents = () => {
 
             <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-100 space-y-2 text-xs max-h-[55vh] overflow-y-auto">
               <div className="flex justify-between py-1 border-b border-slate-200/60">
+                <span className="text-slate-500 font-medium">Academic Session:</span>
+                <span className="font-mono font-bold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-md border border-indigo-200">
+                  {viewingStudent.current_session || viewingStudent.session || '2024-2025'}
+                </span>
+              </div>
+              <div className="flex justify-between py-1 border-b border-slate-200/60">
                 <span className="text-slate-500 font-medium">Class / Grade:</span>
                 <span className="font-bold text-slate-800">{viewingStudent.grade || '—'}</span>
               </div>
@@ -1590,9 +1680,63 @@ const CoachingStudents = () => {
                 <span className="text-slate-500 font-medium">Status:</span>
                 <span className="font-bold uppercase text-emerald-700">{viewingStudent.status || 'ACTIVE'}</span>
               </div>
+
+              {/* Academic Sessions History */}
+              {viewingStudent.sessions && Object.keys(viewingStudent.sessions).length > 0 && (
+                <div className="pt-2 border-t border-slate-200/80">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-[11px] font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
+                      <GraduationCap size={13} className="text-indigo-600" />
+                      <span>Academic Sessions ({Object.keys(viewingStudent.sessions).length})</span>
+                    </span>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    {Object.values(viewingStudent.sessions).map((sess, idx) => (
+                      <div
+                        key={idx}
+                        className="p-2 rounded-xl bg-white border border-slate-200/80 flex items-center justify-between text-xs"
+                      >
+                        <div>
+                          <div className="flex items-center gap-1.5">
+                            <span className="font-bold font-mono text-indigo-900">
+                              {sess.session_name || 'Session'}
+                            </span>
+                            <span className={`px-1.5 py-0.2 rounded text-[9px] font-bold uppercase ${
+                              sess.status === 'active' ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-600'
+                            }`}>
+                              {sess.status || 'active'}
+                            </span>
+                          </div>
+                          <div className="text-[10px] text-slate-500 mt-0.5">
+                            {sess.grade} {sess.field ? `(${sess.field})` : ''}
+                            {sess.start_date ? ` • From: ${sess.start_date}` : ''}
+                          </div>
+                        </div>
+                        <div className="text-right font-mono font-bold text-emerald-700">
+                          PKR {Number(sess.monthly_fee || 0).toLocaleString()}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
 
             <div className="flex gap-2 pt-2">
+              <button
+                onClick={() => {
+                  const s = viewingStudent;
+                  setViewingStudent(null);
+                  setReenrollingStudent(s);
+                }}
+                className="px-3.5 py-2.5 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold text-xs border border-indigo-200 flex items-center gap-1.5 cursor-pointer transition-colors"
+                title="Re-enroll in New Session (Promote)"
+              >
+                <GraduationCap size={14} />
+                <span>Re-enroll</span>
+              </button>
+
               <button
                 onClick={() => {
                   setViewingStudent(null);
@@ -1640,6 +1784,14 @@ const CoachingStudents = () => {
         isOpen={isBulkUploadOpen}
         onClose={() => setIsBulkUploadOpen(false)}
         existingStudents={coachingStudents}
+      />
+
+      {/* RE-ENROLLMENT MODAL */}
+      <CoachingReenrollModal
+        isOpen={Boolean(reenrollingStudent)}
+        onClose={() => setReenrollingStudent(null)}
+        student={reenrollingStudent}
+        onSuccess={() => setReenrollingStudent(null)}
       />
     </div>
   );
