@@ -197,7 +197,7 @@ const CoachingSlipScannerModal = ({ isOpen, onClose, onApply, coachingStudents =
       amount: Number(extractedData.amount) || 0,
       lateFee: Number(extractedData.lateFee) || 0,
       serialNo: extractedData.serialNo || '',
-      paymentMethod: extractedData.paymentMethod || 'Cash'
+      paymentMethod: (extractedData.paymentMethod === 'Online' || extractedData.paymentMethod === 'Online Transfer') ? 'Online' : 'Cash'
     });
 
     onClose();
@@ -612,11 +612,11 @@ const CoachingSlipScannerModal = ({ isOpen, onClose, onApply, coachingStudents =
                             <input
                               type="radio"
                               name="paymentMethod"
-                              checked={extractedData.paymentMethod === 'Online Transfer'}
-                              onChange={() => setExtractedData(prev => ({ ...prev, paymentMethod: 'Online Transfer' }))}
+                              checked={extractedData.paymentMethod === 'Online' || extractedData.paymentMethod === 'Online Transfer'}
+                              onChange={() => setExtractedData(prev => ({ ...prev, paymentMethod: 'Online' }))}
                               className="text-emerald-600 focus:ring-emerald-500"
                             />
-                            <span>Online Transfer</span>
+                            <span>Online</span>
                           </label>
                         </div>
                       </div>

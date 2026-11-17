@@ -51,10 +51,42 @@ const Fees = () => {
     pay_date: getTodayDateStr(),
     payable: 0,
     paid: 0,
-    waived: 0
+    waived: 0,
+    payment_method: 'Cash' // strictly 'Cash' | 'Online'
   };
 
   const [formData, setFormData] = useState(initialFormState);
+
+  // Helper: check if a course is active
+  const isCourseActive = (course) => {
+    if (!course) return false;
+    const status = (course.course_status || 'active').toLowerCase().trim();
+    return status === 'active';
+  };
+
+  // Helper: format dates consistently as dd-mm-yyyy
+  const formatDateDMY = (dateVal) => {
+    if (!dateVal) return '—';
+    if (typeof dateVal?.toDate === 'function') {
+      dateVal = dateVal.toDate();
+    }
+    if (typeof dateVal === 'string') {
+      const trimmed = dateVal.trim();
+      if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+        const [y, m, d] = trimmed.split('-');
+        return `${d}-${m}-${y}`;
+      }
+      if (/^\d{2}[-/]\d{2}[-/]\d{4}$/.test(trimmed)) {
+        return trimmed.replace(/\//g, '-');
+      }
+    }
+    const d = new Date(dateVal);
+    if (isNaN(d.getTime())) return '—';
+    const day = String(d.getDate()).padStart(2, '0');
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const year = d.getFullYear();
+    return `${day}-${month}-${year}`;
+  };
 
   // --- 2. Logic Functions ---
   const handleReset = () => {
@@ -67,10 +99,27 @@ const Fees = () => {
 
   const handleStudentSelect = (student) => {
     setSelectedStudent(student);
-    setSelectedCourseId('');
-    setFormData(prev => ({ ...prev, payable: 0, paid: 0, waived: 0, pay_date: getTodayDateStr() }));
     setSearchTerm("");
     setEditingTransaction(null);
+
+    const enrolled = Object.entries(student?.enrolled_courses || {});
+    const activeList = enrolled.filter(([_, c]) => isCourseActive(c));
+
+    // If student has exactly 1 active course, auto-select it for rapid entry
+    if (activeList.length === 1) {
+      const [singleId, singleData] = activeList[0];
+      setSelectedCourseId(singleId);
+      setFormData(prev => ({
+        ...prev,
+        payable: singleData.agreed_monthly_fee || 0,
+        paid: singleData.agreed_monthly_fee || 0,
+        waived: 0,
+        pay_date: getTodayDateStr()
+      }));
+    } else {
+      setSelectedCourseId('');
+      setFormData(prev => ({ ...prev, payable: 0, paid: 0, waived: 0, pay_date: getTodayDateStr() }));
+    }
   };
 
   const handleCourseSelect = (courseId) => {
@@ -100,7 +149,8 @@ const Fees = () => {
       pay_date: resolvedPayDate,
       payable: transaction.payable,
       paid: transaction.paid,
-      waived: transaction.waived
+      waived: transaction.waived,
+      payment_method: transaction.payment_method === 'Online' ? 'Online' : 'Cash'
     });
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
@@ -149,6 +199,7 @@ const Fees = () => {
       paid: Number(formData.paid),
       waived: Number(formData.waived),
       balance: balance,
+      payment_method: formData.payment_method || 'Cash',
       addedBy: editingTransaction?.addedBy || currentUser.displayName || 'Staff'
     };
 
@@ -233,6 +284,7 @@ const Fees = () => {
                 paid: Number(paid),
                 waived: Number(waived || 0),
                 balance: balance,
+                payment_method: (/online|bank|transfer|jazzcash|easypaisa/i.test(row['Payment Method'] || row['Payment Mode'] || row['Method'])) ? 'Online' : 'Cash',
                 addedBy: currentUser.displayName || 'Admin Upload',
                 timestamp: Date.now()
               };
@@ -464,13 +516,39 @@ const Fees = () => {
                     onChange={(e) => handleCourseSelect(e.target.value)}
                     disabled={!!editingTransaction}
                     required
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-xs font-semibold focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all disabled:opacity-60"
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-xs font-semibold focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all disabled:opacity-60 cursor-pointer"
                   >
                     <option value="">-- Choose Course --</option>
-                    {Object.entries(selectedStudent.enrolled_courses || {}).map(([id, data]) => (
-                      <option key={id} value={id}>{data.course_name}</option>
-                    ))}
+                    {Object.entries(selectedStudent.enrolled_courses || {})
+                      .sort(([, a], [, b]) => {
+                        const aActive = isCourseActive(a) ? 1 : 0;
+                        const bActive = isCourseActive(b) ? 1 : 0;
+                        return bActive - aActive;
+                      })
+                      .map(([id, data]) => {
+                        const active = isCourseActive(data);
+                        return (
+                          <option
+                            key={id}
+                            value={id}
+                            className={active ? 'text-emerald-600 font-semibold' : 'text-rose-600'}
+                            style={{ color: active ? '#16a34a' : '#dc2626', fontWeight: active ? '600' : 'normal' }}
+                          >
+                            {data.course_name} ({active ? 'Active' : 'Inactive'})
+                          </option>
+                        );
+                      })}
                   </select>
+
+                  {/* Warning when selecting an inactive course */}
+                  {selectedCourseId && selectedStudent?.enrolled_courses?.[selectedCourseId] && !isCourseActive(selectedStudent.enrolled_courses[selectedCourseId]) && (
+                    <div className="mt-2 flex items-center gap-2 p-2.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-xs">
+                      <AlertCircle size={15} className="text-amber-600 shrink-0" />
+                      <span>
+                        <strong>Warning:</strong> Selected course is <strong>Inactive</strong> ({selectedStudent.enrolled_courses[selectedCourseId].course_status || 'Inactive'}).
+                      </span>
+                    </div>
+                  )}
                 </div>
 
                 {selectedCourseId && (
@@ -522,7 +600,7 @@ const Fees = () => {
                         className="w-full px-3.5 py-2 rounded-xl border border-slate-200 bg-slate-50 text-xs font-medium text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
                       />
                       <div className="text-[10px] text-slate-400 mt-1 px-0.5">
-                        System entry date will automatically record as today (<span className="font-medium text-slate-500">{new Date().toLocaleDateString('en-GB')}</span>)
+                        System entry date will automatically record as today (<span className="font-medium text-slate-500">{formatDateDMY(new Date())}</span>)
                       </div>
                     </div>
 
@@ -564,6 +642,39 @@ const Fees = () => {
                         onChange={e => setFormData({ ...formData, waived: e.target.value })}
                         className="w-full px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 text-xs font-mono font-medium text-slate-700 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
                       />
+                    </div>
+
+                    {/* Payment Method - Strictly Online or Cash */}
+                    <div>
+                      <label className="block text-xs font-bold text-slate-600 mb-1.5 uppercase tracking-wider">
+                        Payment Method *
+                      </label>
+                      <div className="grid grid-cols-2 gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setFormData(prev => ({ ...prev, payment_method: 'Cash' }))}
+                          className={`flex items-center justify-center gap-2 py-2 px-3 rounded-xl border text-xs font-bold transition-all cursor-pointer ${
+                            (formData.payment_method || 'Cash') === 'Cash'
+                              ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm shadow-emerald-600/20'
+                              : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
+                          }`}
+                        >
+                          <span className={`w-2 h-2 rounded-full ${(formData.payment_method || 'Cash') === 'Cash' ? 'bg-white' : 'bg-emerald-500'}`} />
+                          <span>Cash</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setFormData(prev => ({ ...prev, payment_method: 'Online' }))}
+                          className={`flex items-center justify-center gap-2 py-2 px-3 rounded-xl border text-xs font-bold transition-all cursor-pointer ${
+                            formData.payment_method === 'Online'
+                              ? 'bg-blue-600 text-white border-blue-600 shadow-sm shadow-blue-600/20'
+                              : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
+                          }`}
+                        >
+                          <span className={`w-2 h-2 rounded-full ${formData.payment_method === 'Online' ? 'bg-white' : 'bg-blue-500'}`} />
+                          <span>Online</span>
+                        </button>
+                      </div>
                     </div>
 
                     {/* Balance Banner */}
@@ -671,7 +782,7 @@ const Fees = () => {
                         <strong className="text-emerald-700 font-mono font-black text-sm">PKR {f.paid}</strong>
                         {f.waived > 0 && <span className="text-rose-600 font-bold text-[10px] ml-1.5">(Waived: {f.waived})</span>}
                       </div>
-                      <div className="text-[10px] text-slate-500 font-mono font-medium">{f.pay_date || '—'}</div>
+                      <div className="text-[10px] text-slate-500 font-mono font-medium">{formatDateDMY(f.pay_date || f.timestamp)}</div>
                     </div>
 
                     <div className="pl-1.5 grid grid-cols-2 gap-2 pt-2 border-t border-slate-200">
@@ -712,9 +823,9 @@ const Fees = () => {
                         <td className="py-2.5 px-3 text-slate-600">{f.course_name}</td>
                         <td className="py-2.5 px-3 font-mono font-bold text-slate-700">{f.month_key}</td>
                         <td className="py-2.5 px-3 font-mono text-[11px]">
-                          <div className="font-bold text-slate-800">{f.pay_date || '—'}</div>
-                          <div className="text-[10px] text-slate-400 font-sans">
-                            Added: {f.timestamp ? new Date(f.timestamp).toLocaleDateString('en-GB') : '—'}
+                          <div className="font-bold text-slate-800">{formatDateDMY(f.pay_date || f.timestamp)}</div>
+                          <div className="text-[10px] text-slate-400">
+                            Added: {formatDateDMY(f.timestamp)}
                           </div>
                         </td>
                         <td className="py-2.5 px-3 text-right font-mono">
@@ -755,9 +866,21 @@ const Fees = () => {
                 </h3>
               </div>
               {selectedCourseId && (
-                <span className="text-xs font-mono font-bold text-blue-600 bg-blue-50 px-2.5 py-1 rounded-md">
-                  {getHistory().length} Entries
-                </span>
+                <div className="flex items-center gap-1.5">
+                  {isCourseActive(selectedStudent?.enrolled_courses?.[selectedCourseId]) ? (
+                    <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200/80 px-2 py-0.5 rounded-full flex items-center gap-1">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                      Active Course
+                    </span>
+                  ) : (
+                    <span className="text-[10px] font-bold text-slate-500 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded-full">
+                      {selectedStudent?.enrolled_courses?.[selectedCourseId]?.course_status || 'Inactive'}
+                    </span>
+                  )}
+                  <span className="text-xs font-mono font-bold text-blue-600 bg-blue-50 px-2.5 py-1 rounded-md">
+                    {getHistory().length} Entries
+                  </span>
+                </div>
               )}
             </div>
 
@@ -771,11 +894,25 @@ const Fees = () => {
                         <div className={`absolute top-0 left-0 bottom-0 w-1.5 ${h.balance > 0 ? 'bg-rose-500' : 'bg-emerald-500'}`} />
                         <div className="pl-1.5 flex items-start justify-between">
                           <div>
-                            <div className="font-extrabold text-slate-950 text-sm">
-                              {h.month_key ? h.month_key.replace('_', ' ') : h.id.replace('_', ' ')}
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <span className="font-extrabold text-slate-950 text-sm">
+                                {h.month_key ? h.month_key.replace('_', ' ') : h.id.replace('_', ' ')}
+                              </span>
+                              <span className={`px-1.5 py-0.2 rounded text-[10px] font-bold border ${
+                                h.payment_method === 'Online'
+                                  ? 'bg-blue-50 text-blue-700 border-blue-200'
+                                  : 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                              }`}>
+                                {h.payment_method || 'Cash'}
+                              </span>
                             </div>
-                            <div className="text-[11px] text-slate-500 font-mono mt-0.5 font-medium">
-                              Paid: {h.pay_date || h.payment_date || (h.timestamp ? new Date(h.timestamp).toISOString().split('T')[0] : '—')}
+                            <div className="text-[11px] text-slate-500 font-mono mt-0.5 font-medium flex flex-wrap items-center gap-x-2">
+                              <span>Paid: {formatDateDMY(h.pay_date || h.payment_date || h.timestamp)}</span>
+                              {(h.record_added_date || h.record_added_at || h.timestamp) && (
+                                <span className="text-slate-400">
+                                  Entry: {formatDateDMY(h.record_added_date || h.record_added_at || h.timestamp)}
+                                </span>
+                              )}
                             </div>
                           </div>
 
@@ -843,16 +980,21 @@ const Fees = () => {
                       getHistory().map(h => (
                         <tr key={h.id} className="hover:bg-slate-50/70 transition-colors">
                           <td className="py-3 px-3.5 font-bold text-slate-800">
-                            {h.month_key ? h.month_key.replace('_', ' ') : h.id.replace('_', ' ')}
+                            <div>{h.month_key ? h.month_key.replace('_', ' ') : h.id.replace('_', ' ')}</div>
+                            <span className={`inline-block mt-0.5 px-1.5 py-0.2 rounded text-[10px] font-bold border ${
+                              h.payment_method === 'Online'
+                                ? 'bg-blue-50 text-blue-700 border-blue-200'
+                                : 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                            }`}>
+                              {h.payment_method || 'Cash'}
+                            </span>
                           </td>
                           <td className="py-3 px-3.5">
                             <div className="font-semibold text-slate-800 font-mono text-xs">
-                              {h.pay_date || h.payment_date || (h.timestamp ? new Date(h.timestamp).toISOString().split('T')[0] : '—')}
+                              {formatDateDMY(h.pay_date || h.payment_date || h.timestamp)}
                             </div>
-                            <div className="text-[10px] text-slate-400">
-                              Entry: {h.record_added_date 
-                                ? new Date(h.record_added_date).toLocaleDateString('en-GB') 
-                                : (h.timestamp ? new Date(h.timestamp).toLocaleDateString('en-GB') : '—')}
+                            <div className="text-[10px] text-slate-400 font-mono">
+                              Entry: {formatDateDMY(h.record_added_date || h.record_added_at || h.timestamp)}
                             </div>
                           </td>
                           <td className="py-3 px-3.5 text-right font-mono text-slate-600">

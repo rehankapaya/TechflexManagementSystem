@@ -40,8 +40,12 @@ import {
   Download,
   FileSpreadsheet,
   MessageCircle,
-  Smartphone
+  Smartphone,
+  Eye,
+  LayoutGrid,
+  List
 } from 'lucide-react';
+import { syncStudentToGoogleContacts, normalizePhoneNumber } from '../services/contactSyncService';
 
 export const getTimeslotOptions = (classType) => {
   if (classType === 'Regular (1 Hour)') {
@@ -83,6 +87,31 @@ const CoachingStudents = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedGrade, setSelectedGrade] = useState('ALL');
   const [selectedStatus, setSelectedStatus] = useState('ALL');
+  const [desktopView, setDesktopView] = useState('table'); // 'table' | 'grid'
+
+  // Helper: format dates consistently as dd-mm-yyyy
+  const formatDateDMY = (dateVal) => {
+    if (!dateVal) return '—';
+    if (typeof dateVal?.toDate === 'function') {
+      dateVal = dateVal.toDate();
+    }
+    if (typeof dateVal === 'string') {
+      const trimmed = dateVal.trim();
+      if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+        const [y, m, d] = trimmed.split('-');
+        return `${d}-${m}-${y}`;
+      }
+      if (/^\d{2}[-/]\d{2}[-/]\d{4}$/.test(trimmed)) {
+        return trimmed.replace(/\//g, '-');
+      }
+    }
+    const d = new Date(dateVal);
+    if (isNaN(d.getTime())) return '—';
+    const day = String(d.getDate()).padStart(2, '0');
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const year = d.getFullYear();
+    return `${day}-${month}-${year}`;
+  };
 
   // Modal States
   const [showAddModal, setShowAddModal] = useState(false);
@@ -104,6 +133,8 @@ const CoachingStudents = () => {
     admission_fee: '0',
     monthly_fee: '',
     joined_date: today,
+    left_date: '',
+    rejoined_date: '',
     status: 'active',
     profile_image: ''
   };
@@ -187,6 +218,8 @@ const CoachingStudents = () => {
       admission_fee: student.admission_fee || '0',
       status: student.status || 'active',
       joined_date: student.joined_date || (student.createdAt ? student.createdAt.split('T')[0] : new Date().toISOString().split('T')[0]),
+      left_date: student.left_date || '',
+      rejoined_date: student.rejoined_date || '',
       profile_image: student.profile_image || student.photo || ''
     });
     if (student.secondary_contact || student.guardian_contact) {
@@ -251,6 +284,12 @@ const CoachingStudents = () => {
         admission_fee: Number(formData.admission_fee) || 0,
         monthly_fee: Number(formData.monthly_fee) || 0,
         joined_date: formData.joined_date,
+        left_date: (formData.status === 'left' || formData.status === 'completed')
+          ? (formData.left_date ? formData.left_date.trim() : (editingStudent?.left_date || ''))
+          : '',
+        rejoined_date: (formData.status === 'active' && editingStudent && (editingStudent.status === 'left' || editingStudent.left_date))
+          ? (formData.rejoined_date ? formData.rejoined_date.trim() : (editingStudent?.rejoined_date || ''))
+          : '',
         status: formData.status || 'active',
         profile_image: formData.profile_image || '',
         photo: formData.profile_image || ''
@@ -294,11 +333,13 @@ const CoachingStudents = () => {
 
   const handleToggleStatus = async (studentId, currentStatus) => {
     const nextStatus = currentStatus === 'active' ? 'completed' : currentStatus === 'completed' ? 'left' : 'active';
+    const updatePayload = { status: nextStatus };
+    // Do NOT automatically stamp today's date, preserving previous years' historical integrity
     try {
-      await update(ref(db, `coaching_students/${studentId}`), { status: nextStatus });
+      await update(ref(db, `coaching_students/${studentId}`), updatePayload);
       toast.success(`Status updated to ${nextStatus.toUpperCase()}`);
       if (viewingStudent?.id === studentId) {
-        setViewingStudent(prev => prev ? { ...prev, status: nextStatus } : prev);
+        setViewingStudent(prev => prev ? { ...prev, ...updatePayload } : prev);
       }
     } catch (err) {
       toast.error("Failed to update status");
@@ -484,137 +525,584 @@ const CoachingStudents = () => {
               <option value="left">Left</option>
             </select>
           </div>
+
+          {/* Desktop View Switcher */}
+          <div className="hidden md:flex items-center bg-slate-100 p-0.5 rounded-xl border border-slate-200 shrink-0">
+            <button
+              type="button"
+              onClick={() => setDesktopView('table')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                desktopView === 'table'
+                  ? 'bg-white text-emerald-800 shadow-xs'
+                  : 'text-slate-500 hover:text-slate-800'
+              }`}
+              title="Tabular View (Desktop)"
+            >
+              <List size={14} />
+              <span>Table</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setDesktopView('grid')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                desktopView === 'grid'
+                  ? 'bg-white text-emerald-800 shadow-xs'
+                  : 'text-slate-500 hover:text-slate-800'
+              }`}
+              title="Card Grid View"
+            >
+              <LayoutGrid size={14} />
+              <span>Cards</span>
+            </button>
+          </div>
         </div>
       </div>
 
       {/* STUDENTS DIRECTORY GRID & TABLE */}
       {filteredStudents.length > 0 ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filteredStudents.map(student => {
-            const rollNo = student.roll_no || student.student_id || 'TFC-???';
-            const isActive = student.status === 'active';
-            const photo = student.profile_image || student.photo;
+        <>
+          {/* MOBILE CARDS VIEW (< md) */}
+          <div className="block md:hidden space-y-3.5">
+            {filteredStudents.map(student => {
+              const rollNo = student.roll_no || student.student_id || 'TFC-???';
+              const photo = student.profile_image || student.photo;
+              const primaryPhone = student.contact || student.contact_number;
 
-            return (
-              <div
-                key={student.id}
-                className="bg-white rounded-2xl border border-slate-300 md:border-slate-200/80 p-4 space-y-3.5 shadow-[0_2px_10px_rgba(15,23,42,0.06)] md:shadow-xs hover:border-emerald-300 transition-all flex flex-col justify-between"
-              >
-                <div>
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex items-center gap-3">
-                      {photo ? (
-                        <img
-                          src={photo}
-                          alt={student.name}
-                          className="w-12 h-12 rounded-xl object-cover border border-slate-200 shrink-0 shadow-2xs"
-                        />
-                      ) : (
-                        <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-emerald-600 to-teal-700 text-white flex items-center justify-center font-extrabold text-base shrink-0 shadow-inner">
-                          {student.name?.charAt(0) || 'S'}
+              return (
+                <div
+                  key={`mob_${student.id}`}
+                  className="bg-white rounded-2xl border border-slate-300 p-4 space-y-3.5 shadow-xs relative overflow-hidden"
+                >
+                  <div className={`absolute top-0 left-0 bottom-0 w-1.5 ${student.status === 'active' ? 'bg-emerald-500' : student.status === 'completed' ? 'bg-indigo-500' : 'bg-rose-500'}`} />
+                  <div className="pl-1">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex items-center gap-3">
+                        {photo ? (
+                          <img
+                            src={photo}
+                            alt={student.name}
+                            className="w-12 h-12 rounded-xl object-cover border border-slate-200 shrink-0 shadow-2xs"
+                          />
+                        ) : (
+                          <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-emerald-600 to-teal-700 text-white flex items-center justify-center font-extrabold text-base shrink-0 shadow-inner">
+                            {student.name?.charAt(0) || 'S'}
+                          </div>
+                        )}
+                        <div>
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className="inline-block px-2 py-0.5 rounded-md font-mono text-[10px] font-bold text-emerald-800 bg-emerald-50 border border-emerald-200">
+                              {rollNo}
+                            </span>
+                            <span className="text-[10px] font-semibold text-slate-500">
+                              {student.gender || 'Male'}
+                            </span>
+                          </div>
+                          <h3 className="font-extrabold text-slate-900 text-sm leading-tight mt-1">
+                            {student.name}
+                          </h3>
                         </div>
-                      )}
-                      <div>
-                        <div className="flex items-center gap-1.5 flex-wrap">
-                          <span className="inline-block px-2 py-0.5 rounded-md font-mono text-[10px] font-bold text-emerald-800 bg-emerald-50 border border-emerald-200">
-                            {rollNo}
-                          </span>
-                          <span className="text-[10px] font-semibold text-slate-500">
-                            {student.gender || 'Male'}
-                          </span>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => handleToggleStatus(student.id, student.status)}
+                        className={`px-2 py-0.5 rounded-full text-[10px] font-bold border transition-colors cursor-pointer ${
+                          student.status === 'active'
+                            ? 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100'
+                            : student.status === 'completed'
+                            ? 'bg-indigo-50 text-indigo-700 border-indigo-200 hover:bg-indigo-100'
+                            : 'bg-rose-50 text-rose-700 border-rose-200 hover:bg-rose-100'
+                        }`}
+                        title="Click to change status"
+                      >
+                        {student.status?.toUpperCase() || 'ACTIVE'}
+                      </button>
+                    </div>
+
+                    <div className="mt-3.5 grid grid-cols-2 gap-2 text-xs">
+                      <div className="p-2 rounded-xl bg-slate-50 border border-slate-100">
+                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Class / Grade</span>
+                        <div className="flex items-center gap-1 flex-wrap mt-0.5">
+                          <span className="font-bold text-slate-800">{student.grade || '—'}</span>
+                          {student.field && (
+                            <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-emerald-100 text-emerald-800 border border-emerald-200">
+                              {student.field}
+                            </span>
+                          )}
                         </div>
-                        <h3 className="font-extrabold text-slate-900 text-sm leading-tight mt-1">
-                          {student.name}
-                        </h3>
+                      </div>
+
+                      <div className="p-2 rounded-xl bg-emerald-50/70 border border-emerald-100">
+                        <span className="text-[10px] font-bold text-emerald-800 uppercase tracking-wider block">Monthly Fee</span>
+                        <span className="font-bold text-emerald-800 font-mono block mt-0.5">
+                          PKR {Number(student.monthly_fee || 0).toLocaleString()}
+                        </span>
                       </div>
                     </div>
 
-                    <button
-                      type="button"
-                      onClick={() => handleToggleStatus(student.id, student.status)}
-                      className={`px-2 py-0.5 rounded-full text-[10px] font-bold border transition-colors cursor-pointer ${
-                        student.status === 'active'
-                          ? 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100'
-                          : student.status === 'completed'
-                          ? 'bg-indigo-50 text-indigo-700 border-indigo-200 hover:bg-indigo-100'
-                          : 'bg-rose-50 text-rose-700 border-rose-200 hover:bg-rose-100'
-                      }`}
-                      title="Click to change status"
-                    >
-                      {student.status?.toUpperCase() || 'ACTIVE'}
-                    </button>
+                    {primaryPhone && (
+                      <div className="mt-2.5 flex items-center justify-between text-xs text-slate-600 font-mono">
+                        <div className="flex items-center gap-1.5">
+                          <Phone size={12} className="text-slate-400" />
+                          <a href={`tel:${primaryPhone}`} className="hover:text-emerald-600 hover:underline">
+                            {primaryPhone}
+                          </a>
+                        </div>
+                        <a
+                          href={`https://wa.me/${normalizePhoneNumber(primaryPhone).replace('+', '')}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 px-2 py-0.5 rounded-lg border border-emerald-200"
+                        >
+                          <MessageCircle size={11} />
+                          <span>WhatsApp</span>
+                        </a>
+                      </div>
+                    )}
                   </div>
 
-                  <div className="mt-3.5 grid grid-cols-2 gap-2 text-xs">
-                    <div className="p-2 rounded-xl bg-slate-50 border border-slate-100">
-                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Class / Grade</span>
-                      <div className="flex items-center gap-1 flex-wrap mt-0.5">
-                        <span className="font-bold text-slate-800">{student.grade || '—'}</span>
-                        {student.field && (
-                          <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-emerald-100 text-emerald-800 border border-emerald-200">
-                            {student.field}
-                          </span>
+                  <div className="pt-3 border-t border-slate-100 flex items-center justify-between gap-2">
+                    <button
+                      onClick={() => navigate(`/dashboard/coaching-fees?studentId=${student.id}`)}
+                      className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition-all shadow-xs cursor-pointer"
+                    >
+                      <CreditCard size={13} />
+                      <span>Collect Fee</span>
+                    </button>
+
+                    <button
+                      onClick={() => setViewingStudent(student)}
+                      className="p-2 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-600 text-xs font-bold transition-colors cursor-pointer"
+                      title="View Full Profile"
+                    >
+                      <BookOpen size={14} />
+                    </button>
+
+                    <button
+                      onClick={() => handleEdit(student)}
+                      className="p-2 rounded-xl border border-slate-200 hover:bg-slate-50 text-blue-600 text-xs font-bold transition-colors cursor-pointer"
+                      title="Edit Record"
+                    >
+                      <Pencil size={14} />
+                    </button>
+
+                    {isAdmin && (
+                      <button
+                        onClick={() => handleDelete(student.id, student.name)}
+                        className="p-2 rounded-xl border border-slate-200 hover:bg-rose-50 text-rose-600 text-xs font-bold transition-colors cursor-pointer"
+                        title="Delete Record"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* DESKTOP VIEW (>= md) */}
+          <div className="hidden md:block">
+            {desktopView === 'table' ? (
+              /* TABULAR VIEW */
+              <div className="bg-white border border-slate-200/90 rounded-2xl shadow-xs overflow-hidden">
+                <div className="p-3.5 bg-slate-50/70 border-b border-slate-200/80 flex items-center justify-between text-xs font-bold text-slate-600">
+                  <div className="flex items-center gap-2">
+                    <GraduationCap size={16} className="text-emerald-600" />
+                    <span>Enrolled Coaching Students ({filteredStudents.length})</span>
+                  </div>
+                  <span className="text-[11px] text-slate-400 font-normal">
+                    Filter: {selectedGrade === 'ALL' ? 'All Grades' : selectedGrade} • {selectedStatus === 'ALL' ? 'All Statuses' : selectedStatus}
+                  </span>
+                </div>
+
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left border-collapse text-xs">
+                    <thead>
+                      <tr className="bg-slate-50/90 border-b border-slate-200 text-slate-600 uppercase font-bold tracking-wider text-[11px]">
+                        <th className="py-3 px-4">Roll No</th>
+                        <th className="py-3 px-4">Student Info</th>
+                        <th className="py-3 px-4">Class / Grade</th>
+                        <th className="py-3 px-4 text-right">Admission Fee</th>
+                        <th className="py-3 px-4 text-right">Monthly Fee</th>
+                        <th className="py-3 px-4">Admission Date</th>
+                        <th className="py-3 px-4 text-center">Status</th>
+                        <th className="py-3 px-4 text-right">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {filteredStudents.map(student => {
+                        const rollNo = student.roll_no || student.student_id || 'TFC-???';
+                        const photo = student.profile_image || student.photo;
+                        const primaryPhone = student.contact || student.contact_number;
+                        const secondaryPhone = student.secondary_contact || student.guardian_contact;
+
+                        return (
+                          <tr key={student.id} className="hover:bg-slate-50/70 transition-colors group">
+                            {/* Roll No */}
+                            <td className="py-3 px-4 whitespace-nowrap">
+                              <button
+                                type="button"
+                                onClick={() => setViewingStudent(student)}
+                                className="inline-block px-2.5 py-1 rounded-md font-mono text-xs font-bold text-emerald-800 bg-emerald-50 border border-emerald-200 hover:bg-emerald-100 transition-colors cursor-pointer"
+                                title="Click to view full profile"
+                              >
+                                {rollNo}
+                              </button>
+                            </td>
+
+                            {/* Student Info */}
+                            <td className="py-3 px-4">
+                              <div className="flex items-center gap-3">
+                                {photo ? (
+                                  <img
+                                    src={photo}
+                                    alt={student.name}
+                                    onClick={() => setViewingStudent(student)}
+                                    className="w-10 h-10 rounded-xl object-cover border border-slate-200 shrink-0 shadow-2xs cursor-pointer hover:opacity-90 transition-opacity"
+                                    title="Click to view full profile"
+                                  />
+                                ) : (
+                                  <div
+                                    onClick={() => setViewingStudent(student)}
+                                    className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-600 to-teal-700 text-white flex items-center justify-center font-extrabold text-sm shrink-0 shadow-inner cursor-pointer"
+                                    title="Click to view full profile"
+                                  >
+                                    {student.name?.charAt(0) || 'S'}
+                                  </div>
+                                )}
+
+                                <div className="min-w-0">
+                                  <div className="flex items-center gap-1.5">
+                                    <span
+                                      onClick={() => setViewingStudent(student)}
+                                      className="font-bold text-slate-900 text-sm hover:text-emerald-700 cursor-pointer transition-colors truncate max-w-[200px]"
+                                      title={student.name}
+                                    >
+                                      {student.name}
+                                    </span>
+                                    <span className="text-[10px] font-semibold px-1.5 py-0.2 rounded bg-slate-100 text-slate-500 shrink-0">
+                                      {student.gender || 'Male'}
+                                    </span>
+                                  </div>
+
+                                  <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-xs text-slate-500 mt-0.5 font-mono">
+                                    {primaryPhone ? (
+                                      <div className="flex items-center gap-1">
+                                        <Phone size={11} className="text-slate-400" />
+                                        <a href={`tel:${primaryPhone}`} className="hover:text-emerald-700 hover:underline">
+                                          {primaryPhone}
+                                        </a>
+                                        <a
+                                          href={`https://wa.me/${normalizePhoneNumber(primaryPhone).replace('+', '')}`}
+                                          target="_blank"
+                                          rel="noreferrer"
+                                          className="inline-flex items-center gap-0.5 text-[10px] font-bold text-emerald-700 hover:text-emerald-800 bg-emerald-50 hover:bg-emerald-100 px-1.5 py-0.2 rounded transition-colors"
+                                          title="Chat on WhatsApp"
+                                          onClick={(e) => e.stopPropagation()}
+                                        >
+                                          <MessageCircle size={10} />
+                                          <span>WA</span>
+                                        </a>
+                                      </div>
+                                    ) : (
+                                      <span className="text-slate-400 italic text-[11px]">No phone</span>
+                                    )}
+
+                                    {secondaryPhone && (
+                                      <>
+                                        <span className="text-slate-300">•</span>
+                                        <div className="flex items-center gap-1 text-slate-600">
+                                          <span className="text-[10px] bg-slate-100 px-1 py-0.2 rounded text-slate-500 font-sans font-medium">Guardian:</span>
+                                          <span>{secondaryPhone}</span>
+                                          <a
+                                            href={`https://wa.me/${normalizePhoneNumber(secondaryPhone).replace('+', '')}`}
+                                            target="_blank"
+                                            rel="noreferrer"
+                                            className="inline-flex items-center gap-0.5 text-[10px] font-bold text-emerald-700 hover:text-emerald-800 bg-emerald-50 hover:bg-emerald-100 px-1 py-0.2 rounded transition-colors"
+                                            title="WhatsApp Guardian"
+                                            onClick={(e) => e.stopPropagation()}
+                                          >
+                                            <MessageCircle size={10} />
+                                          </a>
+                                        </div>
+                                      </>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                            </td>
+
+                            {/* Class / Grade */}
+                            <td className="py-3 px-4 whitespace-nowrap">
+                              <div className="font-bold text-slate-800 text-xs">
+                                {student.grade || '—'}
+                              </div>
+                              {student.field ? (
+                                <span className="inline-block mt-0.5 text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200">
+                                  {student.field}
+                                </span>
+                              ) : (
+                                <span className="text-[10px] text-slate-400 block mt-0.5">General</span>
+                              )}
+                            </td>
+
+                            {/* Admission Fee */}
+                            <td className="py-3 px-4 text-right font-mono text-xs text-slate-600 whitespace-nowrap">
+                              {Number(student.admission_fee || 0) > 0 ? (
+                                `PKR ${Number(student.admission_fee).toLocaleString()}`
+                              ) : (
+                                <span className="text-slate-400">—</span>
+                              )}
+                            </td>
+
+                            {/* Monthly Fee */}
+                            <td className="py-3 px-4 text-right whitespace-nowrap">
+                              <span className="font-mono font-extrabold text-xs text-emerald-800 bg-emerald-50 border border-emerald-200/80 px-2.5 py-1 rounded-lg inline-block">
+                                PKR {Number(student.monthly_fee || 0).toLocaleString()}
+                              </span>
+                            </td>
+
+                            {/* Admission Date */}
+                            <td className="py-3 px-4 whitespace-nowrap text-xs text-slate-600 font-mono">
+                              <div className="flex items-center gap-1.5">
+                                <Calendar size={13} className="text-slate-400 shrink-0" />
+                                <span>{formatDateDMY(student.joined_date || student.createdAt)}</span>
+                              </div>
+                            </td>
+
+                            {/* Status */}
+                            <td className="py-3 px-4 text-center whitespace-nowrap">
+                              <button
+                                type="button"
+                                onClick={() => handleToggleStatus(student.id, student.status)}
+                                className={`px-2.5 py-1 rounded-full text-[10px] font-bold border transition-colors cursor-pointer ${
+                                  student.status === 'active'
+                                    ? 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100'
+                                    : student.status === 'completed'
+                                    ? 'bg-indigo-50 text-indigo-700 border-indigo-200 hover:bg-indigo-100'
+                                    : 'bg-rose-50 text-rose-700 border-rose-200 hover:bg-rose-100'
+                                }`}
+                                title="Click to toggle status"
+                              >
+                                {student.status?.toUpperCase() || 'ACTIVE'}
+                              </button>
+                            </td>
+
+                            {/* Actions */}
+                            <td className="py-3 px-4 text-right whitespace-nowrap">
+                              <div className="flex items-center justify-end gap-1.5">
+                                <button
+                                  type="button"
+                                  onClick={() => navigate(`/dashboard/coaching-fees?studentId=${student.id}`)}
+                                  className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition-all shadow-xs cursor-pointer"
+                                  title="Collect or View Fee Ledger"
+                                >
+                                  <CreditCard size={13} />
+                                  <span>Collect Fee</span>
+                                </button>
+
+                                <button
+                                  type="button"
+                                  onClick={async () => {
+                                    const res = await syncStudentToGoogleContacts({
+                                      student_id: rollNo,
+                                      name: student.name,
+                                      contact: primaryPhone,
+                                      secondary_contact: secondaryPhone,
+                                      enrolled_courses: {
+                                        c1: { course_name: `${student.grade || 'Coaching'}${student.field ? ` (${student.field})` : ''}` }
+                                      },
+                                      createdAt: student.joined_date || student.createdAt
+                                    });
+                                    if (res?.success) toast.success(`Synced ${rollNo} to phonebook!`);
+                                    else toast.error(res?.message || 'Sync failed');
+                                  }}
+                                  className="p-1.5 rounded-lg border border-slate-200 hover:bg-emerald-50 text-slate-500 hover:text-emerald-700 transition-colors cursor-pointer"
+                                  title="Sync Contact to Mobile Phonebook"
+                                >
+                                  <Smartphone size={14} />
+                                </button>
+
+                                <button
+                                  type="button"
+                                  onClick={() => setViewingStudent(student)}
+                                  className="p-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 text-slate-600 transition-colors cursor-pointer"
+                                  title="View Full Profile"
+                                >
+                                  <Eye size={14} />
+                                </button>
+
+                                <button
+                                  type="button"
+                                  onClick={() => handleEdit(student)}
+                                  className="p-1.5 rounded-lg border border-slate-200 hover:bg-blue-50 text-blue-600 transition-colors cursor-pointer"
+                                  title="Edit Record"
+                                >
+                                  <Pencil size={14} />
+                                </button>
+
+                                {isAdmin && (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleDelete(student.id, student.name)}
+                                    className="p-1.5 rounded-lg border border-slate-200 hover:bg-rose-50 text-rose-600 transition-colors cursor-pointer"
+                                    title="Delete Record"
+                                  >
+                                    <Trash2 size={14} />
+                                  </button>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            ) : (
+              /* CARD GRID VIEW ON DESKTOP */
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {filteredStudents.map(student => {
+                  const rollNo = student.roll_no || student.student_id || 'TFC-???';
+                  const photo = student.profile_image || student.photo;
+                  const primaryPhone = student.contact || student.contact_number;
+
+                  return (
+                    <div
+                      key={`grid_${student.id}`}
+                      className="bg-white rounded-2xl border border-slate-300 md:border-slate-200/80 p-4 space-y-3.5 shadow-xs hover:border-emerald-300 transition-all flex flex-col justify-between"
+                    >
+                      <div>
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="flex items-center gap-3">
+                            {photo ? (
+                              <img
+                                src={photo}
+                                alt={student.name}
+                                className="w-12 h-12 rounded-xl object-cover border border-slate-200 shrink-0 shadow-2xs"
+                              />
+                            ) : (
+                              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-emerald-600 to-teal-700 text-white flex items-center justify-center font-extrabold text-base shrink-0 shadow-inner">
+                                {student.name?.charAt(0) || 'S'}
+                              </div>
+                            )}
+                            <div>
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <span className="inline-block px-2 py-0.5 rounded-md font-mono text-[10px] font-bold text-emerald-800 bg-emerald-50 border border-emerald-200">
+                                  {rollNo}
+                                </span>
+                                <span className="text-[10px] font-semibold text-slate-500">
+                                  {student.gender || 'Male'}
+                                </span>
+                              </div>
+                              <h3 className="font-extrabold text-slate-900 text-sm leading-tight mt-1">
+                                {student.name}
+                              </h3>
+                            </div>
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={() => handleToggleStatus(student.id, student.status)}
+                            className={`px-2 py-0.5 rounded-full text-[10px] font-bold border transition-colors cursor-pointer ${
+                              student.status === 'active'
+                                ? 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100'
+                                : student.status === 'completed'
+                                ? 'bg-indigo-50 text-indigo-700 border-indigo-200 hover:bg-indigo-100'
+                                : 'bg-rose-50 text-rose-700 border-rose-200 hover:bg-rose-100'
+                            }`}
+                            title="Click to change status"
+                          >
+                            {student.status?.toUpperCase() || 'ACTIVE'}
+                          </button>
+                        </div>
+
+                        <div className="mt-3.5 grid grid-cols-2 gap-2 text-xs">
+                          <div className="p-2 rounded-xl bg-slate-50 border border-slate-100">
+                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Class / Grade</span>
+                            <div className="flex items-center gap-1 flex-wrap mt-0.5">
+                              <span className="font-bold text-slate-800">{student.grade || '—'}</span>
+                              {student.field && (
+                                <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-emerald-100 text-emerald-800 border border-emerald-200">
+                                  {student.field}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+
+                          <div className="p-2 rounded-xl bg-emerald-50/70 border border-emerald-100">
+                            <span className="text-[10px] font-bold text-emerald-800 uppercase tracking-wider block">Monthly Fee</span>
+                            <span className="font-bold text-emerald-800 font-mono block mt-0.5">
+                              PKR {Number(student.monthly_fee || 0).toLocaleString()}
+                            </span>
+                          </div>
+                        </div>
+
+                        {primaryPhone && (
+                          <div className="mt-2.5 flex items-center justify-between text-xs text-slate-600 font-mono">
+                            <div className="flex items-center gap-1.5">
+                              <Phone size={12} className="text-slate-400" />
+                              <a href={`tel:${primaryPhone}`} className="hover:text-emerald-600 hover:underline">
+                                {primaryPhone}
+                              </a>
+                            </div>
+                            <a
+                              href={`https://wa.me/${normalizePhoneNumber(primaryPhone).replace('+', '')}`}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 px-2 py-0.5 rounded-lg border border-emerald-200"
+                            >
+                              <MessageCircle size={11} />
+                              <span>WhatsApp</span>
+                            </a>
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="pt-3 border-t border-slate-100 flex items-center justify-between gap-2">
+                        <button
+                          onClick={() => navigate(`/dashboard/coaching-fees?studentId=${student.id}`)}
+                          className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition-all shadow-xs cursor-pointer"
+                        >
+                          <CreditCard size={13} />
+                          <span>Collect Fee</span>
+                        </button>
+
+                        <button
+                          onClick={() => setViewingStudent(student)}
+                          className="p-2 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-600 text-xs font-bold transition-colors cursor-pointer"
+                          title="View Full Profile"
+                        >
+                          <BookOpen size={14} />
+                        </button>
+
+                        <button
+                          onClick={() => handleEdit(student)}
+                          className="p-2 rounded-xl border border-slate-200 hover:bg-slate-50 text-blue-600 text-xs font-bold transition-colors cursor-pointer"
+                          title="Edit Record"
+                        >
+                          <Pencil size={14} />
+                        </button>
+
+                        {isAdmin && (
+                          <button
+                            onClick={() => handleDelete(student.id, student.name)}
+                            className="p-2 rounded-xl border border-slate-200 hover:bg-rose-50 text-rose-600 text-xs font-bold transition-colors cursor-pointer"
+                            title="Delete Record"
+                          >
+                            <Trash2 size={14} />
+                          </button>
                         )}
                       </div>
                     </div>
-
-                    <div className="p-2 rounded-xl bg-emerald-50/70 border border-emerald-100">
-                      <span className="text-[10px] font-bold text-emerald-800 uppercase tracking-wider block">Monthly Fee</span>
-                      <span className="font-bold text-emerald-800 font-mono block mt-0.5">
-                        PKR {Number(student.monthly_fee || 0).toLocaleString()}
-                      </span>
-                    </div>
-                  </div>
-
-                  {(student.contact || student.contact_number) && (
-                    <div className="mt-2.5 flex items-center gap-1.5 text-xs text-slate-600 font-mono">
-                      <Phone size={12} className="text-slate-400" />
-                      <a href={`tel:${student.contact || student.contact_number}`} className="hover:text-emerald-600 hover:underline">
-                        {student.contact || student.contact_number}
-                      </a>
-                    </div>
-                  )}
-                </div>
-
-                <div className="pt-3 border-t border-slate-100 flex items-center justify-between gap-2">
-                  <button
-                    onClick={() => navigate(`/dashboard/coaching-fees?studentId=${student.id}`)}
-                    className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold transition-all shadow-xs cursor-pointer"
-                  >
-                    <CreditCard size={13} />
-                    <span>Collect Fee</span>
-                  </button>
-
-                  <button
-                    onClick={() => setViewingStudent(student)}
-                    className="p-2 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-600 text-xs font-bold transition-colors cursor-pointer"
-                    title="View Full Profile"
-                  >
-                    <BookOpen size={14} />
-                  </button>
-
-                  <button
-                    onClick={() => handleEdit(student)}
-                    className="p-2 rounded-xl border border-slate-200 hover:bg-slate-50 text-blue-600 text-xs font-bold transition-colors cursor-pointer"
-                    title="Edit Record"
-                  >
-                    <Pencil size={14} />
-                  </button>
-
-                  {isAdmin && (
-                    <button
-                      onClick={() => handleDelete(student.id, student.name)}
-                      className="p-2 rounded-xl border border-slate-200 hover:bg-rose-50 text-rose-600 text-xs font-bold transition-colors cursor-pointer"
-                      title="Delete Record"
-                    >
-                      <Trash2 size={14} />
-                    </button>
-                  )}
-                </div>
+                  );
+                })}
               </div>
-            );
-          })}
-        </div>
+            )}
+          </div>
+        </>
       ) : (
         <div className="bg-white p-12 text-center rounded-2xl border border-slate-200 text-slate-400 space-y-3">
           <GraduationCap size={44} className="mx-auto text-slate-300" />
@@ -935,19 +1423,56 @@ const CoachingStudents = () => {
                   />
                 </div>
 
-                {/* 13. Status (Edit Mode Only) */}
-                {editingStudent && (
+                {/* 13. Status (Available when adding and editing) */}
+                <div>
+                  <label className="block text-xs font-semibold text-slate-600 mb-1">Enrollment Status</label>
+                  <select
+                    name="status"
+                    value={formData.status}
+                    onChange={handleChange}
+                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all cursor-pointer font-medium"
+                  >
+                    <option value="active">Active</option>
+                    <option value="completed">Completed</option>
+                    <option value="left">Left</option>
+                  </select>
+                </div>
+
+                {/* Left Date or Completion Date */}
+                {(formData.status === 'left' || formData.status === 'completed') && (
                   <div>
-                    <label className="block text-xs font-semibold text-slate-600 mb-1">Enrollment Status</label>
-                    <select
-                      name="status"
-                      value={formData.status}
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="block text-xs font-semibold text-rose-600">
+                        {formData.status === 'completed' ? 'Completion Date' : 'Date Left'}
+                      </label>
+                      <span className="text-[10px] text-slate-400">Optional</span>
+                    </div>
+                    <input
+                      type="date"
+                      name="left_date"
+                      value={formData.left_date || ''}
                       onChange={handleChange}
-                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all cursor-pointer font-medium"
-                    >
-                      <option value="active">Active</option>
-                      <option value="inactive">Inactive</option>
-                    </select>
+                      className="w-full px-3 py-2 bg-rose-50/40 border border-rose-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 transition-all font-mono"
+                    />
+                    <p className="text-[10px] text-slate-400 mt-1">
+                      Leave empty to stop fee dues immediately after their last payment.
+                    </p>
+                  </div>
+                )}
+
+                {/* Re-admission / Rejoin Date */}
+                {formData.status === 'active' && editingStudent && (editingStudent.left_date || editingStudent.status === 'left') && (
+                  <div>
+                    <label className="block text-xs font-semibold text-emerald-600 mb-1">
+                      Re-admission / Rejoin Date
+                    </label>
+                    <input
+                      type="date"
+                      name="rejoined_date"
+                      value={formData.rejoined_date || ''}
+                      onChange={handleChange}
+                      className="w-full px-3 py-2 bg-emerald-50/40 border border-emerald-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all font-mono"
+                    />
                   </div>
                 )}
               </div>

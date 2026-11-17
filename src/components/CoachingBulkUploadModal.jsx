@@ -111,6 +111,7 @@ const CoachingBulkUploadModal = ({
           admission_fee: Number(row.admission_fee) || 0,
           monthly_fee: Number(row.monthly_fee) || 0,
           joined_date: row.joined_date || timestamp.split('T')[0],
+          left_date: row.left_date || '',
           status: row.status || 'active',
           profile_image: '',
           photo: '',

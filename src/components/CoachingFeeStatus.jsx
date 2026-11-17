@@ -3,8 +3,9 @@ import { useData } from '../contexts/DataContext';
 import { useNavigate } from 'react-router-dom';
 import * as XLSX from 'xlsx';
 import toast from 'react-hot-toast';
-import { MONTHS_SHORT, getCanonicalShortMonth } from '../utils/monthUtils';
+import { MONTHS_SHORT, getCanonicalShortMonth, getMonthIndex, getCoachingStudentEnrollmentMonthDate, parseEnrollmentMonthDate } from '../utils/monthUtils';
 import { COACHING_GRADES } from './CoachingStudents';
+import CoachingFeeBulkUploadModal from './CoachingFeeBulkUploadModal';
 import {
   FileSpreadsheet,
   Search,
@@ -17,7 +18,8 @@ import {
   Calendar,
   GraduationCap,
   DollarSign,
-  ArrowRight
+  ArrowRight,
+  Upload
 } from 'lucide-react';
 
 const CoachingFeeStatus = () => {
@@ -29,16 +31,45 @@ const CoachingFeeStatus = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedGrade, setSelectedGrade] = useState('ALL');
   const [statusFilter, setStatusFilter] = useState('ALL'); // ALL, PAID, PARTIAL, UNPAID
+  const [isBulkUploadOpen, setIsBulkUploadOpen] = useState(false);
 
   const monthKey = `${month}_${year}`;
 
   // Process data for the selected month
   const reportData = useMemo(() => {
+    const selectedMonthIdx = getMonthIndex(month);
+    const selectedYearNum = parseInt(year, 10);
+    const selectedPeriodDate = new Date(selectedYearNum, selectedMonthIdx, 1);
+
     return coachingStudents
-      .filter(s => s.status !== 'left')
       .map(student => {
         const studentHistory = coachingFeeTransactions?.[student.id] || {};
         const trx = studentHistory[monthKey];
+
+        const enrollMonthDate = getCoachingStudentEnrollmentMonthDate(student);
+        const leftMonthDate = parseEnrollmentMonthDate(student.left_date || student.status_date);
+        const rejoinedMonthDate = parseEnrollmentMonthDate(student.rejoined_date);
+
+        // If no explicit transaction exists for this month, check enrollment & status boundaries
+        if (!trx) {
+          // 1. Exclude if selected month is before student enrolled
+          if (enrollMonthDate && enrollMonthDate > selectedPeriodDate) {
+            return null;
+          }
+
+          // 2. Inactive / Leave gap check (Scenario: Left in Jan 2025, Rejoined in August 2025)
+          // Exclude months between when the student left and when they rejoined (Feb - Jul)
+          if (leftMonthDate && selectedPeriodDate > leftMonthDate) {
+            if (!rejoinedMonthDate || selectedPeriodDate < rejoinedMonthDate) {
+              return null;
+            }
+          }
+
+          // 3. If student is currently marked as left, completed, or inactive (without specific left_date recorded)
+          if ((student.status === 'left' || student.status === 'completed' || student.status === 'inactive') && !leftMonthDate) {
+            return null;
+          }
+        }
 
         const payable = trx ? Number(trx.payable) : Number(student.monthly_fee) || 0;
         const paid = trx ? Number(trx.paid) : 0;
@@ -67,8 +98,9 @@ const CoachingFeeStatus = () => {
           serial_no: trx?.serial_no || '',
           status
         };
-      });
-  }, [coachingStudents, coachingFeeTransactions, monthKey]);
+      })
+      .filter(Boolean);
+  }, [coachingStudents, coachingFeeTransactions, monthKey, month, year]);
 
   // Filtered rows
   const filteredData = useMemo(() => {
@@ -188,6 +220,16 @@ const CoachingFeeStatus = () => {
               className="w-16 px-2 py-1 text-xs font-mono font-bold text-slate-800 bg-slate-50 rounded-lg outline-none ml-1 text-center"
             />
           </div>
+
+          <button
+            type="button"
+            onClick={() => setIsBulkUploadOpen(true)}
+            className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 font-bold text-xs shadow-2xs cursor-pointer transition-all"
+            title="Bulk import monthly fee records from spreadsheet"
+          >
+            <Upload size={14} className="text-emerald-600" />
+            <span>Bulk Upload Fees</span>
+          </button>
 
           <button
             onClick={exportReport}
@@ -377,6 +419,16 @@ const CoachingFeeStatus = () => {
           </table>
         </div>
       </div>
+
+      {/* COACHING FEE BULK UPLOAD MODAL */}
+      <CoachingFeeBulkUploadModal
+        isOpen={isBulkUploadOpen}
+        onClose={() => setIsBulkUploadOpen(false)}
+        existingStudents={coachingStudents}
+        onSuccess={() => {
+          toast.success("Coaching fee records refreshed!");
+        }}
+      />
     </div>
   );
 };

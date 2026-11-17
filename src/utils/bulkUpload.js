@@ -7,6 +7,7 @@ import {
   COACHING_FIELDS,
   isClassAboveEight
 } from './admissionFormOcrParser.js';
+import { normalizeMonth } from './monthUtils.js';
 
 // === SAMPLE DOWNLOADS ===
 
@@ -46,10 +47,11 @@ export const downloadFeeSample = async () => {
     { header: 'Payable', key: 'payable', width: 15 },
     { header: 'Paid', key: 'paid', width: 15 },
     { header: 'Waived', key: 'waived', width: 15 },
-    { header: 'Pay Date', key: 'payDate', width: 15 }
+    { header: 'Pay Date', key: 'payDate', width: 15 },
+    { header: 'Payment Method (Cash / Online)', key: 'paymentMethod', width: 28 }
   ];
 
-  ws.addRow({ studentId: 'STU-001', courseName: 'Graphic Designing', month: 'Jan', year: '2024', payable: 2500, paid: 2500, waived: 0, payDate: '2024-01-15' });
+  ws.addRow({ studentId: 'STU-001', courseName: 'Graphic Designing', month: 'Jan', year: '2024', payable: 2500, paid: 2500, waived: 0, payDate: '2024-01-15', paymentMethod: 'Cash' });
   
   // Format header
   ws.getRow(1).font = { bold: true };
@@ -57,6 +59,80 @@ export const downloadFeeSample = async () => {
 
   const buffer = await wb.xlsx.writeBuffer();
   saveAs(new Blob([buffer]), 'Fee_Upload_Sample.xlsx');
+};
+
+export const downloadCoachingFeeSample = async () => {
+  const wb = new ExcelJS.Workbook();
+  const ws = wb.addWorksheet('Coaching Fee Sample');
+
+  ws.columns = [
+    { header: 'Roll Number *', key: 'roll_no', width: 18 },
+    { header: 'Student Name (Optional)', key: 'name', width: 26 },
+    { header: 'Month *', key: 'month', width: 14 },
+    { header: 'Year *', key: 'year', width: 12 },
+    { header: 'Payable (PKR)', key: 'payable', width: 16 },
+    { header: 'Paid (PKR) *', key: 'paid', width: 16 },
+    { header: 'Waived (PKR)', key: 'waived', width: 16 },
+    { header: 'Pay Date', key: 'pay_date', width: 16 },
+    { header: 'Payment Method (Cash / Online) *', key: 'payment_method', width: 32 },
+    { header: 'Slip Serial No', key: 'serial_no', width: 16 },
+    { header: 'Note (Optional)', key: 'note', width: 22 }
+  ];
+
+  ws.addRow({
+    roll_no: 'TFC-001',
+    name: 'Raheed Hafeez',
+    month: 'Nov',
+    year: 2026,
+    payable: 3000,
+    paid: 3000,
+    waived: 0,
+    pay_date: '2026-11-16',
+    payment_method: 'Cash',
+    serial_no: '1001',
+    note: 'Desk Payment'
+  });
+
+  ws.addRow({
+    roll_no: 'TFC-002',
+    name: 'Hamza Salman',
+    month: 'Nov',
+    year: 2026,
+    payable: 2500,
+    paid: 2500,
+    waived: 0,
+    pay_date: '2026-11-16',
+    payment_method: 'Online',
+    serial_no: '1002',
+    note: 'Bank App'
+  });
+
+  ws.addRow({
+    roll_no: 'TFC-003',
+    name: 'Imranullah Abdullah',
+    month: 'Nov',
+    year: 2026,
+    payable: 1500,
+    paid: 1000,
+    waived: 0,
+    pay_date: '2026-11-16',
+    payment_method: 'Cash',
+    serial_no: '1003',
+    note: 'Balance due 500'
+  });
+
+  // Format header row
+  const headerRow = ws.getRow(1);
+  headerRow.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+  headerRow.fill = {
+    type: 'pattern',
+    pattern: 'solid',
+    fgColor: { argb: 'FF059669' } // Emerald green
+  };
+  headerRow.alignment = { vertical: 'middle', horizontal: 'center' };
+
+  const buffer = await wb.xlsx.writeBuffer();
+  saveAs(new Blob([buffer]), 'Coaching_Fee_Upload_Sample.xlsx');
 };
 
 // === PARSE UPLOADS ===
@@ -571,8 +647,10 @@ export const parseCoachingStudentUpload = async (file, existingStudents = []) =>
 
         // Resolve Status
         let resolvedStatus = 'active';
-        if (rawStatus && /inactive|left|dropped|complete/i.test(rawStatus)) {
-          resolvedStatus = 'inactive';
+        if (rawStatus) {
+          if (/complete/i.test(rawStatus)) resolvedStatus = 'completed';
+          else if (/left|drop/i.test(rawStatus)) resolvedStatus = 'left';
+          else if (/inactive/i.test(rawStatus)) resolvedStatus = 'inactive';
         }
 
         // Format Date
@@ -591,6 +669,23 @@ export const parseCoachingStudentUpload = async (file, existingStudents = []) =>
           }
         }
 
+        // Format Left Date (optional)
+        const rawLeftDate = findField(row, 'Left Date', 'Date Left', 'Completion Date', 'End Date');
+        let cleanLeftDate = '';
+        if (rawLeftDate) {
+          if (/^\d{4}-\d{2}-\d{2}$/.test(rawLeftDate)) {
+            cleanLeftDate = rawLeftDate;
+          } else if (rawLeftDate.includes('/')) {
+            const parts = rawLeftDate.split('/');
+            if (parts.length === 3) {
+              const year = parts[2].length === 2 ? `20${parts[2]}` : parts[2];
+              cleanLeftDate = `${year}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
+            }
+          } else {
+            cleanLeftDate = rawLeftDate;
+          }
+        }
+
         validRows.push({
           rowNumber: rowNum,
           roll_no: assignedRoll,
@@ -605,12 +700,191 @@ export const parseCoachingStudentUpload = async (file, existingStudents = []) =>
           secondary_contact: rawSecondary,
           guardian_contact: rawSecondary,
           joined_date: cleanDate,
+          left_date: cleanLeftDate,
           status: resolvedStatus,
           class_type: 'Regular',
           timeslot: '',
           timing: '',
           isExisting,
           existingId
+        });
+      });
+
+      resolve({
+        validRows,
+        invalidRows,
+        totalRows: rawRows.length
+      });
+    } catch (err) {
+      reject(err);
+    }
+  });
+};
+
+export const parseCoachingFeeUpload = async (file, existingStudents = []) => {
+  return new Promise(async (resolve, reject) => {
+    try {
+      const arrayBuffer = await file.arrayBuffer();
+      const wb = XLSX.read(arrayBuffer, { type: 'array', cellDates: true });
+      const sheetName = wb.SheetNames[0];
+      const ws = wb.Sheets[sheetName];
+      const rawRows = XLSX.utils.sheet_to_json(ws, { defval: '', raw: false });
+
+      const validRows = [];
+      const invalidRows = [];
+      const todayDateStr = new Date().toISOString().split('T')[0];
+      const currentYearStr = new Date().getFullYear().toString();
+
+      // Helper to find case-insensitive key
+      const getVal = (row, candidates) => {
+        const keys = Object.keys(row);
+        for (const candidate of candidates) {
+          const matchedKey = keys.find(k => k.trim().toLowerCase() === candidate.toLowerCase());
+          if (matchedKey && row[matchedKey] !== undefined && row[matchedKey] !== null) {
+            return String(row[matchedKey]).trim();
+          }
+        }
+        return '';
+      };
+
+      rawRows.forEach((row, index) => {
+        const rowNumber = index + 2;
+
+        const rollNoRaw = getVal(row, ['Roll Number', 'Roll Number *', 'Roll No', 'Roll', 'Student ID', 'ID', 'TFC ID']);
+        const nameRaw = getVal(row, ['Student Name', 'Student Name (Optional)', 'Student Full Name', 'Name', 'Full Name']);
+        const monthRaw = getVal(row, ['Month', 'Month *', 'Billing Month', 'Fee Month', 'Period']);
+        const yearRaw = getVal(row, ['Year', 'Year *', 'Billing Year']) || currentYearStr;
+        const payableRaw = getVal(row, ['Payable', 'Payable (PKR)', 'Monthly Fee', 'Fee Amount', 'Tuition Fee']);
+        const paidRaw = getVal(row, ['Paid', 'Paid *', 'Paid (PKR) *', 'Paid (PKR)', 'Amount Paid', 'Amount', 'Fee Paid']);
+        const waivedRaw = getVal(row, ['Waived', 'Waived (PKR)', 'Discount', 'Concession']) || '0';
+        const payDateRaw = getVal(row, ['Pay Date', 'Fee Pay Date', 'Payment Date', 'Date']);
+        const serialNoRaw = getVal(row, ['Slip Serial No', 'Serial No', 'Slip No', 'Receipt No', 'Slip #', 'Serial #']);
+        const methodRaw = getVal(row, ['Payment Method', 'Payment Method (Cash / Online) *', 'Payment Method (Cash / Online)', 'Method', 'Payment Mode', 'Mode']);
+        const noteRaw = getVal(row, ['Note (Optional)', 'Note', 'Notes', 'Remarks']);
+
+        // Strictly normalize payment method to Online or Cash
+        let cleanMethod = 'Cash';
+        if (/online|transfer|bank|jazzcash|easypaisa|digital|card|upi/i.test(methodRaw) || /online/i.test(noteRaw)) {
+          cleanMethod = 'Online';
+        }
+
+        // Skip completely empty rows
+        if (!rollNoRaw && !nameRaw && !monthRaw && !paidRaw) {
+          return;
+        }
+
+        // 1. Identify student
+        let matchedStudent = null;
+        if (rollNoRaw) {
+          const cleanRoll = rollNoRaw.toLowerCase().replace(/[^a-z0-9]/g, '');
+          matchedStudent = existingStudents.find(s => {
+            const sRoll = String(s.roll_no || s.student_id || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+            const sId = String(s.id || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+            return sRoll === cleanRoll || sId === cleanRoll;
+          });
+        }
+
+        // Fallback to student name match
+        if (!matchedStudent && nameRaw) {
+          const cleanName = nameRaw.toLowerCase().trim();
+          matchedStudent = existingStudents.find(s => s.name && s.name.toLowerCase().trim() === cleanName) ||
+                           existingStudents.find(s => s.name && (s.name.toLowerCase().includes(cleanName) || cleanName.includes(s.name.toLowerCase())));
+        }
+
+        if (!matchedStudent) {
+          invalidRows.push({
+            rowNumber,
+            roll_no: rollNoRaw || '—',
+            name: nameRaw || '—',
+            month: monthRaw || '—',
+            year: yearRaw,
+            paid: paidRaw || '0',
+            errorReason: `Student not found with Roll Number "${rollNoRaw || ''}" or Name "${nameRaw || ''}"`
+          });
+          return;
+        }
+
+        // 2. Validate Month
+        const normMonth = normalizeMonth(monthRaw);
+        if (!normMonth) {
+          invalidRows.push({
+            rowNumber,
+            roll_no: matchedStudent.roll_no || rollNoRaw,
+            name: matchedStudent.name,
+            month: monthRaw || 'Empty',
+            year: yearRaw,
+            paid: paidRaw,
+            errorReason: `Invalid month "${monthRaw}". Please enter a valid month (Jan-Dec, 1-12)`
+          });
+          return;
+        }
+
+        // 3. Validate Year
+        let cleanYear = yearRaw.replace(/[^0-9]/g, '');
+        if (cleanYear.length === 2) cleanYear = `20${cleanYear}`;
+        if (!cleanYear || cleanYear.length !== 4) cleanYear = currentYearStr;
+
+        // 4. Validate Paid & Payable
+        const cleanPaid = Number(String(paidRaw).replace(/[^0-9.]/g, ''));
+        if (isNaN(cleanPaid) || paidRaw === '') {
+          invalidRows.push({
+            rowNumber,
+            roll_no: matchedStudent.roll_no || rollNoRaw,
+            name: matchedStudent.name,
+            month: normMonth,
+            year: cleanYear,
+            paid: paidRaw || 'Empty',
+            errorReason: 'Paid amount must be a valid number'
+          });
+          return;
+        }
+
+        const cleanWaived = Number(String(waivedRaw).replace(/[^0-9.]/g, '')) || 0;
+        let cleanPayable = Number(String(payableRaw).replace(/[^0-9.]/g, ''));
+        if (isNaN(cleanPayable) || !payableRaw) {
+          cleanPayable = Number(matchedStudent.monthly_fee) || cleanPaid;
+        }
+
+        const balance = cleanPayable - cleanPaid - cleanWaived;
+
+        // 5. Parse Date
+        let cleanPayDate = todayDateStr;
+        if (payDateRaw) {
+          if (/^\d{4}-\d{2}-\d{2}$/.test(payDateRaw)) {
+            cleanPayDate = payDateRaw;
+          } else if (/^\d{2}[-/]\d{2}[-/]\d{4}$/.test(payDateRaw)) {
+            const parts = payDateRaw.split(/[-/]/);
+            cleanPayDate = `${parts[2]}-${parts[1]}-${parts[0]}`;
+          } else {
+            const parsedD = new Date(payDateRaw);
+            if (!isNaN(parsedD.getTime())) {
+              const y = parsedD.getFullYear();
+              const m = String(parsedD.getMonth() + 1).padStart(2, '0');
+              const d = String(parsedD.getDate()).padStart(2, '0');
+              cleanPayDate = `${y}-${m}-${d}`;
+            }
+          }
+        }
+
+        const monthKey = `${normMonth}_${cleanYear}`;
+
+        validRows.push({
+          rowNumber,
+          studentId: matchedStudent.id,
+          studentName: matchedStudent.name,
+          rollNo: matchedStudent.roll_no || matchedStudent.student_id || rollNoRaw,
+          grade: matchedStudent.grade || '',
+          month: normMonth,
+          year: cleanYear,
+          month_key: monthKey,
+          payable: cleanPayable,
+          paid: cleanPaid,
+          waived: cleanWaived,
+          balance: balance,
+          pay_date: cleanPayDate,
+          payment_method: cleanMethod,
+          serial_no: serialNoRaw,
+          note: noteRaw
         });
       });
 

@@ -1,7 +1,7 @@
 import { useSearchParams } from 'react-router-dom';
 import React, { useState, useEffect } from 'react';
 import { useData } from '../contexts/DataContext';
-import { MONTHS_SHORT, normalizeMonth, normalizeMonthKey, resolveFeeRecord, getCanonicalShortMonth, getMonthIndex } from '../utils/monthUtils';
+import { MONTHS_SHORT, normalizeMonth, normalizeMonthKey, resolveFeeRecord, getCanonicalShortMonth, getMonthIndex, parseEnrollmentMonthDate } from '../utils/monthUtils';
 import {
   BadgeDollarSign,
   Search,
@@ -66,6 +66,30 @@ const FeeStatus = () => {
     return range;
   };
 
+  // Helper: format dates consistently as dd-mm-yyyy
+  const formatDateDMY = (dateVal) => {
+    if (!dateVal) return null;
+    if (typeof dateVal?.toDate === 'function') {
+      dateVal = dateVal.toDate();
+    }
+    if (typeof dateVal === 'string') {
+      const trimmed = dateVal.trim();
+      if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+        const [y, m, d] = trimmed.split('-');
+        return `${d}-${m}-${y}`;
+      }
+      if (/^\d{2}[-/]\d{2}[-/]\d{4}$/.test(trimmed)) {
+        return trimmed.replace(/\//g, '-');
+      }
+    }
+    const d = new Date(dateVal);
+    if (isNaN(d.getTime())) return null;
+    const day = String(d.getDate()).padStart(2, '0');
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const year = d.getFullYear();
+    return `${day}-${month}-${year}`;
+  };
+
   const getSingleMonthStatus = (studentId, courseId, monthKey, agreedFee) => {
     const record = resolveFeeRecord(studentId, courseId, monthKey, feesData);
     if (!record) {
@@ -81,9 +105,10 @@ const FeeStatus = () => {
       ? storedBalance
       : Math.max(0, feeAmount - totalSettled);
 
-    const payDate = record.pay_date 
+    const rawPayDate = record.pay_date 
       || record.payment_date 
       || (record.timestamp ? new Date(record.timestamp).toISOString().split('T')[0] : null);
+    const payDate = formatDateDMY(rawPayDate);
 
     if (computedBalance <= 0 || totalSettled >= feeAmount) {
       return { label: 'Paid', statusType: 'paid', paid, waived, balance: 0, payDate };
@@ -107,8 +132,11 @@ const FeeStatus = () => {
       const matchesCourse = selectedCourseFilter === '' || courseId === selectedCourseFilter;
 
       if (matchesSearch && matchesCourse) {
-        const enrollDate = new Date(courseInfo.enrolledAt);
-        const endDate = courseInfo.course_status_date ? new Date(courseInfo.course_status_date) : new Date();
+        const enrollDate = parseEnrollmentMonthDate(courseInfo.enrolledAt || student.createdAt || student.joined_date);
+        if (!enrollDate) return;
+
+        const endDateRaw = courseInfo.course_status_date ? new Date(courseInfo.course_status_date) : new Date();
+        const endDate = isNaN(endDateRaw.getTime()) ? new Date() : endDateRaw;
         const startBoundary = new Date(enrollDate.getFullYear(), enrollDate.getMonth(), 1);
 
         let endBoundary = new Date(endDate.getFullYear(), endDate.getMonth(), 1);
@@ -138,8 +166,10 @@ const FeeStatus = () => {
 
         selectedRange.forEach(rangeObj => {
           const currentMonthDate = new Date(rangeObj.y, getMonthIndex(rangeObj.m), 1);
-          if (currentMonthDate >= startBoundary && currentMonthDate <= endBoundary) {
-            const status = getSingleMonthStatus(student.id, courseId, rangeObj.key, courseInfo.agreed_monthly_fee);
+          const status = getSingleMonthStatus(student.id, courseId, rangeObj.key, courseInfo.agreed_monthly_fee);
+          const hasPayment = (status.paid > 0 || status.waived > 0);
+
+          if ((currentMonthDate >= startBoundary && currentMonthDate <= endBoundary) || hasPayment) {
             finalDisplayList.push({
               studentId: student.student_id,
               name: student.name,

@@ -141,3 +141,71 @@ export const parseLocalDateMidday = (dateStr) => {
   return isNaN(d.getTime()) ? new Date() : d;
 };
 
+/**
+ * Safely parses an enrollment or admission date into a Date normalized to the
+ * 1st day of that month (00:00:00 local time).
+ * Supports Date objects, Firestore timestamps, ISO strings, YYYY-MM-DD, DD-MM-YYYY, etc.
+ * Returns null if invalid or missing.
+ */
+export const parseEnrollmentMonthDate = (val) => {
+  if (!val) return null;
+  if (typeof val?.toDate === 'function') {
+    val = val.toDate();
+  } else if (val && typeof val.seconds === 'number') {
+    val = new Date(val.seconds * 1000);
+  }
+
+  if (val instanceof Date) {
+    if (isNaN(val.getTime())) return null;
+    return new Date(val.getFullYear(), val.getMonth(), 1);
+  }
+
+  if (typeof val === 'number') {
+    const d = new Date(val > 1e11 ? val : val * 1000);
+    return isNaN(d.getTime()) ? null : new Date(d.getFullYear(), d.getMonth(), 1);
+  }
+
+  if (typeof val === 'string') {
+    const trimmed = val.trim();
+    if (!trimmed) return null;
+
+    // YYYY-MM or YYYY-MM-DD or YYYY/MM/DD
+    const isoMatch = trimmed.match(/^(\d{4})[-/](\d{1,2})/);
+    if (isoMatch) {
+      const y = parseInt(isoMatch[1], 10);
+      const m = parseInt(isoMatch[2], 10) - 1;
+      if (!isNaN(y) && !isNaN(m) && m >= 0 && m <= 11) {
+        return new Date(y, m, 1);
+      }
+    }
+
+    // DD-MM-YYYY or DD/MM/YYYY
+    const dmyMatch = trimmed.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})/);
+    if (dmyMatch) {
+      const y = parseInt(dmyMatch[3], 10);
+      const m = parseInt(dmyMatch[2], 10) - 1;
+      if (!isNaN(y) && !isNaN(m) && m >= 0 && m <= 11) {
+        return new Date(y, m, 1);
+      }
+    }
+
+    const d = new Date(trimmed);
+    if (!isNaN(d.getTime())) {
+      return new Date(d.getFullYear(), d.getMonth(), 1);
+    }
+  }
+
+  return null;
+};
+
+/**
+ * Extracts and normalizes the enrollment month Date for a coaching student.
+ * Checks joined_date, admission_date, createdAt, enrolledAt, and timestamp.
+ */
+export const getCoachingStudentEnrollmentMonthDate = (student) => {
+  if (!student) return null;
+  const raw = student.joined_date || student.admission_date || student.createdAt || student.enrolledAt || student.timestamp;
+  return parseEnrollmentMonthDate(raw);
+};
+
+
