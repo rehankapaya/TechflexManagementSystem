@@ -8,6 +8,7 @@ import {
   isClassAboveEight
 } from './admissionFormOcrParser.js';
 import { normalizeMonth } from './monthUtils.js';
+import { getAcademicSessionForDate, normalizeAcademicSession } from './sessionUtils.js';
 
 // === SAMPLE DOWNLOADS ===
 
@@ -689,7 +690,9 @@ export const parseCoachingStudentUpload = async (file, existingStudents = []) =>
         }
 
         const rawSession = findField(row, 'Academic Session', 'Session', 'Academic Year');
-        const sessionKey = rawSession || '2024-2025';
+        const sessionKey = rawSession
+          ? normalizeAcademicSession(rawSession)
+          : getAcademicSessionForDate(cleanDate || new Date());
 
         validRows.push({
           rowNumber: rowNum,

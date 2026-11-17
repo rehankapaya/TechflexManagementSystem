@@ -18,7 +18,8 @@ import { db } from '../firebase';
 import {
   DEFAULT_ACADEMIC_SESSIONS,
   getNextAcademicSession,
-  getNextGradeSuggestion
+  getNextGradeSuggestion,
+  formatSessionDisplay
 } from '../utils/sessionUtils';
 import {
   COACHING_GRADES,
@@ -280,7 +281,7 @@ const CoachingReenrollModal = ({
                 >
                   {DEFAULT_ACADEMIC_SESSIONS.map((sess) => (
                     <option key={sess} value={sess}>
-                      Session {sess}
+                      Session {formatSessionDisplay(sess)}
                     </option>
                   ))}
                 </select>
@@ -459,3 +460,4 @@ const CoachingReenrollModal = ({
 };
 
 export default CoachingReenrollModal;
+

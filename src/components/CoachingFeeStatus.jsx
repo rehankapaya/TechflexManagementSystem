@@ -8,7 +8,9 @@ import { COACHING_GRADES } from './CoachingStudents';
 import CoachingFeeBulkUploadModal from './CoachingFeeBulkUploadModal';
 import {
   getStudentSessionForDate,
-  DEFAULT_ACADEMIC_SESSIONS
+  DEFAULT_ACADEMIC_SESSIONS,
+  formatSessionDisplay,
+  isSessionMatch
 } from '../utils/sessionUtils';
 import {
   FileSpreadsheet,
@@ -122,7 +124,7 @@ const CoachingFeeStatus = () => {
 
       const matchGrade = selectedGrade === 'ALL' || item.grade === selectedGrade;
       const matchStatus = statusFilter === 'ALL' || item.status === statusFilter;
-      const matchSession = selectedSession === 'ALL' || item.session === selectedSession;
+      const matchSession = selectedSession === 'ALL' || isSessionMatch(item.session, selectedSession);
 
       return matchSearch && matchGrade && matchStatus && matchSession;
     });
@@ -323,7 +325,7 @@ const CoachingFeeStatus = () => {
           >
             <option value="ALL">All Sessions</option>
             {DEFAULT_ACADEMIC_SESSIONS.map(sess => (
-              <option key={sess} value={sess}>Session {sess}</option>
+              <option key={sess} value={sess}>Session {formatSessionDisplay(sess)}</option>
             ))}
           </select>
 

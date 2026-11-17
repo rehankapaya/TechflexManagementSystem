@@ -10,25 +10,79 @@ export const DEFAULT_ACADEMIC_SESSIONS = [
 ];
 
 /**
- * Returns the current academic session string (e.g. '2024-2025').
- * Coaching academy sessions in Pakistan typically run from June/August through May.
- * We treat June (month index 5) onwards as the start of year-(year+1).
+ * Normalizes academic session string into 4-digit canonical format.
+ * e.g. '2024-25' -> '2024-2025'
+ *      '2024-2025' -> '2024-2025'
+ *      '2025/26' -> '2025-2026'
  */
-export const getCurrentAcademicSession = (date = new Date()) => {
+export const normalizeAcademicSession = (sessionStr = '') => {
+  if (!sessionStr) return '';
+  const s = String(sessionStr).trim();
+  const parts = s.split(/[-/]/);
+  if (parts.length === 2) {
+    let y1 = parts[0].trim();
+    let y2 = parts[1].trim();
+    if (y1.length === 2) y1 = `20${y1}`;
+    if (y2.length === 2) y2 = `20${y2}`;
+    if (y1.length === 4 && y2.length === 4) {
+      return `${y1}-${y2}`;
+    }
+  }
+  return s;
+};
+
+/**
+ * Checks if two academic session representations match (ignoring 2-digit vs 4-digit formats).
+ */
+export const isSessionMatch = (sessionA, sessionB) => {
+  if (!sessionA || !sessionB) return false;
+  if (sessionA === sessionB) return true;
+  return normalizeAcademicSession(sessionA) === normalizeAcademicSession(sessionB);
+};
+
+/**
+ * Formats academic session display label, showing both 4-digit and 2-digit short formats.
+ * e.g. '2024-2025' -> '2024-2025 (2024-25)'
+ */
+export const formatSessionDisplay = (sessionStr = '') => {
+  if (!sessionStr) return '';
+  const norm = normalizeAcademicSession(sessionStr);
+  const parts = norm.split('-');
+  if (parts.length === 2 && parts[0].length === 4 && parts[1].length === 4) {
+    return `${norm} (${parts[0]}-${parts[1].slice(2)})`;
+  }
+  return sessionStr;
+};
+
+/**
+ * Returns the academic session string (e.g. '2024-2025') for a given date.
+ * Strictly defined on a May-to-May academic cycle:
+ * May (month index 4) through December -> year-(year+1)  [e.g. May 2024 -> '2024-2025']
+ * January through April (month index 0-3) -> (year-1)-year [e.g. April 2025 -> '2024-2025']
+ */
+export const getAcademicSessionForDate = (date = new Date()) => {
   const d = date instanceof Date ? date : new Date(date);
   const validDate = isNaN(d.getTime()) ? new Date() : d;
   const year = validDate.getFullYear();
-  const month = validDate.getMonth();
-  return month >= 5 ? `${year}-${year + 1}` : `${year - 1}-${year}`;
+  const month = validDate.getMonth(); // 0 = Jan, 4 = May, 11 = Dec
+  return month >= 4 ? `${year}-${year + 1}` : `${year - 1}-${year}`;
+};
+
+/**
+ * Returns current academic session based on May-to-May cycle.
+ */
+export const getCurrentAcademicSession = (date = new Date()) => {
+  return getAcademicSessionForDate(date);
 };
 
 /**
  * Gets the next academic session given a session name.
- * e.g. '2024-2025' -> '2025-2026'
+ * e.g. '2024-2025' -> '2025-2026' or '2024-25' -> '2025-2026'
  */
 export const getNextAcademicSession = (sessionName = '') => {
   if (!sessionName) return getCurrentAcademicSession();
-  const parts = sessionName.split(/[-/]/);
+  const norm = normalizeAcademicSession(sessionName);
+  const parts = norm.split(/[-/]/);
   if (parts.length === 2) {
     const y1 = parseInt(parts[0], 10);
     const y2 = parseInt(parts[1], 10);
@@ -131,18 +185,20 @@ export const getStudentSessionForDate = (student, monthInput, yearInput) => {
   }
 
   // 2. Session name year-span fallback match (e.g. target date is Sep 2024 -> session '2024-2025')
+  // Strictly defined as May-to-May: Session 2024-2025 spans May 1, 2024 to April 30, 2025
   for (const sess of sessionEntries) {
     if (!sess?.session_name) continue;
-    const parts = sess.session_name.split(/[-/]/);
+    const norm = normalizeAcademicSession(sess.session_name);
+    const parts = norm.split(/[-/]/);
     if (parts.length === 2) {
       const y1 = parseInt(parts[0], 10);
       const y2 = parseInt(parts[1], 10);
-      // Session 2024-2025 spans June 2024 to May 2025
-      const sStart = new Date(y1, 5, 1);
-      const sEnd = new Date(y2, 5, 0); // End of May y2
+      // May 1st of y1 to April 30th of y2
+      const sStart = new Date(y1, 4, 1);
+      const sEnd = new Date(y2, 4, 0, 23, 59, 59);
       if (targetDate >= sStart && targetDate <= sEnd) {
         return {
-          session_name: sess.session_name,
+          session_name: norm,
           grade: sess.grade || fallback.grade,
           field: sess.field || fallback.field,
           monthly_fee: Number(sess.monthly_fee) || fallback.monthly_fee,

@@ -18,7 +18,10 @@ import {
 export { COACHING_GRADES, COACHING_FIELDS, isClassAboveEight };
 import {
   DEFAULT_ACADEMIC_SESSIONS,
-  getCurrentAcademicSession
+  getCurrentAcademicSession,
+  formatSessionDisplay,
+  isSessionMatch,
+  normalizeAcademicSession
 } from '../utils/sessionUtils';
 import {
   GraduationCap,
@@ -391,8 +394,8 @@ const CoachingStudents = () => {
       const matchGrade = selectedGrade === 'ALL' || s.grade === selectedGrade;
       const matchStatus = selectedStatus === 'ALL' || s.status === selectedStatus;
       const matchSession = selectedSession === 'ALL' ||
-        (s.current_session || s.session || '2024-2025') === selectedSession ||
-        (s.sessions && Object.keys(s.sessions).includes(selectedSession));
+        isSessionMatch(s.current_session || s.session, selectedSession) ||
+        (s.sessions && Object.keys(s.sessions).some(sessKey => isSessionMatch(sessKey, selectedSession)));
 
       return matchSearch && matchGrade && matchStatus && matchSession;
     });
@@ -537,7 +540,7 @@ const CoachingStudents = () => {
             >
               <option value="ALL">All Sessions</option>
               {DEFAULT_ACADEMIC_SESSIONS.map(sess => (
-                <option key={sess} value={sess}>Session {sess}</option>
+                <option key={sess} value={sess}>Session {formatSessionDisplay(sess)}</option>
               ))}
             </select>
           </div>
@@ -1380,7 +1383,7 @@ const CoachingStudents = () => {
                     className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all cursor-pointer font-semibold text-slate-800"
                   >
                     {DEFAULT_ACADEMIC_SESSIONS.map(sess => (
-                      <option key={sess} value={sess}>Session {sess}</option>
+                      <option key={sess} value={sess}>Session {formatSessionDisplay(sess)}</option>
                     ))}
                   </select>
                 </div>
